@@ -1,0 +1,919 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <link rel="stylesheet" href="style.css">
+    <title>3D Manager Pro</title>
+</head>
+<body>
+
+    <div id="auth-screen" class="modal-auth">
+        <div class="auth-card auth-card-wide">
+            <div class="logo-box">🧊</div>
+            <h2>3D Manager Pro</h2>
+            <p id="auth-api-status" style="font-size:11px;text-align:center;margin:0 0 12px;color:#64748b;">Conectando...</p>
+
+            <div class="auth-tabs">
+                <button type="button" class="auth-tab active" data-tab="login" onclick="mostrarAuthTab('login')">Entrar</button>
+                <button type="button" class="auth-tab" data-tab="register" onclick="mostrarAuthTab('register')">Cadastrar</button>
+            </div>
+
+            <div class="input-container full">
+                <div style="display:flex;gap:8px;align-items:flex-start;margin-bottom:8px;">
+                    <div style="flex:1;">
+                        <label>URL do servidor API</label>
+                        <input type="url" id="authApiUrl" placeholder="http://127.0.0.1:5657">
+                    </div>
+                    <button type="button" id="btnTestarConexao" class="btn-test-connection" onclick="testarConexaoUrl()" title="Testar conexão" style="margin-top:26px;padding:8px 12px;background:#7c3aed;color:white;border:none;border-radius:6px;cursor:pointer;font-size:12px;font-weight:500;">🔗 Testar</button>
+                </div>
+                <small style="font-size:10px;color:#64748b;">No celular use o IP do PC na rede e a porta correta (ex: http://10.0.0.197:5657)</small>
+                <div id="testResultMessage" style="margin-top:6px;font-size:11px;display:none;padding:8px;border-radius:4px;"></div>
+            </div>
+
+            <div id="auth-form-login">
+                <div class="input-container">
+                    <label>E-mail</label>
+                    <input type="email" id="authEmail" placeholder="seu@email.com" autocomplete="username">
+                </div>
+                <div class="input-container">
+                    <label>Senha</label>
+                    <input type="password" id="authSenha" placeholder="••••••" autocomplete="current-password">
+                </div>
+                <div class="input-container" style="display:flex;align-items:center;gap:8px;">
+                    <input type="checkbox" id="authManterConectado" style="width:auto;transform:scale(1.2);">
+                    <label for="authManterConectado" style="cursor:pointer;text-transform:none;font-size:11px;">Manter conectado</label>
+                </div>
+                <button class="btn-login" type="button" onclick="loginApp()">Entrar</button>
+            </div>
+
+            <div id="auth-form-register" style="display:none">
+                <div class="input-container">
+                    <label>Nome</label>
+                    <input type="text" id="regNome" placeholder="Seu nome">
+                </div>
+                <div class="input-container">
+                    <label>E-mail</label>
+                    <input type="email" id="regEmail" placeholder="seu@email.com">
+                </div>
+                <div class="input-container">
+                    <label>Empresa (opcional)</label>
+                    <input type="text" id="regEmpresa" placeholder="Nome da loja / marca">
+                </div>
+                <div class="input-container">
+                    <label>Senha (mín. 6)</label>
+                    <input type="password" id="regSenha" placeholder="••••••">
+                </div>
+                <button class="btn-login" type="button" onclick="registrarCliente()">Criar conta</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="admin-screen" class="app-wrapper" style="display:none;">
+        <header class="mobile-header">
+            <div class="user-info">
+                <div class="avatar" style="background:#7c3aed;">⚙️</div>
+                <div>
+                    <span style="font-weight:bold;font-size:14px;">Painel Administrador</span>
+                    <span style="font-size:10px;color:#94a3b8;">Gestão de clientes</span>
+                </div>
+            </div>
+            <button class="btn-exit" type="button" onclick="sairApp()">Sair</button>
+        </header>
+        <main class="main-content" style="padding-bottom:24px;">
+            <div class="grid-relatorio-cards" style="margin-bottom:16px;">
+                <div class="mini-stat"><span>Total clientes</span><strong id="admin-total">0</strong></div>
+                <div class="mini-stat mini-stat-destaque"><span>Contas ativas</span><strong id="admin-ativos" style="color:var(--success)">0</strong></div>
+            </div>
+            <div class="card-glass">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+                    <h3 style="margin:0;">Clientes cadastrados</h3>
+                    <button type="button" class="btn-secondary" onclick="carregarPainelAdmin()">Atualizar</button>
+                </div>
+                <div id="admin-lista-clientes" class="list-container"></div>
+            </div>
+        </main>
+    </div>
+
+    <div id="app-screen" class="app-wrapper" style="display: none;">
+        
+        <header class="mobile-header">
+            <div class="user-info">
+                <div class="avatar">A</div>
+                <div style="display: flex; flex-direction: column;">
+                    <span id="tab-title" style="font-weight: bold; font-size: 14px;">Visão Geral</span>
+                    <span id="user-email-sub" style="font-size: 10px; color: #64748b;"></span>
+                    <span id="db-status-indicator" style="font-size: 10px; color: #ef4444; display: flex; align-items: center; gap: 4px; margin-top: 2px;">
+                        <span class="status-dot" style="width: 8px; height: 8px; background-color: #ef4444; border-radius: 50%; display: inline-block;"></span>
+                        MongoDB Offline
+                    </span>
+                </div>
+            </div>
+            <button class="btn-exit" type="button" onclick="sairApp()">Sair</button>
+        </header>
+
+        <main class="main-content">
+            
+            <section id="sec-home" class="app-section" style="display:block">
+                <div class="card-glass">
+                    <h3>Visão Geral</h3>
+                    <p style="color: #94a3b8; margin: 10px 0;">Resumo rápido de desempenho, estoque e receitas.</p>
+
+                    <div class="grid-relatorio-cards" style="grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px;">
+                        <div class="mini-stat mini-stat-destaque" style="padding: 16px;">
+                            <span>Vendas registradas</span>
+                            <strong id="homeTotalVendas">0</strong>
+                        </div>
+                        <div class="mini-stat" style="padding: 16px;">
+                            <span>Lucro total</span>
+                            <strong id="homeTotalLucro">R$ 0,00</strong>
+                        </div>
+                        <div class="mini-stat" style="padding: 16px;">
+                            <span>Receita bruta</span>
+                            <strong id="homeTotalBruto">R$ 0,00</strong>
+                        </div>
+                        <div class="mini-stat" style="padding: 16px;">
+                            <span>Estoque de filamentos</span>
+                            <strong id="homeEstoqueFilamento">0 g</strong>
+                        </div>
+                        <div class="mini-stat" style="padding: 16px;">
+                            <span>Modelos/Receitas</span>
+                            <strong id="homeTotalModelos">0</strong>
+                        </div>
+                        <div class="mini-stat" style="padding: 16px;">
+                            <span>Custos cadastrados</span>
+                            <strong id="homeTotalCustos">0</strong>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <section id="sec-financeiro" class="app-section" style="display:none">
+                <div class="sub-nav-tabs">
+                    <button type="button" class="controle-subtab active" data-painel="relatorio" onclick="subNavControle('relatorio')">📊 Relatório</button>
+                    <button type="button" class="controle-subtab" data-painel="cadastro" onclick="subNavControle('cadastro')">📋 Cadastro de Custos</button>
+                </div>
+
+                <div id="painel-relatorio" class="controle-painel">
+                    <div class="card-glass filtro-relatorio-box">
+                        <label>Período do relatório</label>
+                        <select id="relFiltro" onchange="atualizarRelatorioFinanceiro()">
+                            <option value="mes_atual" selected>Mês atual</option>
+                            <option value="mes_anterior">Mês anterior</option>
+                            <option value="ano_atual">Ano atual</option>
+                            <option value="todos">Todo o histórico</option>
+                        </select>
+                        <small id="relLabelPeriodo" style="color:#94a3b8;">Mês atual</small>
+                    </div>
+
+                    <div class="grid-relatorio-cards">
+                        <div class="mini-stat mini-stat-destaque"><span>Lucro no período</span><strong id="relLucroMes" style="color:var(--success)">R$ 0,00</strong></div>
+                        <div class="mini-stat"><span>Lucro total (geral)</span><strong id="relLucroTotal" style="color:var(--success)">R$ 0,00</strong></div>
+                        <div class="mini-stat"><span>Receita bruta</span><strong id="relBruto">R$ 0,00</strong></div>
+                        <div class="mini-stat"><span>Lucro no período</span><strong id="relLucro" style="color:var(--success)">R$ 0,00</strong></div>
+                        <div class="mini-stat"><span>Custo das vendas</span><strong id="relCustoVendas" style="color:#f87171">R$ 0,00</strong></div>
+                        <div class="mini-stat"><span>Margem média</span><strong id="relMargem">0%</strong></div>
+                        <div class="mini-stat"><span>Estoque filamento</span><strong id="relEstoqueValor">R$ 0,00</strong><small id="relEstoquePeso">0 g</small></div>
+                        <div class="mini-stat"><span>Parcelas / mês</span><strong id="relParcelas" style="color:#fbbf24">R$ 0,00</strong></div>
+                    </div>
+                    <p style="font-size:11px;color:#64748b;text-align:center;margin:8px 0;"><span id="relNumVendas">0</span> · <span id="rel-hint-hora"></span></p>
+
+                    <div class="card-glass">
+                        <h3 style="margin-top:0;">Custo × Lucro (<span id="relLabelPeriodo2">período</span>)</h3>
+                        <div class="comparativo-custo-lucro" id="relComparativoTrack">
+                            <div class="comp-bar comp-custo" id="relComparativoCusto">Custos: R$ 0</div>
+                            <div class="comp-bar comp-lucro" id="relComparativoLucro">Lucro: R$ 0</div>
+                        </div>
+                    </div>
+
+                    <div class="card-glass">
+                        <h3 style="margin-top:0;">Detalhamento de custos (período)</h3>
+                        <div id="relatorio-conteudo" class="rel-barras-wrap"></div>
+                    </div>
+
+                    <div class="card-glass">
+                        <h3 style="margin-top:0;">💳 Parcelas e financiamentos</h3>
+                        <div id="rel-lista-parcelas" class="list-container"></div>
+                    </div>
+
+                    <div class="card-glass">
+                        <h3 style="margin-top:0;">🧰 Catálogo de insumos</h3>
+                        <div id="rel-lista-insumos" class="list-container"></div>
+                    </div>
+                </div>
+
+                <div id="painel-cadastro" class="controle-painel" style="display:none">
+                    <div class="card-glass">
+                        <h3 style="margin-top:0;">Cadastrar custo / insumo</h3>
+                        <div class="grid-form">
+                            <div class="input-container full">
+                                <label>Nome</label>
+                                <input type="text" id="cadNome" placeholder="Ex: Argola 20mm, Parcela Impressora, Tinta">
+                            </div>
+                            <div class="input-container">
+                                <label>Categoria</label>
+                                <select id="cadCategoria">
+                                    <option value="insumo">Insumo / Acessório</option>
+                                    <option value="embalagem">Embalagem</option>
+                                    <option value="manutencao">Manutenção</option>
+                                    <option value="parcela">Parcela / Financiamento</option>
+                                    <option value="ferramenta">Ferramenta</option>
+                                    <option value="outro">Outro</option>
+                                </select>
+                            </div>
+                            <div class="input-container">
+                                <label>Tipo de cálculo</label>
+                                <select id="cadTipoCalculo" onchange="atualizarFormularioCustoCadastro()">
+                                    <option value="lote">Compra em lote</option>
+                                    <option value="unitario_fixo">Unitário fixo</option>
+                                    <option value="parcela_mensal">Parcela mensal</option>
+                                    <option value="por_hora">Por hora</option>
+                                </select>
+                            </div>
+                            <div class="input-container cad-campo-lote">
+                                <label>Preço total pago (R$)</label>
+                                <input type="number" step="0.01" id="cadPrecoTotal" placeholder="Ex: 22.00" oninput="atualizarPreviewCustoCadastro()">
+                            </div>
+                            <div class="input-container cad-campo-lote">
+                                <label>Quantidade no lote</label>
+                                <input type="number" step="0.01" id="cadQtdTotal" placeholder="Ex: 100" oninput="atualizarPreviewCustoCadastro()">
+                            </div>
+                            <div class="input-container cad-campo-unitario" style="display:none">
+                                <label>Custo por unidade (R$)</label>
+                                <input type="number" step="0.0001" id="cadCustoUnitario" oninput="atualizarPreviewCustoCadastro()">
+                            </div>
+                            <div class="input-container cad-campo-parcela" style="display:none">
+                                <label>Valor da parcela (R$/mês)</label>
+                                <input type="number" step="0.01" id="cadValorMensal" oninput="atualizarPreviewCustoCadastro()">
+                            </div>
+                            <div class="input-container cad-campo-parcela" style="display:none">
+                                <label>Horas de uso/mês (rateio)</label>
+                                <input type="number" id="cadHorasMes" value="160" oninput="atualizarPreviewCustoCadastro()">
+                            </div>
+                            <div class="input-container cad-campo-hora" style="display:none">
+                                <label>Custo por hora (R$)</label>
+                                <input type="number" step="0.01" id="cadCustoHora" oninput="atualizarPreviewCustoCadastro()">
+                            </div>
+                            <div class="input-container">
+                                <label>Unidade</label>
+                                <input type="text" id="cadUnidade" value="un" placeholder="un, ml, m…">
+                            </div>
+                            <div class="input-container full">
+                                <label>Observação</label>
+                                <input type="text" id="cadObs" placeholder="Opcional">
+                            </div>
+                            <div class="input-container full preview-custo-box" id="cadPreviewUnitario">
+                                Preencha os campos para ver o custo unitário.
+                            </div>
+                        </div>
+                        <button class="btn-main" onclick="salvarCustoItem()">Salvar no catálogo</button>
+                    </div>
+
+                    <div class="card-glass">
+                        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+                            <h3 style="margin:0;">Itens cadastrados</h3>
+                            <select id="filtroCategoriaCustos" onchange="renderListaCustosCadastro()" style="width:auto;min-width:140px;">
+                                <option value="">Todas</option>
+                                <option value="insumo">Insumos</option>
+                                <option value="parcela">Parcelas</option>
+                                <option value="manutencao">Manutenção</option>
+                                <option value="embalagem">Embalagem</option>
+                            </select>
+                        </div>
+                        <div id="lista-custos-cadastro" class="list-container"></div>
+                    </div>
+                </div>
+            </section>
+
+            <section id="sec-calculadora" class="app-section" style="display:none">
+                <div class="card-glass">
+                    <h3 style="margin: 0 0 15px 0;">Calculadora de Preços</h3>
+                    
+                    <div class="input-container full" style="margin-bottom: 15px;">
+                        <label>Carregar Modelo Padrão</label>
+                        <div style="display: flex; gap: 10px;">
+                            <select id="pModeloSelect" onchange="carregarModeloPadrao()" style="flex: 1;">
+                                <option value="">-- Novo Item Personalizado --</option>
+                            </select>
+                            <button id="btnExcluirModelo" class="btn-secondary" style="background: var(--danger); display: none; padding: 12px; border-radius: 10px; border: none; color: white; cursor: pointer;" onclick="excluirModeloPadrao()">Excluir Modelo</button>
+                        </div>
+                    </div>
+
+                    <div class="grid-form">
+                        <div class="input-container full">
+                            <label>Nome do Item</label>
+                            <input type="text" id="pNome" placeholder="Ex: Action Figure Customizado">
+                        </div>
+                        <div class="input-container full">
+                            <label>SKU (Código do Produto)</label>
+                            <input type="text" id="pSKU" placeholder="Ex: AF-001">
+                            <small style="font-size:9px;color:#64748b;">Código único para controle de estoque</small>
+                        </div>
+                        
+                        <!-- Seção Multi-Filamentos -->
+                        <div class="input-container full" style="background: #0f172a; padding: 15px; border-radius: 12px; border: 1px solid #334155; margin-bottom: 10px;">
+                            <label style="color: var(--primary); margin-bottom: 8px;">🧵 Filamentos Utilizados</label>
+                            <div id="container-filamentos-linhas" style="display: flex; flex-direction: column; gap: 10px;">
+                                <!-- As linhas de filamento serão injetadas aqui pelo JS -->
+                            </div>
+                            <button type="button" class="btn-secondary" onclick="adicionarLinhaFilamento()" style="margin-top: 10px; width: 100%; display: flex; align-items: center; justify-content: center; gap: 5px;">➕ Adicionar Filamento</button>
+                        </div>
+
+                        <div class="input-container full">
+                            <label>Quantidade por Chapa</label>
+                            <input type="number" step="1" min="1" id="pQuantidadeChapa" value="1" oninput="calcFinanceiro(false)">
+                            <small style="font-size:9px;color:#64748b;">Divide o custo total do material pela quantidade de itens na chapa</small>
+                        </div>
+                        
+                        <div class="input-container full">
+                            <label>Tempo de impressão / trabalho</label>
+                            <div class="tempo-duplo">
+                                <div class="input-container" style="margin:0;">
+                                    <label style="text-transform:none;font-size:10px;">Horas</label>
+                                    <input type="number" id="pTempoHoras" min="0" step="1" value="0" placeholder="0" oninput="onTempoInput()">
+                                </div>
+                                <div class="input-container" style="margin:0;">
+                                    <label style="text-transform:none;font-size:10px;">Minutos</label>
+                                    <input type="number" id="pTempoMinutos" min="0" max="59" step="1" value="0" placeholder="0" oninput="onTempoInput()">
+                                </div>
+                            </div>
+                            <small id="resTempoEquiv" style="color:#64748b;font-size:10px;display:block;margin-top:6px;">Total: 0h 0min (0,00 h)</small>
+                        </div>
+
+                        <div class="input-container">
+                            <label>Custo hora de trabalho (R$/h)</label>
+                            <input type="number" step="0.01" id="pTrabalhoHora" value="1.00" oninput="calcFinanceiro(false)">
+                            <small style="font-size:9px;color:#64748b;">Ex: R$ 1,00 × 1h30 = R$ 1,50</small>
+                        </div>
+                        <div class="input-container">
+                            <label>Desgaste impressora (R$/h)</label>
+                            <input type="number" step="0.01" id="pDesgaste" value="0" oninput="calcFinanceiro(false)">
+                        </div>
+
+                        <div class="input-container">
+                            <label>Custo Energia (R$/h)</label>
+                            <input type="number" step="0.01" id="pEnergia" value="1.00" oninput="calcFinanceiro(false)">
+                            <small style="font-size:9px;color:#64748b;">Ex: R$ 1,00 × 2h = R$ 2,00</small>
+                        </div>
+                        <div class="input-container">
+                            <label>Consumo Máquina (W)</label>
+                            <input type="number" id="pPotencia" value="150" oninput="calcFinanceiro(false)">
+                        </div>
+                        <div class="input-container">
+                            <label>Embalagem (R$)</label>
+                            <input type="number" step="0.01" id="pEmbalagem" value="2.50" oninput="calcFinanceiro(false)">
+                        </div>
+
+                        <div class="input-container full" style="background: #0f172a; padding: 15px; border-radius: 12px; border: 1px solid #334155;">
+                            <label style="color: #c4b5fd; margin-bottom: 8px;">📦 Custos cadastrados (argolas, tinta, AMS…)</label>
+                            <p style="font-size: 11px; color: #64748b; margin: 0 0 10px;">Cadastre em Financeiro → Cadastro. Ex: 100 argolas por R$ 22 → R$ 0,22/un.</p>
+                            <div id="container-custos-extras-linhas" style="display: flex; flex-direction: column; gap: 10px;"></div>
+                            <button type="button" class="btn-secondary" onclick="adicionarLinhaCustoExtra()" style="margin-top: 10px; width: 100%;">➕ Adicionar custo do catálogo</button>
+                        </div>
+
+                        <div class="input-container full" style="border-top: 1px solid #334155; padding-top: 15px; margin-top: 10px;">
+                            <label style="color: var(--primary);">Canal de Venda</label>
+                            <select id="pCanal" onchange="atualizarOpcoesCanal(); calcFinanceiro(false)">
+                                <option value="direta">Venda Direta (0%)</option>
+                                <option value="shopee">Shopee</option>
+                                <option value="ml">Mercado Livre</option>
+                            </select>
+                        </div>
+                        <div id="opcoes-shopee" class="full config-canal" style="display:none;">
+                            <p class="canal-hint">Conforme a central do vendedor Shopee: comissão por categoria, programa Frete Grátis (+2%) e taxa fixa por faixa de preço (tabela oficial).</p>
+                            <div class="grid-form">
+                                <div class="input-container full" style="display:flex;flex-direction:row;align-items:center;gap:8px;">
+                                    <input type="checkbox" id="shopeeFreteGratis" onchange="calcFinanceiro(false)" style="width:auto;transform:scale(1.2);">
+                                    <label for="shopeeFreteGratis" style="cursor:pointer;text-transform:none;font-size:11px;">Programa Frete Grátis (+2% na comissão)</label>
+                                </div>
+                                <div class="input-container">
+                                    <label>Comissão base (%)</label>
+                                    <input type="number" step="0.1" id="shopeeComissao" value="14" oninput="calcFinanceiro(false)">
+                                    <small style="font-size:9px;color:#64748b;">Varia por categoria — confira no painel Shopee</small>
+                                </div>
+                                <div class="input-container full" style="display:flex;flex-direction:row;align-items:center;gap:8px;">
+                                    <input type="checkbox" id="shopeeTabelaOficial" onchange="atualizarInterfaceCanais(); calcFinanceiro(false)" style="width:auto;transform:scale(1.2);">
+                                    <label for="shopeeTabelaOficial" style="cursor:pointer;text-transform:none;font-size:11px;">Usar tabela oficial de taxa fixa (faixas R$ 4 / 16 / 20 / 26)</label>
+                                </div>
+                                <div id="shopee-bloco-tabela" class="input-container full" style="display:none;">
+                                    <small style="color:#94a3b8;">&lt; R$8: 50% do preço · R$8–79: R$4 · R$80–99: R$16 · R$100–199: R$20 · ≥ R$200: R$26</small>
+                                </div>
+                                <div class="input-container">
+                                    <label>Taxa fixa manual (R$)</label>
+                                    <input type="number" step="0.01" id="shopeeFixo" value="4.00" oninput="calcFinanceiro(false)">
+                                    <small style="font-size:9px;color:#64748b;">Se não usar tabela oficial</small>
+                                </div>
+                                <div class="input-container">
+                                    <label>Isenta taxa fixa se preço ≥ (R$)</label>
+                                    <input type="number" step="0.01" id="shopeeFixoLimite" value="79.90" oninput="calcFinanceiro(false)">
+                                </div>
+                            </div>
+                        </div>
+
+                        <div id="opcoes-ml" class="full config-canal" style="display:none;">
+                            <p class="canal-hint">Mercado Livre: tipo de anúncio (Clássico ~13% / Premium ~19%), comissão da sua categoria, taxa fixa R$ 6,50 (&lt; R$ 79) e custo de frete grátis quando aplicável.</p>
+                            <div class="grid-form">
+                                <div class="input-container">
+                                    <label>Tipo de anúncio</label>
+                                    <select id="mlTipoAnuncio" onchange="onMlTipoAnuncioChange()">
+                                        <option value="classico" selected>Clássico</option>
+                                        <option value="premium">Premium</option>
+                                    </select>
+                                </div>
+                                <div class="input-container highlight-box">
+                                    <label>Comissão ML (%)</label>
+                                    <input type="number" step="0.1" id="mlComissao" value="13" oninput="onMlComissaoManual(); calcFinanceiro(false)">
+                                    <small style="font-size:9px;color:#64748b;">Confira em Custos por vender no ML</small>
+                                </div>
+                                <div class="input-container">
+                                    <label>Taxa fixa (R$)</label>
+                                    <input type="number" step="0.01" id="mlFixo" value="6.50" oninput="calcFinanceiro(false)">
+                                    <small style="font-size:9px;color:#64748b;">Padrão: R$ 6,50 em vendas &lt; R$ 79</small>
+                                </div>
+                                <div class="input-container">
+                                    <label>Limite para taxa fixa (R$)</label>
+                                    <input type="number" step="0.01" id="mlFixoLimite" value="79.00" oninput="calcFinanceiro(false)">
+                                </div>
+                                <div class="input-container full" style="display:flex;flex-direction:row;align-items:center;gap:8px;">
+                                    <input type="checkbox" id="mlFreteGratis" checked onchange="atualizarInterfaceCanais(); calcFinanceiro(false)" style="width:auto;transform:scale(1.2);">
+                                    <label for="mlFreteGratis" style="cursor:pointer;text-transform:none;font-size:11px;">Anúncio com frete grátis (custo de envio no preço)</label>
+                                </div>
+                                <div id="ml-bloco-frete" class="input-container">
+                                    <label>Custo estimado do frete (R$)</label>
+                                    <input type="number" step="0.01" id="mlFrete" value="20.00" oninput="calcFinanceiro(false)">
+                                    <small style="font-size:9px;color:#64748b;">Quando o preço final ≥ limite acima</small>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="input-container highlight-box">
+                            <label>Markup / Lucro sobre o Custo (%)</label>
+                            <input type="number" step="1" id="pMargemDesejada" placeholder="Ex: 120" oninput="calcFinanceiro(true)">
+                        </div>
+                        <div class="input-container highlight-box">
+                            <label>Preço de Venda Final (R$)</label>
+                            <input type="number" step="0.01" id="pVenda" value="0" oninput="calcFinanceiro(false)">
+                        </div>
+                    </div>
+
+                    <div class="resumo-financeiro">
+                        <div class="line" style="color:#94a3b8;font-size:11px;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;">📊 Custos de Produção</div>
+                        <div class="line">Material (Filamentos): <b id="resCustoMat" style="color:#60a5fa;">R$ 0,00</b></div>
+                        <div class="line">Trabalho (hora × tempo): <b id="resCustoTrabalho" style="color:#60a5fa;">R$ 0,00</b></div>
+                        <div class="line">Desgaste impressora: <b id="resCustoMaquina" style="color:#60a5fa;">R$ 0,00</b></div>
+                        <div class="line">Energia elétrica: <b id="resCustoEnergia" style="color:#60a5fa;">R$ 0,00</b></div>
+                        <div class="line">Embalagem: <b id="resEmbalagem" style="color:#60a5fa;">R$ 0,00</b></div>
+                        <div class="line">Insumos cadastrados: <b id="resCustoExtras" style="color:#60a5fa;">R$ 0,00</b></div>
+                        <div class="line" style="border-top: 2px solid #334155; padding-top: 8px; margin-top: 8px;">
+                            <span style="color:#fbbf24;font-weight:bold;">Custo Total de Produção:</span> <b id="resCustoTotalProducao" style="color:#fbbf24;font-size:16px;">R$ 0,00</b>
+                        </div>
+                        <div class="line" style="color:#94a3b8;font-size:11px;text-transform:uppercase;letter-spacing:0.5px;margin:15px 0 8px;">💰 Venda e Lucro</div>
+                        <div class="line">Comissão Plataforma: <b id="resTaxaCanal" style="color:#ef4444;">-R$ 0,00</b></div>
+                        <div class="line">Taxas Fixas / Frete: <b id="resFixoCanal" style="color:#ef4444;">-R$ 0,00</b></div>
+                        <div class="line total">Lucro Líquido Real: <b id="resLucro" style="color:#10b981;font-size:18px;">R$ 0,00</b></div>
+                        <div class="line" style="justify-content: flex-end;"><small id="resMargemReal" style="color:#10b981;font-weight:bold;">Markup Real: 0%</small></div>
+                        <div class="line" style="color:#94a3b8;font-size:10px;margin-top:8px;">Peso Total: <b id="resPesoTotal">0 g</b></div>
+                    </div>
+
+                    <div style="display:flex;gap:8px;">
+                        <button class="btn-main" onclick="lancarVendaFinanceiro()" style="flex:1;">Lançar Venda</button>
+                        <button class="btn-secondary" onclick="salvarModeloPadrao()" style="flex:1;">Cadastrar Receita</button>
+                    </div>
+                </div>
+            </section>
+
+            <section id="sec-controle" class="app-section" style="display:none">
+                <div class="sub-nav-tabs">
+                    <button type="button" class="controle-subtab active" data-painel="relatorio" onclick="subNavControle('relatorio')">📊 Relatório</button>
+                    <button type="button" class="controle-subtab" data-painel="cadastro" onclick="subNavControle('cadastro')">📋 Custos</button>
+                </div>
+
+                <div id="painel-relatorio" class="controle-painel">
+                    <div class="card-glass filtro-relatorio-box">
+                        <label>Período do relatório</label>
+                        <select id="relFiltro" onchange="atualizarRelatorioFinanceiro()">
+                            <option value="mes_atual" selected>Mês atual</option>
+                            <option value="mes_anterior">Mês anterior</option>
+                            <option value="ano_atual">Ano atual</option>
+                            <option value="todos">Todo o histórico</option>
+                        </select>
+                        <small id="relLabelPeriodo" style="color:#94a3b8;">Mês atual</small>
+                    </div>
+
+                    <div class="grid-relatorio-cards">
+                        <div class="mini-stat mini-stat-destaque"><span>Lucro no período</span><strong id="relLucroMes" style="color:var(--success)">R$ 0,00</strong></div>
+                        <div class="mini-stat"><span>Lucro total (geral)</span><strong id="relLucroTotal" style="color:var(--success)">R$ 0,00</strong></div>
+                        <div class="mini-stat"><span>Receita bruta</span><strong id="relBruto">R$ 0,00</strong></div>
+                        <div class="mini-stat"><span>Lucro no período</span><strong id="relLucro" style="color:var(--success)">R$ 0,00</strong></div>
+                        <div class="mini-stat"><span>Custo das vendas</span><strong id="relCustoVendas" style="color:#f87171">R$ 0,00</strong></div>
+                        <div class="mini-stat"><span>Margem média</span><strong id="relMargem">0%</strong></div>
+                        <div class="mini-stat"><span>Estoque filamento</span><strong id="relEstoqueValor">R$ 0,00</strong><small id="relEstoquePeso">0 g</small></div>
+                        <div class="mini-stat"><span>Parcelas / mês</span><strong id="relParcelas" style="color:#fbbf24">R$ 0,00</strong></div>
+                    </div>
+                    <p style="font-size:11px;color:#64748b;text-align:center;margin:8px 0;"><span id="relNumVendas">0</span> · <span id="rel-hint-hora"></span></p>
+
+                    <div class="card-glass">
+                        <h3 style="margin-top:0;">Custo × Lucro (<span id="relLabelPeriodo2">período</span>)</h3>
+                        <div class="comparativo-custo-lucro" id="relComparativoTrack">
+                            <div class="comp-bar comp-custo" id="relComparativoCusto">Custos: R$ 0</div>
+                            <div class="comp-bar comp-lucro" id="relComparativoLucro">Lucro: R$ 0</div>
+                        </div>
+                    </div>
+
+                    <div class="card-glass">
+                        <h3 style="margin-top:0;">Detalhamento de custos (período)</h3>
+                        <div id="relatorio-conteudo" class="rel-barras-wrap"></div>
+                    </div>
+
+                    <div class="card-glass">
+                        <h3 style="margin-top:0;">💳 Parcelas e financiamentos</h3>
+                        <div id="rel-lista-parcelas" class="list-container"></div>
+                    </div>
+
+                    <div class="card-glass">
+                        <h3 style="margin-top:0;">🧰 Catálogo de insumos</h3>
+                        <div id="rel-lista-insumos" class="list-container"></div>
+                    </div>
+                </div>
+
+                <div id="painel-cadastro" class="controle-painel" style="display:none">
+                    <div class="card-glass">
+                        <h3 style="margin-top:0;">Cadastrar custo / insumo</h3>
+                        <div class="grid-form">
+                            <div class="input-container full">
+                                <label>Nome</label>
+                                <input type="text" id="cadNome" placeholder="Ex: Argola 20mm, Parcela Impressora, Tinta">
+                            </div>
+                            <div class="input-container">
+                                <label>Categoria</label>
+                                <select id="cadCategoria">
+                                    <option value="insumo">Insumo / Acessório</option>
+                                    <option value="embalagem">Embalagem</option>
+                                    <option value="manutencao">Manutenção</option>
+                                    <option value="parcela">Parcela / Financiamento</option>
+                                    <option value="ferramenta">Ferramenta</option>
+                                    <option value="outro">Outro</option>
+                                </select>
+                            </div>
+                            <div class="input-container">
+                                <label>Tipo de cálculo</label>
+                                <select id="cadTipoCalculo" onchange="atualizarFormularioCustoCadastro()">
+                                    <option value="lote">Compra em lote</option>
+                                    <option value="unitario_fixo">Unitário fixo</option>
+                                    <option value="parcela_mensal">Parcela mensal</option>
+                                    <option value="por_hora">Por hora</option>
+                                </select>
+                            </div>
+                            <div class="input-container cad-campo-lote">
+                                <label>Preço total pago (R$)</label>
+                                <input type="number" step="0.01" id="cadPrecoTotal" placeholder="Ex: 22.00" oninput="atualizarPreviewCustoCadastro()">
+                            </div>
+                            <div class="input-container cad-campo-lote">
+                                <label>Quantidade no lote</label>
+                                <input type="number" step="0.01" id="cadQtdTotal" placeholder="Ex: 100" oninput="atualizarPreviewCustoCadastro()">
+                            </div>
+                            <div class="input-container cad-campo-unitario" style="display:none">
+                                <label>Custo por unidade (R$)</label>
+                                <input type="number" step="0.0001" id="cadCustoUnitario" oninput="atualizarPreviewCustoCadastro()">
+                            </div>
+                            <div class="input-container cad-campo-parcela" style="display:none">
+                                <label>Valor da parcela (R$/mês)</label>
+                                <input type="number" step="0.01" id="cadValorMensal" oninput="atualizarPreviewCustoCadastro()">
+                            </div>
+                            <div class="input-container cad-campo-parcela" style="display:none">
+                                <label>Horas de uso/mês (rateio)</label>
+                                <input type="number" id="cadHorasMes" value="160" oninput="atualizarPreviewCustoCadastro()">
+                            </div>
+                            <div class="input-container cad-campo-hora" style="display:none">
+                                <label>Custo por hora (R$)</label>
+                                <input type="number" step="0.01" id="cadCustoHora" oninput="atualizarPreviewCustoCadastro()">
+                            </div>
+                            <div class="input-container">
+                                <label>Unidade</label>
+                                <input type="text" id="cadUnidade" value="un" placeholder="un, ml, m…">
+                            </div>
+                            <div class="input-container full">
+                                <label>Observação</label>
+                                <input type="text" id="cadObs" placeholder="Opcional">
+                            </div>
+                            <div class="input-container full preview-custo-box" id="cadPreviewUnitario">
+                                Preencha os campos para ver o custo unitário.
+                            </div>
+                        </div>
+                        <button class="btn-main" onclick="salvarCustoItem()">Salvar no catálogo</button>
+                    </div>
+
+                    <div class="card-glass">
+                        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+                            <h3 style="margin:0;">Itens cadastrados</h3>
+                            <select id="filtroCategoriaCustos" onchange="renderListaCustosCadastro()" style="width:auto;min-width:140px;">
+                                <option value="">Todas</option>
+                                <option value="insumo">Insumos</option>
+                                <option value="parcela">Parcelas</option>
+                                <option value="manutencao">Manutenção</option>
+                                <option value="embalagem">Embalagem</option>
+                            </select>
+                        </div>
+                        <div id="lista-custos-cadastro" class="list-container"></div>
+                    </div>
+                </div>
+
+            </section>
+
+            <section id="sec-terminal" class="app-section" style="display:none">
+                <div class="terminal-grid">
+                    <div class="terminal-panel">
+                        <div class="terminal-card">
+                            <div class="term-header">
+                                <div>
+                                    <h3>Terminal de Vendas</h3>
+                                    <p>Venda rápida com sugestão de produto, status de estoque e total instantâneo.</p>
+                                </div>
+                                <div class="term-metric-pill">📈 SaaS Sales</div>
+                            </div>
+
+                        <div class="terminal-subnav">
+                            <button type="button" class="term-nav-btn active" data-view="venda" onclick="subNavTerminal('venda')">Venda</button>
+                            <button type="button" class="term-nav-btn" data-view="movimentacoes" onclick="subNavTerminal('movimentacoes')">Movimentações</button>
+                        </div>
+
+                        <div id="termSaleView">
+                            <div class="input-container full">
+                                <label>Buscar Produto (SKU ou Nome)</label>
+                                <input type="text" id="termBuscaProduto" placeholder="Digite SKU ou nome do produto..." oninput="buscarProdutoTerminal()">
+                            </div>
+                            <div id="termResultadoBusca" class="term-results list-container"></div>
+                            <div class="term-product-card">
+                                <div>
+                                    <div class="term-chip">Produto selecionado</div>
+                                    <strong id="termProdNome">-</strong>
+                                    <p class="term-subtext" id="termProdSKU">SKU: -</p>
+                                </div>
+                                    <div class="term-product-stats">
+                                        <span>Estoque <strong id="termProdEstoque">-</strong></span>
+                                        <span>Preço <strong id="termProdPreco">-</strong></span>
+                                    </div>
+                                </div>
+
+                                <div class="grid-form">
+                                    <div class="input-container">
+                                        <label>Quantidade</label>
+                                        <input type="number" id="termQuantidade" min="1" value="1" oninput="atualizarTotalVenda()">
+                                    </div>
+                                    <div class="input-container">
+                                        <label>Canal de Venda</label>
+                                        <select id="termCanal">
+                                            <option value="direta">Venda Direta</option>
+                                            <option value="shopee">Shopee</option>
+                                            <option value="ml">Mercado Livre</option>
+                                        </select>
+                                    </div>
+                                    <div class="input-container full">
+                                        <label>ID do Pedido</label>
+                                        <input type="text" id="termPedidoId" placeholder="Ex: SHO-123456">
+                                    </div>
+                                </div>
+
+                                <div class="resumo-financeiro">
+                                    <div class="line">Total da Venda: <b id="termTotalVenda">R$ 0,00</b></div>
+                                </div>
+
+                                <div class="term-actions">
+                                    <button class="btn-main" onclick="efetuarVendaTerminal()">Confirmar Venda</button>
+                                    <button class="btn-secondary" onclick="limparTerminal()">Cancelar</button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div id="termHistoryView" style="display:none;">
+                            <div class="input-container full">
+                                <label>Buscar movimentação</label>
+                                <input type="text" id="termMovimentoBusca" placeholder="Buscar nota, pedido, produto ou canal..." oninput="filtrarMovimentacoesTerminal()">
+                            </div>
+                            <div id="termUltimasVendas" class="term-history-results list-container" style="margin-top: 10px;"></div>
+                        </div>
+                    </div>
+
+                    <div class="terminal-panel">
+                        <div class="terminal-card" style="padding-bottom: 16px;">
+                            <div class="term-header">
+                                <div>
+                                    <h3>Resumo Rápido</h3>
+                                    <p>Veja as vendas recentes e acompanhe seu fluxo com mais transparência.</p>
+                                </div>
+                            </div>
+                            <div class="grid-relatorio-cards" style="grid-template-columns: repeat(2, minmax(120px, 1fr)); gap: 10px; margin-bottom: 16px;">
+                                <div class="mini-stat">
+                                    <span>Vendas hoje</span>
+                                    <strong id="termVendasHoje">0</strong>
+                                </div>
+                                <div class="mini-stat mini-stat-destaque">
+                                    <span>Total do dia</span>
+                                    <strong id="termTotalDia">R$ 0,00</strong>
+                                </div>
+                                <div class="mini-stat">
+                                    <span>Ticket médio</span>
+                                    <strong id="termTicketMedio">R$ 0,00</strong>
+                                </div>
+                                <div class="mini-stat">
+                                    <span>Produtos vendidos</span>
+                                    <strong id="termProdutosVendidos">0</strong>
+                                </div>
+                            </div>
+
+                            <div class="input-container full" style="margin-bottom: 14px;">
+                                <label>Histórico de movimentações</label>
+                                <input type="text" id="termMovimentoBusca" placeholder="Buscar nota, pedido ou produto..." oninput="filtrarMovimentacoesTerminal()">
+                            </div>
+
+                            <h3 style="margin-top: 0;">Últimas Vendas</h3>
+                            <div id="termUltimasVendas" class="list-container term-sales-history"></div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <section id="sec-estoque" class="app-section" style="display:none">
+                <div class="sub-nav-tabs">
+                    <button type="button" class="controle-subtab active" data-painel="produtos" onclick="subNavEstoque('produtos')">📦 Produtos</button>
+                    <button type="button" class="controle-subtab" data-painel="materiais" onclick="subNavEstoque('materiais')">🧵 Matéria-Prima</button>
+                    <button type="button" class="controle-subtab" data-painel="lancamentos" onclick="subNavEstoque('lancamentos')">📝 Lançamentos</button>
+                </div>
+
+                <div id="painel-produtos" class="controle-painel" style="display:block">
+                    <div class="card-glass">
+                        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;">
+                            <div>
+                                <h3>📦 Estoque de Produtos</h3>
+                                <p style="color:#94a3b8;margin:8px 0 0;">Visão completa dos produtos cadastrados, estoque disponível e valor total em inventário.</p>
+                            </div>
+                            <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
+                                <input type="text" id="estoqueBusca" placeholder="Buscar produto ou SKU" style="min-width:220px; padding:12px 14px; border-radius:12px; border:1px solid #334155; background:#0b0f1a; color:#f8fafc;" oninput="filtrarEstoqueProdutos()">
+                                <button class="btn-secondary" type="button" onclick="carregarEstoqueProdutos()">Atualizar</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="grid-relatorio-cards" style="grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px;">
+                        <div class="mini-stat"><span>Total de produtos</span><strong id="estoqueTotalProdutos">0</strong></div>
+                        <div class="mini-stat"><span>Total em estoque</span><strong id="estoqueTotalQuantidade">0</strong></div>
+                        <div class="mini-stat mini-stat-destaque"><span>Valor total de estoque</span><strong id="estoqueTotalValor">R$ 0,00</strong></div>
+                    </div>
+
+                    <div id="lista-estoque-produtos" class="list-container"></div>
+
+                    <div class="card-glass" style="margin-top: 16px;">
+                        <h3>🏭 Registrar Produção</h3>
+                        <p style="color:#94a3b8;margin:8px 0 16px;">Adicione unidades ao estoque de um produto já cadastrado como receita.</p>
+                        <div class="input-container full" style="margin-bottom: 15px;">
+                            <label>Selecionar Produto</label>
+                            <select id="prodSelectProducao" onchange="atualizarInfoProducao()">
+                                <option value="">-- Selecione um produto --</option>
+                            </select>
+                        </div>
+                        <div class="grid-form">
+                            <div class="input-container">
+                                <label>Quantidade de Chapas</label>
+                                <input type="number" id="prodQuantidade" min="1" value="1" oninput="atualizarInfoProducao()">
+                            </div>
+                            <div class="input-container">
+                                <label>Lote (opcional)</label>
+                                <input type="text" id="prodLote" placeholder="Ex: L-2024-001">
+                            </div>
+                        </div>
+                        <div id="prodInfoAdicional" style="margin: 10px 0;"></div>
+                        <div class="resumo-financeiro" style="margin: 15px 0;">
+                            <div class="line">Estoque Atual: <b id="prodEstoqueAtual">0</b></div>
+                            <div class="line">Após Produção: <b id="prodEstoqueNovo">0</b></div>
+                        </div>
+                        <button class="btn-main" type="button" onclick="registrarProducao()">Registrar Produção</button>
+                    </div>
+                </div>
+
+                <div id="painel-materiais" class="controle-painel" style="display:none">
+                    <div class="card-glass">
+                        <h3>🧵 Novo Rolo de Filamento</h3>
+                        <div class="grid-form">
+                            <div class="input-container full">
+                                <label>Marca/Cor</label>
+                                <input type="text" id="estNome" placeholder="Ex: PLA Azul - Creality">
+                            </div>
+                            <div class="input-container">
+                                <label>Preço KG (R$)</label>
+                                <input type="number" step="0.01" id="estPreco" placeholder="Ex: 120.00">
+                            </div>
+                            <div class="input-container">
+                                <label>Peso Inicial (g)</label>
+                                <input type="number" id="estGrama" value="1000" placeholder="Ex: 1000">
+                            </div>
+                        </div>
+                        <button class="btn-main" onclick="adicionarEstoque()">Salvar no MongoDB</button>
+                    </div>
+
+                    <div id="lista-estoque" class="list-container"></div>
+                </div>
+
+                <div id="painel-lancamentos" class="controle-painel" style="display:none">
+                    <div class="card-glass">
+                        <h3 style="margin-top:0;">Cadastrar custo / insumo</h3>
+                        <div class="grid-form">
+                            <div class="input-container full">
+                                <label>Nome</label>
+                                <input type="text" id="cadNomeEstoque" placeholder="Ex: Argola 20mm, Parcela Impressora, Tinta">
+                            </div>
+                            <div class="input-container">
+                                <label>Categoria</label>
+                                <select id="cadCategoriaEstoque">
+                                    <option value="insumo">Insumo / Acessório</option>
+                                    <option value="embalagem">Embalagem</option>
+                                    <option value="manutencao">Manutenção</option>
+                                    <option value="parcela">Parcela / Financiamento</option>
+                                    <option value="ferramenta">Ferramenta</option>
+                                    <option value="outro">Outro</option>
+                                </select>
+                            </div>
+                            <div class="input-container">
+                                <label>Tipo de cálculo</label>
+                                <select id="cadTipoCalculoEstoque" onchange="atualizarFormularioCustoCadastroEstoque()">
+                                    <option value="lote">Compra em lote</option>
+                                    <option value="unitario_fixo">Unitário fixo</option>
+                                    <option value="parcela_mensal">Parcela mensal</option>
+                                    <option value="por_hora">Por hora</option>
+                                </select>
+                            </div>
+                            <div class="input-container cad-campo-lote-estoque">
+                                <label>Preço total pago (R$)</label>
+                                <input type="number" step="0.01" id="cadPrecoTotalEstoque" placeholder="Ex: 22.00" oninput="atualizarPreviewCustoCadastroEstoque()">
+                            </div>
+                            <div class="input-container cad-campo-lote-estoque">
+                                <label>Quantidade no lote</label>
+                                <input type="number" step="0.01" id="cadQtdTotalEstoque" placeholder="Ex: 100" oninput="atualizarPreviewCustoCadastroEstoque()">
+                            </div>
+                            <div class="input-container cad-campo-unitario-estoque" style="display:none">
+                                <label>Custo por unidade (R$)</label>
+                                <input type="number" step="0.0001" id="cadCustoUnitarioEstoque" oninput="atualizarPreviewCustoCadastroEstoque()">
+                            </div>
+                            <div class="input-container cad-campo-parcela-estoque" style="display:none">
+                                <label>Valor da parcela (R$/mês)</label>
+                                <input type="number" step="0.01" id="cadValorMensalEstoque" oninput="atualizarPreviewCustoCadastroEstoque()">
+                            </div>
+                            <div class="input-container cad-campo-parcela-estoque" style="display:none">
+                                <label>Horas de uso/mês (rateio)</label>
+                                <input type="number" id="cadHorasMesEstoque" value="160" oninput="atualizarPreviewCustoCadastroEstoque()">
+                            </div>
+                            <div class="input-container cad-campo-hora-estoque" style="display:none">
+                                <label>Custo por hora (R$)</label>
+                                <input type="number" step="0.01" id="cadCustoHoraEstoque" oninput="atualizarPreviewCustoCadastroEstoque()">
+                            </div>
+                            <div class="input-container">
+                                <label>Unidade</label>
+                                <input type="text" id="cadUnidadeEstoque" value="un" placeholder="un, ml, m…">
+                            </div>
+                            <div class="input-container full">
+                                <label>Observação</label>
+                                <input type="text" id="cadObsEstoque" placeholder="Opcional">
+                            </div>
+                            <div class="input-container full preview-custo-box" id="cadPreviewUnitarioEstoque">
+                                Preencha os campos para ver o custo unitário.
+                            </div>
+                        </div>
+                        <button class="btn-main" onclick="salvarCustoItemEstoque()">Salvar no catálogo</button>
+                    </div>
+
+                    <div class="card-glass">
+                        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+                            <h3 style="margin:0;">Itens cadastrados</h3>
+                            <select id="filtroCategoriaCustosEstoque" onchange="renderListaCustosCadastroEstoque()" style="width:auto;min-width:140px;">
+                                <option value="">Todas</option>
+                                <option value="insumo">Insumos</option>
+                                <option value="parcela">Parcelas</option>
+                                <option value="manutencao">Manutenção</option>
+                                <option value="embalagem">Embalagem</option>
+                            </select>
+                        </div>
+                        <div id="lista-custos-cadastro-estoque" class="list-container"></div>
+                    </div>
+                </div>
+            </section>
+        </main>
+
+        <nav class="bottom-nav nav-4">
+            <button onclick="nav('home', this)" class="nav-item active">🏠<span>Home</span></button>
+            <button onclick="nav('financeiro', this)" class="nav-item">�<span>Financeiro</span></button>
+            <button onclick="nav('calculadora', this)" class="nav-item">💰<span>Calculadora</span></button>
+            <button onclick="nav('terminal', this)" class="nav-item">�<span>Terminal</span></button>
+            <button onclick="nav('estoque', this)" class="nav-item">🧵<span>Estoque</span></button>
+        </nav>
+    </div>
+
+    <script src="config.js"></script>
+    <script src="api-client.js"></script>
+    <script src="db-bridge.js"></script>
+    <script src="ui-helpers.js"></script>
+    <script src="financeiro-modulo.js"></script>
+    <script src="marketplace-calculo.js"></script>
+    <script src="auth-modulo.js"></script>
+    <script src="estoque-produtos.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>

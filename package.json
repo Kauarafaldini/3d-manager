@@ -1,0 +1,41 @@
+{
+  "name": "3d-manager",
+  "version": "1.0.0",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "server": "node server/index.js",
+    "dev": "concurrently \"npm run server\" \"npm start\"",
+    "start:all": "node server/index.js",
+    "cap:sync": "npx cap sync",
+    "build:android": "npm run cap:sync && cd android && gradlew.bat assembleDebug",
+    "build:android:release": "npm run cap:sync && cd android && gradlew.bat assembleRelease",
+    "build:ios": "npm run cap:sync && npx cap open ios"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "description": "",
+  "dependencies": {
+    "@capacitor-community/http": "^1.4.1",
+    "@capacitor/android": "^8.3.4",
+    "@capacitor/cli": "^8.3.4",
+    "@capacitor/core": "^8.3.4",
+    "@capacitor/ios": "^8.3.4",
+    "@supabase/supabase-js": "^2.99.2",
+    "bcryptjs": "^2.4.3",
+    "cors": "^2.8.6",
+    "dotenv": "^16.6.1",
+    "electron": "^41.0.3",
+    "express": "^4.22.2",
+    "jsonwebtoken": "^9.0.3",
+    "mongodb": "^7.2.0",
+    "mongoose": "^9.6.3"
+  },
+  "devDependencies": {
+    "concurrently": "^10.0.3",
+    "electron-builder": "^26.8.1",
+    "electron-reload": "^2.0.0-alpha.1"
+  }
+}

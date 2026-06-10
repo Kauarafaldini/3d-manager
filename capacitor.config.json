@@ -1,0 +1,9 @@
+{
+  "appId": "com.seucomputador.tdmanager",
+  "appName": "3D Manager Pro",
+  "webDir": "www",
+  "bundledWebRuntime": false,
+  "server": {
+    "allowNavigation": ["192.168.15.183:3847"]
+  }
+}
