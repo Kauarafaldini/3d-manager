@@ -4,9 +4,10 @@
   "main": "main.js",
   "scripts": {
     "start": "electron .",
-    "server": "node server/index.js",
+    "server": "npm start --prefix server",
+    "server:install": "npm install --prefix server",
     "dev": "concurrently \"npm run server\" \"npm start\"",
-    "start:all": "node server/index.js",
+    "start:all": "npm start --prefix server",
     "cap:sync": "npx cap sync",
     "build:android": "npm run cap:sync && cd android && gradlew.bat assembleDebug",
     "build:android:release": "npm run cap:sync && cd android && gradlew.bat assembleRelease",

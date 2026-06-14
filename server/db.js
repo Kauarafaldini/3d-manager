@@ -3,9 +3,11 @@ const dns = require('dns');
 
 dns.setDefaultResultOrder('ipv4first');
 
-const MONGO_URI = process.env.MONGODB_URI || (
-    'mongodb+srv://host:Mikaa%402705%23@3d-manager.hrxumzp.mongodb.net/3dmanager?appName=3d-manager'
-);
+const MONGO_URI = process.env.MONGODB_URI;
+
+if (!MONGO_URI) {
+    throw new Error('MONGODB_URI não definida. Configure no .env ou nas variáveis de ambiente.');
+}
 
 const tenantField = { tenantId: { type: mongoose.Schema.Types.ObjectId, required: true, index: true } };
 

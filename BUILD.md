@@ -9,8 +9,9 @@
 
 ## Configuração
 
-1. Copie `.env.example` para `.env` e preencha `MONGODB_URI` e `JWT_SECRET`
-2. Admin padrão (primeira execução): `ADMIN_EMAIL` / `ADMIN_PASSWORD` no `.env`
+1. Instale as dependências da API: `npm run server:install`
+2. Copie `server/.env.example` para `server/.env` e preencha `MONGODB_URI` e `JWT_SECRET`
+3. Admin padrão (primeira execução): `ADMIN_EMAIL` / `ADMIN_PASSWORD` no `server/.env`
 
 ## Desktop (Electron)
 
@@ -46,11 +47,21 @@ npm run build:android
 | Cliente | Cadastro na aba **Cadastrar** — vê só seus dados |
 | Admin | Login com e-mail/senha do `.env` — painel de clientes |
 
-## Produção
+## Produção (Render)
 
-- Publique a API (Railway, Render, VPS) com HTTPS
-- No mobile, use `https://sua-api.com` na URL do servidor
-- Altere `JWT_SECRET` e `ADMIN_PASSWORD` em produção
+A pasta `server/` é um pacote Node independente — pode ser publicada sozinha.
+
+1. Crie um **Web Service** no Render apontando para este repositório
+2. **Root Directory:** `server`
+3. **Build Command:** `npm install`
+4. **Start Command:** `npm start`
+5. Variáveis de ambiente no painel do Render:
+   - `MONGODB_URI` — connection string do MongoDB Atlas
+   - `JWT_SECRET` — segredo forte para tokens
+   - `ADMIN_EMAIL` e `ADMIN_PASSWORD` — conta admin inicial
+6. O Render define `PORT` automaticamente; não é necessário configurar
+
+No mobile/desktop, use `https://sua-api.onrender.com` na URL do servidor.
 
 ## Dados antigos (sem tenantId)
 

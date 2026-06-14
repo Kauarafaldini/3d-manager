@@ -1,5 +1,5 @@
 const mongoose = require('mongoose');
-require('dotenv').config({ path: require('path').join(__dirname, '..', '.env') });
+require('dotenv').config({ path: require('path').join(__dirname, '.env') });
 
 // Conexão com MongoDB
 const MONGO_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/3d-manager';

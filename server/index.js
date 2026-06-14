@@ -1,4 +1,4 @@
-require('dotenv').config({ path: require('path').join(__dirname, '..', '.env') });
+require('dotenv').config({ path: require('path').join(__dirname, '.env') });
 
 const express = require('express');
 const cors = require('cors');
@@ -7,7 +7,8 @@ const mongoose = require('mongoose');
 const { conectar, User, COLLECTIONS } = require('./db');
 const { signToken, authMiddleware, requireAdmin, tenantFilter } = require('./auth');
 
-const PORT = parseInt(process.env.API_PORT || '3847', 10);
+const PORT = parseInt(process.env.PORT || process.env.API_PORT || '3847', 10);
+const DEV_MODE = process.env.DEV_MODE === 'true'; // Modo de desenvolvimento
 const app = express();
 
 // Permite que o app Electron e outros clientes acessem a API
@@ -125,7 +126,21 @@ function getTenantId(req) {
 function registerCollectionRoutes(pathName, ModelFactory) {
     const base = `/api/data/${pathName}`;
 
-    app.get(base, authMiddleware, async (req, res) => {
+    // Middleware opcional de autenticação (pula em modo DEV)
+    const optionalAuth = (req, res, next) => {
+        if (DEV_MODE) {
+            // Em modo DEV, cria um usuário fake
+            req.user = {
+                sub: '000000000000000000000000',
+                role: 'super_admin',
+                tenantId: '000000000000000000000000'
+            };
+            return next();
+        }
+        return authMiddleware(req, res, next);
+    };
+
+    app.get(base, optionalAuth, async (req, res) => {
         const tenantId = getTenantId(req);
         if (!tenantId && req.user.role !== 'super_admin') {
             return res.status(400).json({ erro: 'tenantId obrigatório' });
@@ -142,7 +157,7 @@ function registerCollectionRoutes(pathName, ModelFactory) {
         res.json(docs.map(serializeDoc));
     });
 
-    app.post(base, authMiddleware, async (req, res) => {
+    app.post(base, optionalAuth, async (req, res) => {
         const tenantId = getTenantId(req);
         if (!tenantId) {
             return res.status(400).json({ erro: 'Sem tenant' });
@@ -154,7 +169,7 @@ function registerCollectionRoutes(pathName, ModelFactory) {
         res.status(201).json(serializeDoc(doc.toObject()));
     });
 
-    app.patch(`${base}/:id`, authMiddleware, async (req, res) => {
+    app.patch(`${base}/:id`, optionalAuth, async (req, res) => {
         const tenantId = getTenantId(req);
         const filter = { _id: req.params.id };
         if (tenantId) filter.tenantId = tenantId;
@@ -163,7 +178,7 @@ function registerCollectionRoutes(pathName, ModelFactory) {
         res.json(serializeDoc(doc.toObject()));
     });
 
-    app.delete(`${base}/:id`, authMiddleware, async (req, res) => {
+    app.delete(`${base}/:id`, optionalAuth, async (req, res) => {
         const tenantId = getTenantId(req);
         const filter = { _id: req.params.id };
         if (tenantId) filter.tenantId = tenantId;

@@ -116,37 +116,6 @@ async function loginApp() {
     }
 }
 
-async function entrarSemLogin() {
-    const apiUrl = document.getElementById('authApiUrl')?.value?.trim();
-    if (apiUrl) window.APP_CONFIG.setApiUrl(apiUrl);
-
-    if (!window.APP_CONFIG.getApiUrl()) {
-        return alert('Informe a URL completa da API antes de tentar conectar (ex: http://10.0.0.197:5657).');
-    }
-
-    if (!(await tentarConectarApi())) {
-        return alert('Não foi possível conectar ao servidor. Confira a URL da API e se o servidor está rodando.');
-    }
-
-    // Criar usuário temporário para desenvolvimento
-    const tempUser = {
-        id: 'dev-temp',
-        nome: 'Desenvolvedor',
-        email: 'dev@temp.local',
-        role: 'super_admin',
-        tenantId: '000000000000000000000000',
-        empresa: 'DEV',
-        ativo: true,
-        lastOnline: new Date()
-    };
-
-    sessaoUsuario = tempUser;
-    window.apiClient.setUser(tempUser);
-    
-    // Não setar token, pois não há autenticação
-    await entrarNoApp();
-}
-
 async function registrarCliente() {
     const nome = document.getElementById('regNome').value.trim();
     const email = document.getElementById('regEmail').value.trim();
@@ -196,15 +165,6 @@ async function entrarNoApp() {
     document.getElementById('admin-screen').style.display = 'none';
     document.getElementById('app-screen').style.display = 'block';
 
-    const homeBtn = document.querySelector("button[onclick=\"nav('home', this)\"]");
-    if (homeBtn) homeBtn.classList.add('active');
-    const calcBtn = document.querySelector("button[onclick=\"nav('calculadora', this)\"]");
-    if (calcBtn) calcBtn.classList.remove('active');
-    const terminalBtn = document.querySelector("button[onclick=\"nav('terminal', this)\"]");
-    if (terminalBtn) terminalBtn.classList.remove('active');
-    const estoqueBtn = document.querySelector("button[onclick=\"nav('estoque', this)\"]");
-    if (estoqueBtn) estoqueBtn.classList.remove('active');
-
     const avatar = document.querySelector('.mobile-header .avatar');
     if (avatar) avatar.textContent = (sessaoUsuario.nome || 'U').charAt(0).toUpperCase();
 
@@ -214,18 +174,9 @@ async function entrarNoApp() {
     await window.dbBridge.conectarBanco();
     window.dbBridge.startPing();
 
-    // Limpar caches antes de carregar dados
-    if (typeof window.custosCache !== 'undefined') window.custosCache = [];
-    if (typeof window.estoqueProdutosCache !== 'undefined') window.estoqueProdutosCache = [];
-    if (typeof window.modelosCache !== 'undefined') window.modelosCache = [];
-    if (typeof window.estoqueCache !== 'undefined') window.estoqueCache = [];
-
     if (typeof atualizarInterface === 'function') await atualizarInterface();
     if (typeof carregarListaModelos === 'function') await carregarListaModelos();
-    if (typeof carregarEstoqueProdutos === 'function') await carregarEstoqueProdutos();
     if (typeof carregarCustos === 'function') await carregarCustos();
-    if (typeof atualizarOverviewHome === 'function') await atualizarOverviewHome();
-    if (homeBtn && typeof nav === 'function') nav('home', homeBtn);
 
     const container = document.getElementById('container-filamentos-linhas');
     if (container && container.children.length === 0 && typeof adicionarLinhaFilamento === 'function') {
@@ -234,8 +185,6 @@ async function entrarNoApp() {
     if (typeof atualizarStatusConexao === 'function') atualizarStatusConexao(true);
     if (typeof atualizarInterfaceCanais === 'function') atualizarInterfaceCanais();
     if (typeof garantirCamposEditaveis === 'function') garantirCamposEditaveis();
-    
-    console.log('[auth] Sessão restaurada com sucesso, dados carregados');
 }
 
 function sairApp() {
