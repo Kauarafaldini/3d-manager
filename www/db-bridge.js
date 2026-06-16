@@ -39,11 +39,16 @@
 
         ModelConstructor.prototype.save = async function () {
             if (this._id && !this._isNew) {
-                const updated = await window.apiClient.patch(`${path}/${this._id}`, { ...this, _id: undefined });
+                const updated = await window.apiClient.patch(`${path}/${String(this._id)}`, { ...this, _id: undefined, _isNew: undefined });
                 Object.assign(this, updated);
                 return this;
             }
-            const created = await window.apiClient.post(path, { ...this, _id: undefined });
+            const body = { ...this, _id: undefined, _isNew: undefined };
+            const user = window.apiClient?.getUser?.();
+            if (user?.tenantId && user.role === 'super_admin' && !body.tenantId) {
+                body.tenantId = user.tenantId;
+            }
+            const created = await window.apiClient.post(path, body);
             Object.assign(this, created);
             this._isNew = false;
             return this;
@@ -105,7 +110,7 @@
         };
 
         ModelConstructor.findByIdAndUpdate = async function (id, update) {
-            const updated = await window.apiClient.patch(`${path}/${id}`, update);
+            const updated = await window.apiClient.patch(`${path}/${String(id)}`, update);
             return updated;
         };
 

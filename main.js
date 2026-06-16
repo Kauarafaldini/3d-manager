@@ -19,7 +19,7 @@ function createWindow() {
 }
 
 app.whenReady().then(() => {
-    console.log('⚠️ IMPORTANTE: Execute "npm run server" em outro terminal antes de usar o app!');
+    console.log('Iniciando o aplicativo...');
     setTimeout(createWindow, 1000);
 });
 

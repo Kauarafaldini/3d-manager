@@ -63,6 +63,15 @@ function atualizarFormularioCustoCadastro() {
     document.querySelectorAll('.cad-campo-hora').forEach(el => {
         el.style.display = tipo === 'por_hora' ? 'block' : 'none';
     });
+
+    // Garantir que os inputs estejam editáveis
+    document.querySelectorAll('#cadPrecoTotal, #cadQtdTotal, #cadCustoUnitario, #cadValorMensal, #cadHorasMes, #cadCustoHora').forEach(el => {
+        el.readOnly = false;
+        el.disabled = false;
+        el.removeAttribute('readonly');
+        el.removeAttribute('disabled');
+    });
+
     atualizarPreviewCustoCadastro();
 }
 
@@ -216,20 +225,21 @@ function renderListaCustosCadastro() {
 }
 
 function subNavControle(painel) {
-    document.querySelectorAll('.controle-subtab').forEach(b => b.classList.remove('active'));
-    document.querySelectorAll('.controle-painel').forEach(p => p.style.display = 'none');
+    document.querySelectorAll('#sec-financeiro .controle-subtab').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('#sec-financeiro .controle-painel').forEach(p => p.style.display = 'none');
 
-    const btn = document.querySelector(`.controle-subtab[data-painel="${painel}"]`);
+    const btn = document.querySelector(`#sec-financeiro .controle-subtab[data-painel="${painel}"]`);
     if (btn) btn.classList.add('active');
     const el = document.getElementById(`painel-${painel}`);
     if (el) el.style.display = 'block';
 
-    if (painel === 'relatorio') atualizarRelatorioFinanceiro();
-    if (painel === 'cadastro') {
+    // Always refresh the financial report
+    if (painel === 'relatorio' || painel === 'cadastro') {
+        atualizarRelatorioFinanceiro();
         carregarCustos();
-        atualizarFormularioCustoCadastro();
     }
 }
+
 
 function filtrarVendasPorPeriodo(vendas, filtro) {
     const agora = new Date();
@@ -257,7 +267,31 @@ function filtrarVendasPorPeriodo(vendas, filtro) {
         return vendas.filter(v => new Date(v.data).getFullYear() === ano);
     }
 
+    if (filtro === 'personalizado') {
+        const startEl = document.getElementById('relDataInicio');
+        const endEl = document.getElementById('relDataFim');
+        const startStr = startEl ? startEl.value : '';
+        const endStr = endEl ? endEl.value : '';
+        if (!startStr && !endStr) return vendas;
+        const inicio = startStr ? new Date(startStr + 'T00:00:00') : null;
+        const fim = endStr ? new Date(endStr + 'T23:59:59') : null;
+        return vendas.filter(v => {
+            const d = new Date(v.data);
+            if (inicio && d < inicio) return false;
+            if (fim && d > fim) return false;
+            return true;
+        });
+    }
+
     return vendas;
+}
+
+function atualizarFiltroPeriodo() {
+    const filtro = document.getElementById('relFiltro')?.value;
+    const periodoPersonalizado = document.getElementById('relPeriodoPersonalizado');
+    if (periodoPersonalizado) {
+        periodoPersonalizado.style.display = filtro === 'personalizado' ? 'flex' : 'none';
+    }
 }
 
 function agregarMetricasVendas(vendas) {
@@ -455,7 +489,6 @@ async function atualizarRelatorioFinanceiro() {
         if (elLucroTotal) elLucroTotal.textContent = formatarMoeda(metricasTotal.lucro);
 
         document.getElementById('relBruto').textContent = formatarMoeda(m.bruto);
-        document.getElementById('relLucro').textContent = formatarMoeda(m.lucro);
         document.getElementById('relCustoVendas').textContent = formatarMoeda(m.custo);
         document.getElementById('relMargem').textContent = margemPeriodo.toFixed(1) + '%';
         document.getElementById('relEstoqueValor').textContent = formatarMoeda(valorEstoqueFilamento);
@@ -474,11 +507,14 @@ async function atualizarRelatorioFinanceiro() {
             compLucro.textContent = `Lucro: ${formatarMoeda(m.lucro)}`;
         }
 
+        const startVal = document.getElementById('relDataInicio')?.value || '';
+        const endVal = document.getElementById('relDataFim')?.value || '';
         const labels = {
             mes_atual: 'Mês atual',
             mes_anterior: 'Mês anterior',
             ano_atual: 'Ano atual',
-            todos: 'Todo o histórico'
+            todos: 'Todo o histórico',
+            personalizado: startVal && endVal ? `${startVal} a ${endVal}` : (startVal || endVal || 'Período personalizado')
         };
         const textoPeriodo = labels[filtro] || filtro;
         const labelPeriodo = document.getElementById('relLabelPeriodo');
@@ -533,6 +569,218 @@ async function atualizarRelatorioFinanceiro() {
     }
 }
 
+// Funções específicas para o painel de lançamentos no Estoque
+function atualizarFormularioCustoCadastroEstoque() {
+    const tipo = document.getElementById('cadTipoCalculoEstoque').value;
+    document.querySelectorAll('.cad-campo-lote-estoque').forEach(el => {
+        el.style.display = tipo === 'lote' ? 'block' : 'none';
+    });
+    document.querySelectorAll('.cad-campo-unitario-estoque').forEach(el => {
+        el.style.display = tipo === 'unitario_fixo' ? 'block' : 'none';
+    });
+    document.querySelectorAll('.cad-campo-parcela-estoque').forEach(el => {
+        el.style.display = tipo === 'parcela_mensal' ? 'block' : 'none';
+    });
+    document.querySelectorAll('.cad-campo-hora-estoque').forEach(el => {
+        el.style.display = tipo === 'por_hora' ? 'block' : 'none';
+    });
+
+    document.querySelectorAll('#cadPrecoTotalEstoque, #cadQtdTotalEstoque, #cadCustoUnitarioEstoque, #cadValorMensalEstoque, #cadHorasMesEstoque, #cadCustoHoraEstoque').forEach(el => {
+        el.readOnly = false;
+        el.disabled = false;
+        el.removeAttribute('readonly');
+        el.removeAttribute('disabled');
+    });
+
+    atualizarPreviewCustoCadastroEstoque();
+}
+
+function atualizarPreviewCustoCadastroEstoque() {
+    const preview = document.getElementById('cadPreviewUnitarioEstoque');
+    if (!preview) return;
+
+    const tipo = document.getElementById('cadTipoCalculoEstoque').value;
+    const dados = {
+        tipoCalculo: tipo,
+        precoTotal: document.getElementById('cadPrecoTotalEstoque').value,
+        quantidadeTotal: document.getElementById('cadQtdTotalEstoque').value,
+        custoUnitario: document.getElementById('cadCustoUnitarioEstoque').value,
+        valorMensal: document.getElementById('cadValorMensalEstoque').value,
+        horasUsoMes: document.getElementById('cadHorasMesEstoque').value,
+        custoPorHora: document.getElementById('cadCustoHoraEstoque').value
+    };
+    const unidade = document.getElementById('cadUnidadeEstoque').value || 'un';
+    const unit = calcularCustoUnitario(dados);
+
+    if (tipo === 'lote') {
+        preview.innerHTML = `Cada <b>${unidade}</b> sai por <b style="color:var(--success)">${formatarMoeda(unit)}</b>`;
+    } else if (tipo === 'unitario_fixo') {
+        preview.innerHTML = `Custo fixo: <b style="color:var(--success)">${formatarMoeda(unit)}</b> / ${unidade}`;
+    } else if (tipo === 'parcela_mensal') {
+        const mensal = parseFloat(dados.valorMensal) || 0;
+        preview.innerHTML = `Parcela: <b>${formatarMoeda(mensal)}/mês</b> → ~<b style="color:#fbbf24">${formatarMoeda(unit)}/h</b> (rateio ${dados.horasUsoMes || 160}h)`;
+    } else if (tipo === 'por_hora') {
+        preview.innerHTML = `Custo operacional: <b style="color:var(--success)">${formatarMoeda(unit)}/hora</b>`;
+    }
+}
+
+async function salvarCustoItemEstoque() {
+    if (typeof mongoose !== 'undefined' && mongoose.connection.readyState !== 1) {
+        return alert('Servidor offline.');
+    }
+
+    const nome = document.getElementById('cadNomeEstoque').value.trim();
+    if (!nome) return alert('Informe o nome do custo.');
+
+    const tipoCalculo = document.getElementById('cadTipoCalculoEstoque').value;
+    const categoria = document.getElementById('cadCategoriaEstoque').value;
+    const unidade = document.getElementById('cadUnidadeEstoque').value.trim() || 'un';
+    const observacao = document.getElementById('cadObsEstoque').value.trim();
+
+    const payload = {
+        nome,
+        categoria,
+        tipoCalculo,
+        unidade,
+        observacao,
+        ativo: true,
+        precoTotal: parseFloat(document.getElementById('cadPrecoTotalEstoque').value) || 0,
+        quantidadeTotal: parseFloat(document.getElementById('cadQtdTotalEstoque').value) || 0,
+        custoUnitario: parseFloat(document.getElementById('cadCustoUnitarioEstoque').value) || 0,
+        valorMensal: parseFloat(document.getElementById('cadValorMensalEstoque').value) || 0,
+        horasUsoMes: parseFloat(document.getElementById('cadHorasMesEstoque').value) || 160,
+        custoPorHora: parseFloat(document.getElementById('cadCustoHoraEstoque').value) || 0
+    };
+
+    payload.custoUnitario = calcularCustoUnitario(payload);
+
+    if (tipoCalculo === 'lote') {
+        if (payload.quantidadeTotal <= 0) return alert('Informe a quantidade do lote.');
+        if (payload.precoTotal <= 0) return alert('Informe o preço total pago.');
+        payload.estoqueAtual = payload.quantidadeTotal;
+    }
+
+    try {
+        const Model = getCustoItemModel();
+        await Model.create(payload);
+        await carregarCustos();
+        if (typeof atualizarRelatorioFinanceiro === 'function') atualizarRelatorioFinanceiro();
+        alert('Custo cadastrado com sucesso!');
+        
+        // Limpar formulário
+        document.getElementById('cadNomeEstoque').value = '';
+        document.getElementById('cadObsEstoque').value = '';
+        document.getElementById('cadPrecoTotalEstoque').value = '';
+        document.getElementById('cadQtdTotalEstoque').value = '';
+        document.getElementById('cadCustoUnitarioEstoque').value = '';
+        document.getElementById('cadValorMensalEstoque').value = '';
+        document.getElementById('cadCustoHoraEstoque').value = '';
+        atualizarPreviewCustoCadastroEstoque();
+        renderListaCustosCadastroEstoque();
+    } catch (err) {
+        alert('Erro ao salvar custo: ' + err.message);
+    }
+}
+
+function renderListaCustosCadastroEstoque() {
+    const lista = document.getElementById('lista-custos-cadastro-estoque');
+    if (!lista) return;
+
+    const filtro = (document.getElementById('filtroCategoriaCustosEstoque') || {}).value || '';
+
+    const itens = custosCache.filter(c => !filtro || c.categoria === filtro);
+
+    if (itens.length === 0) {
+        lista.innerHTML = '<p class="empty-msg">Nenhum custo cadastrado nesta categoria.</p>';
+        return;
+    }
+
+    lista.innerHTML = itens.map(c => {
+        const unit = c.custoUnitario || calcularCustoUnitario(c);
+        let detalhe = '';
+        if (c.tipoCalculo === 'lote') {
+            detalhe = `${formatarMoeda(c.precoTotal)} ÷ ${c.quantidadeTotal} ${c.unidade} | Estoque: ${c.estoqueAtual ?? c.quantidadeTotal}`;
+        } else if (c.tipoCalculo === 'parcela_mensal') {
+            detalhe = `${formatarMoeda(c.valorMensal)}/mês | ~${formatarMoeda(unit)}/h`;
+        } else if (c.tipoCalculo === 'por_hora') {
+            detalhe = `${formatarMoeda(unit)}/hora`;
+        } else {
+            detalhe = `${formatarMoeda(unit)}/${c.unidade}`;
+        }
+
+        return `
+            <div class="item-row" style="border-left-color: #8b5cf6">
+                <div class="item-info">
+                    <b>${c.nome}</b>
+                    <span>${LABEL_CATEGORIA[c.categoria] || c.categoria} · ${LABEL_TIPO[c.tipoCalculo] || c.tipoCalculo}</span>
+                    <span style="display:block;margin-top:4px;color:#94a3b8;">${detalhe}</span>
+                </div>
+                <div style="display:flex;align-items:center;gap:10px;">
+                    <div class="item-val" style="color:#c4b5fd">${formatarMoeda(unit)}</div>
+                    <button class="btn-delete-row" onclick="excluirCustoItem('${idCusto(c)}')" title="Excluir">🗑️</button>
+                </div>
+            </div>
+        `;
+    }).join('');
+}
+
+// ==========================================
+// ATUALIZAÇÃO AUTOMÁTICA
+// ==========================================
+
+let autoUpdateFinanceiroInterval = null;
+
+function iniciarAtualizacaoAutomaticaFinanceiro() {
+    // Limpar intervalo existente se houver
+    if (autoUpdateFinanceiroInterval) {
+        clearInterval(autoUpdateFinanceiroInterval);
+    }
+    
+    // Limpar cache e atualizar imediatamente
+    custosCache = [];
+    carregarCustos();
+    
+    // Atualizar também o cache de estoque
+    if (typeof window.estoqueCache !== 'undefined' && typeof window.getEstoqueModel === 'function') {
+        window.getEstoqueModel().find({}).then(estoque => {
+            window.estoqueCache = estoque;
+            console.log('[financeiro] Cache de estoque atualizado com', estoque.length, 'itens');
+        }).catch(err => {
+            console.error('[financeiro] Erro ao atualizar cache de estoque:', err);
+        });
+    }
+    
+    // Atualizar a cada 5 segundos
+    autoUpdateFinanceiroInterval = setInterval(() => {
+        // Só atualizar se as abas financeiro ou calculadora estiverem visíveis
+        const secFinanceiro = document.getElementById('sec-financeiro');
+        const secCalculadora = document.getElementById('sec-calculadora');
+        if ((secFinanceiro && secFinanceiro.style.display !== 'none') ||
+            (secCalculadora && secCalculadora.style.display !== 'none')) {
+            carregarCustos();
+            
+            // Atualizar também o cache de estoque periodicamente
+            if (typeof window.estoqueCache !== 'undefined' && typeof window.getEstoqueModel === 'function') {
+                window.getEstoqueModel().find({}).then(estoque => {
+                    window.estoqueCache = estoque;
+                }).catch(err => {
+                    console.error('[financeiro] Erro ao atualizar cache de estoque:', err);
+                });
+            }
+        }
+    }, 5000);
+    
+    console.log('Atualização automática financeiro iniciada (5 segundos)');
+}
+
+function pararAtualizacaoAutomaticaFinanceiro() {
+    if (autoUpdateFinanceiroInterval) {
+        clearInterval(autoUpdateFinanceiroInterval);
+        autoUpdateFinanceiroInterval = null;
+        console.log('Atualização automática financeiro parada');
+    }
+}
+
 if (typeof window !== 'undefined') {
     window.carregarCustos = carregarCustos;
     window.salvarCustoItem = salvarCustoItem;
@@ -545,6 +793,13 @@ if (typeof window !== 'undefined') {
     window.atualizarFormularioCustoCadastro = atualizarFormularioCustoCadastro;
     window.atualizarPreviewCustoCadastro = atualizarPreviewCustoCadastro;
     window.atualizarRelatorioFinanceiro = atualizarRelatorioFinanceiro;
+    window.atualizarFiltroPeriodo = atualizarFiltroPeriodo;
     window.baixarEstoqueCustosExtras = baixarEstoqueCustosExtras;
     window.renderListaCustosCadastro = renderListaCustosCadastro;
+    window.atualizarFormularioCustoCadastroEstoque = atualizarFormularioCustoCadastroEstoque;
+    window.atualizarPreviewCustoCadastroEstoque = atualizarPreviewCustoCadastroEstoque;
+    window.salvarCustoItemEstoque = salvarCustoItemEstoque;
+    window.renderListaCustosCadastroEstoque = renderListaCustosCadastroEstoque;
+    window.iniciarAtualizacaoAutomaticaFinanceiro = iniciarAtualizacaoAutomaticaFinanceiro;
+    window.pararAtualizacaoAutomaticaFinanceiro = pararAtualizacaoAutomaticaFinanceiro;
 }

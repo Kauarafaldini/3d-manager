@@ -80,7 +80,21 @@ const modeloSchema = new mongoose.Schema({
     custoProducao: Number,
     custoProducaoTotal: Number,
     quantidadeChapa: { type: Number, default: 1 },
-    estoque: { type: Number, default: 0 }
+    estoque: { type: Number, default: 0 },
+    temReceita: { type: Boolean, default: false },
+    custoMat: Number,
+    custoEnergia: Number,
+    custoMaquina: Number,
+    custoTrabalho: Number,
+    custoDesgaste: Number,
+    custoExtras: Number,
+    custosExtras: [{
+        custoItemId: String,
+        nome: String,
+        quantidade: Number,
+        custoUnitario: Number,
+        subtotal: Number
+    }]
 }, { collection: 'modelos' });
 
 function getVendaModel() {

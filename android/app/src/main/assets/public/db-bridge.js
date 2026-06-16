@@ -39,11 +39,16 @@
 
         ModelConstructor.prototype.save = async function () {
             if (this._id && !this._isNew) {
-                const updated = await window.apiClient.patch(`${path}/${this._id}`, { ...this, _id: undefined });
+                const updated = await window.apiClient.patch(`${path}/${String(this._id)}`, { ...this, _id: undefined, _isNew: undefined });
                 Object.assign(this, updated);
                 return this;
             }
-            const created = await window.apiClient.post(path, { ...this, _id: undefined });
+            const body = { ...this, _id: undefined, _isNew: undefined };
+            const user = window.apiClient?.getUser?.();
+            if (user?.tenantId && user.role === 'super_admin' && !body.tenantId) {
+                body.tenantId = user.tenantId;
+            }
+            const created = await window.apiClient.post(path, body);
             Object.assign(this, created);
             this._isNew = false;
             return this;
@@ -52,9 +57,17 @@
         ModelConstructor.find = function (filter = {}) {
             const query = {
                 _sort: null,
+                _limit: null,
                 sort(sortObj) {
                     if (sortObj && sortObj.data === -1) query._sort = 'data';
                     else if (sortObj && sortObj.nome === 1) query._sort = 'nome';
+                    return query;
+                },
+                limit(n) {
+                    query._limit = typeof n === 'number' ? n : parseInt(n, 10);
+                    return query;
+                },
+                lean() {
                     return query;
                 },
                 async exec() {
@@ -65,7 +78,12 @@
                         params.push('ativos=1');
                     }
                     const url = params.length ? `${path}?${params.join('&')}` : path;
-                    const list = await window.apiClient.get(url);
+                    console.log(`[db-bridge] Buscando ${name} - Token: ${window.apiClient.getToken() ? 'SIM' : 'NÃO'} - URL: ${url}`);
+                    let list = await window.apiClient.get(url);
+                    console.log(`[db-bridge] Recebidos ${list.length} itens de ${name}`);
+                    if (query._limit != null && Number.isFinite(query._limit)) {
+                        list = list.slice(0, query._limit);
+                    }
                     return list.map(d => wrapDoc(path, d));
                 },
                 then(resolve, reject) {
@@ -92,7 +110,7 @@
         };
 
         ModelConstructor.findByIdAndUpdate = async function (id, update) {
-            const updated = await window.apiClient.patch(`${path}/${id}`, update);
+            const updated = await window.apiClient.patch(`${path}/${String(id)}`, update);
             return updated;
         };
 

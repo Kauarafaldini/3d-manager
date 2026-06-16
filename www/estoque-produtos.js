@@ -5,138 +5,261 @@
 let estoqueProdutosCache = [];
 let produtoSelecionadoTerminal = null;
 
-// ==========================================
-// FUNÇÕES DE BANCO DE DADOS
-// ==========================================
+function produtoTemReceita(produto) {
+    if (!produto) return false;
+    if (produto.temReceita === true) return true;
+    return Boolean(
+        produto.filamentosUsados?.length > 0 ||
+        Number(produto.tempo) > 0 ||
+        Number(produto.custoProducaoTotal) > 0 ||
+        Number(produto.custoProducao) > 0
+    );
+}
+
+function formatarTempoHoras(horas) {
+    const h = Math.floor(Number(horas) || 0);
+    const m = Math.round(((Number(horas) || 0) - h) * 60);
+    return `${h}h ${m}min`;
+}
 
 function getEstoqueProdutoModel() {
-    if (typeof getModeloModel === 'function') {
-        const model = getModeloModel();
-        console.log('getModeloModel retornou:', model);
-        return model;
-    }
-    console.log('getModeloModel não está disponível');
+    if (typeof getModeloModel === 'function') return getModeloModel();
     return null;
 }
 
 async function carregarEstoqueProdutos() {
-    console.log('=== INICIANDO carregarEstoqueProdutos ===');
     try {
         const ModeloModel = getEstoqueProdutoModel();
-        console.log('ModeloModel obtido:', ModeloModel);
-        if (!ModeloModel) {
-            console.log('ERRO: ModeloModel é null');
-            return;
-        }
+        if (!ModeloModel) return;
 
         const modelos = await ModeloModel.find().lean();
-        console.log('Modelos carregados do banco:', modelos.length);
         estoqueProdutosCache = modelos.map(m => ({
             ...m,
             estoque: m.estoque || 0,
-            precoVenda: m.venda || 0
+            precoVenda: m.venda || 0,
+            temReceita: produtoTemReceita(m)
         }));
-        console.log('Cache de estoque atualizado:', estoqueProdutosCache.length);
 
-        console.log('Chamando renderizarListaEstoqueProdutos...');
         renderizarListaEstoqueProdutos();
-        console.log('Chamando atualizarResumoEstoqueProdutos...');
         atualizarResumoEstoqueProdutos();
-        console.log('Chamando atualizarSelectProducao...');
         atualizarSelectProducao();
-        console.log('Estoque de produtos atualizado com sucesso:', estoqueProdutosCache.length);
+        if (typeof atualizarSelectProdutosCalculadora === 'function') {
+            atualizarSelectProdutosCalculadora();
+        }
     } catch (err) {
         console.error('Erro ao carregar estoque de produtos:', err);
     }
 }
 
-if (typeof window !== 'undefined') {
-    window.carregarEstoqueProdutos = carregarEstoqueProdutos;
-    window.atualizarSelectProducao = atualizarSelectProducao;
-    window.atualizarInfoProducao = atualizarInfoProducao;
-    window.registrarProducao = registrarProducao;
-    window.buscarProdutoTerminal = buscarProdutoTerminal;
-    window.selecionarProdutoTerminal = selecionarProdutoTerminal;
-    window.efetuarVendaTerminal = efetuarVendaTerminal;
-    window.limparTerminal = limparTerminal;
-    window.filtrarEstoqueProdutos = filtrarEstoqueProdutos;
-    window.filtrarMovimentacoesTerminal = filtrarMovimentacoesTerminal;
-    window.subNavTerminal = subNavTerminal;
-    window.iniciarAtualizacaoAutomatica = iniciarAtualizacaoAutomatica;
-    window.pararAtualizacaoAutomatica = pararAtualizacaoAutomatica;
+async function atualizarEstoqueProduto(modeloId, quantidade, tipo) {
+    const ModeloModel = getEstoqueProdutoModel();
+    if (!ModeloModel) return;
+
+    const produto = await ModeloModel.findById(modeloId);
+    if (!produto) return;
+
+    const estoqueAtual = produto.estoque || 0;
+    const novoEstoque = tipo === 'entrada'
+        ? estoqueAtual + quantidade
+        : Math.max(0, estoqueAtual - quantidade);
+
+    await ModeloModel.findByIdAndUpdate(modeloId, { estoque: novoEstoque });
+
+    const cacheIndex = estoqueProdutosCache.findIndex(p => p._id.toString() === modeloId.toString());
+    if (cacheIndex !== -1) {
+        estoqueProdutosCache[cacheIndex].estoque = novoEstoque;
+    }
+
+    return novoEstoque;
 }
 
-async function atualizarEstoqueProduto(modeloId, quantidade, tipo) {
+function limparFormProduto() {
+    const set = (id, val) => {
+        const el = document.getElementById(id);
+        if (el) el.value = val;
+    };
+    set('prodEditId', '');
+    set('prodCadNome', '');
+    set('prodCadSKU', '');
+    set('prodCadPreco', '');
+    set('prodCadEstoque', '0');
+}
+
+async function salvarProdutoEstoque() {
+    if (typeof bancoOnline === 'function' && !bancoOnline()) {
+        return alert('Servidor offline.');
+    }
+
+    const editId = document.getElementById('prodEditId')?.value || '';
+    const nome = document.getElementById('prodCadNome')?.value?.trim();
+    const sku = document.getElementById('prodCadSKU')?.value?.trim() || '';
+    const preco = parseFloat(document.getElementById('prodCadPreco')?.value) || 0;
+    const estoque = Math.max(0, parseInt(document.getElementById('prodCadEstoque')?.value, 10) || 0);
+
+    if (!nome) return alert('Informe o nome do produto.');
+
+    const duplicado = estoqueProdutosCache.find(p => {
+        if (editId && p._id.toString() === editId) return false;
+        const mesmoNome = p.nome && p.nome.toLowerCase() === nome.toLowerCase();
+        const mesmoSku = sku && p.sku && p.sku.toLowerCase() === sku.toLowerCase();
+        return mesmoNome || mesmoSku;
+    });
+    if (duplicado) {
+        return alert('Já existe um produto com este nome ou SKU.');
+    }
+
+    const ModeloModel = getEstoqueProdutoModel();
+    if (!ModeloModel) return;
+
     try {
-        const ModeloModel = getEstoqueProdutoModel();
-        if (!ModeloModel) return;
-
-        const produto = await ModeloModel.findById(modeloId);
-        if (!produto) return;
-
-        const estoqueAtual = produto.estoque || 0;
-        const novoEstoque = tipo === 'entrada' ? estoqueAtual + quantidade : Math.max(0, estoqueAtual - quantidade);
-
-        await ModeloModel.findByIdAndUpdate(modeloId, { estoque: novoEstoque });
-
-        // Atualizar cache
-        const cacheIndex = estoqueProdutosCache.findIndex(p => p._id.toString() === modeloId.toString());
-        if (cacheIndex !== -1) {
-            estoqueProdutosCache[cacheIndex].estoque = novoEstoque;
+        if (editId) {
+            const atual = estoqueProdutosCache.find(p => p._id.toString() === editId);
+            await ModeloModel.findByIdAndUpdate(editId, {
+                nome,
+                sku,
+                venda: preco,
+                estoque
+            });
+            if (typeof mostrarToast === 'function') {
+                mostrarToast('Produto atualizado.');
+            }
+        } else {
+            const novo = new ModeloModel({
+                nome,
+                sku,
+                venda: preco,
+                estoque,
+                temReceita: false,
+                quantidadeChapa: 1
+            });
+            await novo.save();
+            if (typeof mostrarToast === 'function') {
+                mostrarToast('Produto cadastrado no estoque.');
+            }
         }
 
-        return novoEstoque;
+        limparFormProduto();
+        await carregarEstoqueProdutos();
+        if (typeof carregarListaModelos === 'function') await carregarListaModelos();
     } catch (err) {
-        console.error('Erro ao atualizar estoque:', err);
-        throw err;
+        alert('Erro ao salvar produto: ' + err.message);
     }
 }
 
-// ==========================================
-// FUNÇÕES DE INTERFACE - ESTOQUE
-// ==========================================
+function editarProdutoEstoque(id) {
+    const produto = estoqueProdutosCache.find(p => p._id.toString() === id);
+    if (!produto) return;
+
+    document.getElementById('prodEditId').value = id;
+    document.getElementById('prodCadNome').value = produto.nome || '';
+    document.getElementById('prodCadSKU').value = produto.sku || '';
+    document.getElementById('prodCadPreco').value = produto.precoVenda || produto.venda || 0;
+    document.getElementById('prodCadEstoque').value = produto.estoque || 0;
+    document.getElementById('prodCadNome')?.focus();
+}
+
+async function excluirProdutoEstoque(id) {
+    const produto = estoqueProdutosCache.find(p => p._id.toString() === id);
+    if (!produto) return;
+    if (!confirm(`Excluir o produto "${produto.nome}"? Esta ação não pode ser desfeita.`)) return;
+
+    const ModeloModel = getEstoqueProdutoModel();
+    if (!ModeloModel) return;
+
+    try {
+        await ModeloModel.findByIdAndDelete(id);
+        if (typeof mostrarToast === 'function') mostrarToast('Produto excluído.');
+        limparFormProduto();
+        await carregarEstoqueProdutos();
+        if (typeof carregarListaModelos === 'function') await carregarListaModelos();
+    } catch (err) {
+        alert('Erro ao excluir produto: ' + err.message);
+    }
+}
+
+function abrirReceitaProduto(id) {
+    const produto = estoqueProdutosCache.find(p => p._id.toString() === id);
+    if (!produto) return;
+
+    if (typeof nav === 'function') {
+        const btnCalc = document.querySelector('.bottom-nav .nav-item[onclick*="calculadora"]');
+        nav('calculadora', btnCalc);
+    }
+
+    const selectProduto = document.getElementById('pProdutoEstoqueSelect');
+    if (selectProduto) selectProduto.value = id;
+
+    if (produtoTemReceita(produto) && typeof carregarModeloPadrao === 'function') {
+        const selectReceita = document.getElementById('pModeloSelect');
+        if (selectReceita) {
+            selectReceita.value = id;
+            carregarModeloPadrao();
+        }
+        return;
+    }
+
+    document.getElementById('pNome').value = produto.nome || '';
+    document.getElementById('pSKU').value = produto.sku || '';
+    document.getElementById('pVenda').value = produto.precoVenda || produto.venda || 0;
+    document.getElementById('pModeloSelect').value = '';
+    const btnExcluir = document.getElementById('btnExcluirModelo');
+    if (btnExcluir) btnExcluir.style.display = 'none';
+    if (typeof calcFinanceiro === 'function') calcFinanceiro(false);
+}
 
 function renderizarListaEstoqueProdutos(filtro = '') {
-    console.log('=== INICIANDO renderizarListaEstoqueProdutos ===');
-    console.log('Filtro:', filtro);
-    console.log('Cache de estoque:', estoqueProdutosCache.length);
-    const container = document.getElementById('lista-estoque-produtos');
-    if (!container) {
-        console.log('ERRO: Container lista-estoque-produtos não encontrado');
-        return;
-    }
+    const tbody = document.getElementById('lista-estoque-produtos');
+    const emptyMsg = document.getElementById('estoqueListaVazia');
+    if (!tbody) return;
 
+    const termo = filtro.toLowerCase();
     const produtosFiltrados = estoqueProdutosCache.filter(p => {
-        if (!filtro) return true;
-        const termo = filtro.toLowerCase();
+        if (!termo) return true;
         return (p.nome && p.nome.toLowerCase().includes(termo)) ||
-               (p.sku && p.sku.toLowerCase().includes(termo));
+            (p.sku && p.sku.toLowerCase().includes(termo));
     });
 
-    console.log('Produtos filtrados:', produtosFiltrados.length);
-
     if (!produtosFiltrados.length) {
-        container.innerHTML = '<p class="empty-msg">Nenhum produto cadastrado. Crie modelos na Calculadora.</p>';
-        console.log('Nenhum produto para exibir');
+        tbody.innerHTML = '';
+        if (emptyMsg) emptyMsg.style.display = 'block';
+        atualizarResumoEstoqueProdutos([]);
         return;
     }
 
-    container.innerHTML = produtosFiltrados.map(p => `
-        <div class="item-row">
-            <div class="item-info">
-                <b>${p.nome}</b>
-                <span>${p.sku || 'Sem SKU'}</span>
-                <small style="color:#64748b;display:block;margin-top:4px;">
-                    Estoque: ${p.estoque || 0} un. · Preço: R$ ${(p.precoVenda || 0).toFixed(2)}
-                </small>
-            </div>
-            <div class="item-actions">
-                <span class="badge-status ${p.estoque > 0 ? 'ativo' : 'inativo'}">${p.estoque || 0}</span>
-            </div>
-        </div>
-    `).join('');
+    if (emptyMsg) emptyMsg.style.display = 'none';
+
+    tbody.innerHTML = produtosFiltrados.map(p => {
+        const estoque = Number(p.estoque) || 0;
+        const qtdClass = estoque <= 0 ? 'zero' : (estoque <= 3 ? 'baixo' : '');
+        const temReceita = produtoTemReceita(p);
+        const receitaBtn = temReceita
+            ? `<button type="button" class="btn-icon-action primary" onclick="abrirReceitaProduto('${p._id}')">Ver receita</button>`
+            : `<button type="button" class="btn-icon-action primary" onclick="abrirReceitaProduto('${p._id}')">Criar receita</button>`;
+
+        return `
+            <tr>
+                <td>
+                    <span class="estoque-prod-nome">${p.nome || '—'}</span>
+                    <span class="estoque-prod-meta">${temReceita ? 'Com ficha de produção' : 'Somente cadastro'}</span>
+                </td>
+                <td>${p.sku || '—'}</td>
+                <td><span class="estoque-qtd ${qtdClass}">${estoque}</span></td>
+                <td>R$ ${(Number(p.precoVenda) || 0).toFixed(2)}</td>
+                <td>
+                    <span class="badge-receita ${temReceita ? 'sim' : 'nao'}">${temReceita ? 'Sim' : 'Não'}</span>
+                </td>
+                <td>
+                    <div class="estoque-actions">
+                        <button type="button" class="btn-icon-action" onclick="editarProdutoEstoque('${p._id}')">Editar</button>
+                        ${receitaBtn}
+                        <button type="button" class="btn-icon-action danger" onclick="excluirProdutoEstoque('${p._id}')">Excluir</button>
+                    </div>
+                </td>
+            </tr>
+        `;
+    }).join('');
+
     atualizarResumoEstoqueProdutos(produtosFiltrados);
-    console.log('Lista renderizada com sucesso');
 }
 
 function atualizarResumoEstoqueProdutos(itensFiltrados = null) {
@@ -154,30 +277,25 @@ function atualizarResumoEstoqueProdutos(itensFiltrados = null) {
 }
 
 function filtrarEstoqueProdutos() {
-    const filtro = document.getElementById('estoqueBusca').value;
+    const filtro = document.getElementById('estoqueBusca')?.value || '';
     renderizarListaEstoqueProdutos(filtro);
 }
 
 function atualizarSelectProducao() {
-    console.log('=== INICIANDO atualizarSelectProducao ===');
     const select = document.getElementById('prodSelectProducao');
-    if (!select) {
-        console.log('ERRO: Select prodSelectProducao não encontrado');
-        return;
-    }
+    if (!select) return;
 
-    select.innerHTML = '<option value="">-- Selecione um produto --</option>' +
-        estoqueProdutosCache.map(p => `
-            <option value="${p._id}">${p.nome} ${p.sku ? `(${p.sku})` : ''}</option>
+    const comReceita = estoqueProdutosCache.filter(produtoTemReceita);
+    select.innerHTML = '<option value="">Selecione um produto com receita</option>' +
+        comReceita.map(p => `
+            <option value="${p._id}">${p.nome}${p.sku ? ` (${p.sku})` : ''}</option>
         `).join('');
-    console.log('Select de produção atualizado com', estoqueProdutosCache.length, 'produtos');
 }
 
 function atualizarInfoProducao() {
     const select = document.getElementById('prodSelectProducao');
-    const modeloId = select.value;
-    const quantidade = parseInt(document.getElementById('prodQuantidade').value) || 1;
-
+    const modeloId = select?.value;
+    const quantidade = parseInt(document.getElementById('prodQuantidade')?.value, 10) || 1;
     const produto = estoqueProdutosCache.find(p => p._id.toString() === modeloId);
 
     const estoqueAtual = produto ? (produto.estoque || 0) : 0;
@@ -185,41 +303,42 @@ function atualizarInfoProducao() {
     const quantidadeTotal = quantidade * quantidadeChapa;
     const estoqueNovo = estoqueAtual + quantidadeTotal;
 
-    document.getElementById('prodEstoqueAtual').textContent = estoqueAtual;
-    document.getElementById('prodEstoqueNovo').textContent = estoqueNovo;
+    const elAtual = document.getElementById('prodEstoqueAtual');
+    const elNovo = document.getElementById('prodEstoqueNovo');
+    if (elAtual) elAtual.textContent = estoqueAtual;
+    if (elNovo) elNovo.textContent = estoqueNovo;
 
-    // Mostrar informações adicionais
     const infoDiv = document.getElementById('prodInfoAdicional');
-    if (infoDiv && produto) {
-        infoDiv.innerHTML = `
-            <p style="margin: 5px 0; font-size: 12px; color: #64748b;">
-                Quantidade por chapa: ${quantidadeChapa} un.<br>
-                Total a produzir: ${quantidadeTotal} un.
-            </p>
-        `;
+    if (!infoDiv) return;
+
+    if (!produto) {
+        infoDiv.innerHTML = '';
+        return;
     }
+
+    infoDiv.innerHTML = `
+        <strong>${produto.nome}</strong><br>
+        Tempo por chapa: ${formatarTempoHoras(produto.tempo || 0)} ·
+        ${quantidadeChapa} un./chapa ·
+        Custo/chapa: R$ ${(Number(produto.custoProducaoTotal) || 0).toFixed(2)}<br>
+        Total desta produção: <strong>${quantidadeTotal} un.</strong>
+    `;
 }
 
 async function registrarProducao() {
     const select = document.getElementById('prodSelectProducao');
-    const modeloId = select.value;
-    const quantidadeProducoes = parseInt(document.getElementById('prodQuantidade').value) || 1;
-    const lote = document.getElementById('prodLote').value;
+    const modeloId = select?.value;
+    const quantidadeProducoes = parseInt(document.getElementById('prodQuantidade')?.value, 10) || 1;
+    const lote = document.getElementById('prodLote')?.value || '';
 
-    if (!modeloId) {
-        return alert('Selecione um produto.');
-    }
+    if (!modeloId) return alert('Selecione um produto com receita cadastrada.');
+    if (quantidadeProducoes <= 0) return alert('Quantidade deve ser maior que zero.');
 
-    if (quantidadeProducoes <= 0) {
-        return alert('Quantidade deve ser maior que zero.');
-    }
+    const produto = estoqueProdutosCache.find(p => p._id.toString() === modeloId);
+    if (!produto) return alert('Produto não encontrado.');
+    if (!produtoTemReceita(produto)) return alert('Este produto não possui receita. Cadastre na Calculadora primeiro.');
 
     try {
-        const produto = estoqueProdutosCache.find(p => p._id.toString() === modeloId);
-        if (!produto) {
-            return alert('Produto não encontrado.');
-        }
-
         const quantidadeChapa = produto.quantidadeChapa || 1;
         const quantidadeTotal = quantidadeProducoes * quantidadeChapa;
 
@@ -239,12 +358,9 @@ async function registrarProducao() {
                 await EstoqueModel.findByIdAndUpdate(filamentoId, { gramas: novaQuantidade });
                 filamento.gramas = novaQuantidade;
             }
-            if (typeof atualizarInterface === 'function') {
-                await atualizarInterface();
-            }
+            if (typeof atualizarInterface === 'function') await atualizarInterface();
         }
 
-        // Registrar produção no financeiro (custos de produção)
         const VendaModel = typeof getVendaModel === 'function' ? getVendaModel() : null;
         if (VendaModel) {
             const custoProducaoTotal = produto.custoProducaoTotal || 0;
@@ -253,7 +369,7 @@ async function registrarProducao() {
             const novaProducao = new VendaModel({
                 nome: produto.nome,
                 sku: produto.sku,
-                lucro: -custoTotalProducao, // Produção é custo, não lucro
+                lucro: -custoTotalProducao,
                 bruto: 0,
                 custo: custoTotalProducao,
                 canal: 'producao',
@@ -268,34 +384,29 @@ async function registrarProducao() {
                     embalagem: produto.embalagem || 0,
                     extras: produto.custoExtras || 0,
                     tempoHoras: produto.tempo || 0,
-                    quantidadeChapa: quantidadeChapa
+                    quantidadeChapa
                 },
                 tipo: 'producao'
             });
-
             await novaProducao.save();
         }
 
         if (typeof mostrarToast === 'function') {
-            mostrarToast(`Produção registrada: +${quantidadeTotal} un. (${quantidadeProducoes}x chapa)`);
+            mostrarToast(`Produção registrada: +${quantidadeTotal} un.`);
         }
 
-        // Limpar formulário
         document.getElementById('prodQuantidade').value = 1;
         document.getElementById('prodLote').value = '';
         select.value = '';
         atualizarInfoProducao();
-
-        // Atualizar listas
-        renderizarListaEstoqueProdutos();
-        carregarEstoqueProdutos();
+        await carregarEstoqueProdutos();
     } catch (err) {
         alert('Erro ao registrar produção: ' + err.message);
     }
 }
 
 // ==========================================
-// FUNÇÕES DE INTERFACE - TERMINAL
+// TERMINAL DE VENDAS
 // ==========================================
 
 function buscarProdutoTerminal() {
@@ -307,10 +418,10 @@ function buscarProdutoTerminal() {
         return;
     }
 
-    const resultados = estoqueProdutosCache.filter(p => {
-        return (p.nome && p.nome.toLowerCase().includes(termo)) ||
-               (p.sku && p.sku.toLowerCase().includes(termo));
-    });
+    const resultados = estoqueProdutosCache.filter(p =>
+        (p.nome && p.nome.toLowerCase().includes(termo)) ||
+        (p.sku && p.sku.toLowerCase().includes(termo))
+    );
 
     if (!resultados.length) {
         container.innerHTML = '<p class="empty-msg">Nenhum produto encontrado.</p>';
@@ -333,13 +444,6 @@ function buscarProdutoTerminal() {
     `).join('');
 }
 
-function atualizarTotalVenda() {
-    const quantidade = parseInt(document.getElementById('termQuantidade').value) || 1;
-    const preco = parseFloat(document.getElementById('termProdPreco').textContent.replace('R$', '').trim()) || 0;
-    const total = quantidade * preco;
-    document.getElementById('termTotalVenda').textContent = `R$ ${total.toFixed(2)}`;
-}
-
 function selecionarProdutoTerminal(modeloId) {
     const produto = estoqueProdutosCache.find(p => p._id.toString() === modeloId);
     if (!produto) return;
@@ -350,53 +454,49 @@ function selecionarProdutoTerminal(modeloId) {
     document.getElementById('termProdSKU').textContent = produto.sku || 'Sem SKU';
     document.getElementById('termProdEstoque').textContent = produto.estoque || 0;
     document.getElementById('termProdPreco').textContent = `R$ ${(produto.precoVenda || 0).toFixed(2)}`;
-
     document.getElementById('termResultadoBusca').innerHTML = '';
-    document.getElementById('termFormVenda').style.display = 'block';
+
+    const formVenda = document.getElementById('termFormVenda');
+    if (formVenda) formVenda.style.display = 'block';
 
     atualizarTotalVenda();
 }
 
 function atualizarTotalVenda() {
     if (!produtoSelecionadoTerminal) return;
-
-    const quantidade = parseInt(document.getElementById('termQuantidade').value) || 1;
+    const quantidade = parseInt(document.getElementById('termQuantidade')?.value, 10) || 1;
     const preco = produtoSelecionadoTerminal.precoVenda || 0;
     const total = quantidade * preco;
-
-    document.getElementById('termTotalVenda').textContent = `R$ ${total.toFixed(2)}`;
+    const el = document.getElementById('termTotalVenda');
+    if (el) el.textContent = `R$ ${total.toFixed(2)}`;
 }
 
 function limparTerminal() {
     produtoSelecionadoTerminal = null;
     document.getElementById('termBuscaProduto').value = '';
     document.getElementById('termResultadoBusca').innerHTML = '';
-    document.getElementById('termFormVenda').style.display = 'none';
+    const formVenda = document.getElementById('termFormVenda');
+    if (formVenda) formVenda.style.display = 'none';
     document.getElementById('termQuantidade').value = 1;
     document.getElementById('termCanal').value = 'direta';
     document.getElementById('termPedidoId').value = '';
 }
 
 async function efetuarVendaTerminal() {
-    if (!produtoSelecionadoTerminal) {
-        return alert('Selecione um produto.');
-    }
+    if (!produtoSelecionadoTerminal) return alert('Selecione um produto.');
 
-    const quantidade = parseInt(document.getElementById('termQuantidade').value) || 1;
+    const quantidade = parseInt(document.getElementById('termQuantidade')?.value, 10) || 1;
     const canal = document.getElementById('termCanal').value;
     const pedidoId = document.getElementById('termPedidoId').value;
-
     const estoqueAtual = produtoSelecionadoTerminal.estoque || 0;
 
     if (quantidade > estoqueAtual) {
-        return alert(`Estoque insuficiente. Disponível: ${estoqueAtual}, Solicitado: ${quantidade}`);
+        return alert(`Estoque insuficiente. Disponível: ${estoqueAtual}, solicitado: ${quantidade}`);
     }
 
     try {
-        // Dar baixa no estoque
         await atualizarEstoqueProduto(produtoSelecionadoTerminal._id, quantidade, 'saida');
 
-        // Registrar venda no banco
         const VendaModel = typeof getVendaModel === 'function' ? getVendaModel() : null;
         if (VendaModel) {
             const precoUnitario = produtoSelecionadoTerminal.precoVenda || 0;
@@ -408,9 +508,9 @@ async function efetuarVendaTerminal() {
                 lucro: valorTotal - (produtoSelecionadoTerminal.custoProducao || 0) * quantidade,
                 bruto: valorTotal,
                 custo: (produtoSelecionadoTerminal.custoProducao || 0) * quantidade,
-                canal: canal,
-                quantidade: quantidade,
-                pedidoId: pedidoId,
+                canal,
+                quantidade,
+                pedidoId,
                 detalheCustos: {
                     material: produtoSelecionadoTerminal.custoMat || 0,
                     energia: produtoSelecionadoTerminal.custoEnergia || 0,
@@ -422,16 +522,15 @@ async function efetuarVendaTerminal() {
                     tempoHoras: produtoSelecionadoTerminal.tempo || 0
                 }
             });
-
             await novaVenda.save();
         }
 
         if (typeof mostrarToast === 'function') {
-            mostrarToast(`Venda registrada: -${quantidade} un. de ${produtoSelecionadoTerminal.nome}`);
+            mostrarToast(`Venda registrada: -${quantidade} un.`);
         }
 
         limparTerminal();
-        carregarEstoqueProdutos();
+        await carregarEstoqueProdutos();
         renderizarUltimasVendas();
     } catch (err) {
         alert('Erro ao efetuar venda: ' + err.message);
@@ -439,7 +538,7 @@ async function efetuarVendaTerminal() {
 }
 
 async function renderizarUltimasVendas(filtro = '') {
-    const container = document.getElementById('termUltimasVendas');
+    const container = document.getElementById('termUltimasVendasPanel');
     if (!container) return;
 
     try {
@@ -454,10 +553,7 @@ async function renderizarUltimasVendas(filtro = '') {
         }) : vendas;
 
         const hoje = new Date();
-        const vendasHoje = vendas.filter(v => {
-            const dataVenda = new Date(v.data);
-            return dataVenda.toDateString() === hoje.toDateString();
-        });
+        const vendasHoje = vendas.filter(v => new Date(v.data).toDateString() === hoje.toDateString());
         const totalDia = vendasHoje.reduce((sum, v) => sum + (Number(v.bruto) || 0), 0);
         const qtdeVendida = vendasHoje.reduce((sum, v) => sum + (Number(v.quantidade) || 1), 0);
         const ticketMedio = vendasHoje.length ? totalDia / vendasHoje.length : 0;
@@ -496,20 +592,14 @@ function subNavTerminal(view) {
     const saleView = document.getElementById('termSaleView');
     const historyView = document.getElementById('termHistoryView');
     const buttons = document.querySelectorAll('.term-nav-btn');
-
     if (!saleView || !historyView) return;
 
-    buttons.forEach(btn => {
-        btn.classList.toggle('active', btn.dataset.view === view);
-    });
+    buttons.forEach(btn => btn.classList.toggle('active', btn.dataset.view === view));
 
     if (view === 'movimentacoes') {
         saleView.style.display = 'none';
         historyView.style.display = 'block';
-        if (typeof renderizarUltimasVendas === 'function') {
-            const filtro = document.getElementById('termMovimentoBusca')?.value || '';
-            renderizarUltimasVendas(filtro);
-        }
+        renderizarUltimasVendas(document.getElementById('termMovimentoBuscaPanel')?.value || '');
     } else {
         saleView.style.display = 'block';
         historyView.style.display = 'none';
@@ -517,27 +607,15 @@ function subNavTerminal(view) {
 }
 
 function filtrarMovimentacoesTerminal() {
-    const filtro = document.getElementById('termMovimentoBusca')?.value || '';
-    renderizarUltimasVendas(filtro);
+    renderizarUltimasVendas(document.getElementById('termMovimentoBuscaPanel')?.value || '');
 }
-
-// ==========================================
-// ATUALIZAÇÃO AUTOMÁTICA
-// ==========================================
 
 let autoUpdateInterval = null;
 
 function iniciarAtualizacaoAutomatica() {
-    // Limpar intervalo existente se houver
-    if (autoUpdateInterval) {
-        clearInterval(autoUpdateInterval);
-    }
-    
-    // Limpar cache e atualizar imediatamente
-    estoqueProdutosCache = [];
+    if (autoUpdateInterval) clearInterval(autoUpdateInterval);
     carregarEstoqueProdutos();
-    
-    // Atualizar a cada 5 segundos
+
     autoUpdateInterval = setInterval(() => {
         const secEstoque = document.getElementById('sec-estoque');
         if (!secEstoque || secEstoque.style.display === 'none') return;
@@ -552,34 +630,39 @@ function iniciarAtualizacaoAutomatica() {
             atualizarInterface();
         }
     }, 5000);
-    
-    console.log('Atualização automática iniciada (5 segundos)');
 }
 
 function pararAtualizacaoAutomatica() {
     if (autoUpdateInterval) {
         clearInterval(autoUpdateInterval);
         autoUpdateInterval = null;
-        console.log('Atualização automática parada');
     }
 }
 
-// ==========================================
-// INICIALIZAÇÃO
-// ==========================================
+if (typeof window !== 'undefined') {
+    window.carregarEstoqueProdutos = carregarEstoqueProdutos;
+    window.atualizarSelectProducao = atualizarSelectProducao;
+    window.atualizarInfoProducao = atualizarInfoProducao;
+    window.registrarProducao = registrarProducao;
+    window.buscarProdutoTerminal = buscarProdutoTerminal;
+    window.selecionarProdutoTerminal = selecionarProdutoTerminal;
+    window.efetuarVendaTerminal = efetuarVendaTerminal;
+    window.limparTerminal = limparTerminal;
+    window.filtrarEstoqueProdutos = filtrarEstoqueProdutos;
+    window.filtrarMovimentacoesTerminal = filtrarMovimentacoesTerminal;
+    window.subNavTerminal = subNavTerminal;
+    window.iniciarAtualizacaoAutomatica = iniciarAtualizacaoAutomatica;
+    window.pararAtualizacaoAutomatica = pararAtualizacaoAutomatica;
+    window.salvarProdutoEstoque = salvarProdutoEstoque;
+    window.limparFormProduto = limparFormProduto;
+    window.editarProdutoEstoque = editarProdutoEstoque;
+    window.excluirProdutoEstoque = excluirProdutoEstoque;
+    window.abrirReceitaProduto = abrirReceitaProduto;
+    window.produtoTemReceita = produtoTemReceita;
+}
 
 document.addEventListener('DOMContentLoaded', () => {
-    // Event listener para atualizar total quando quantidade muda
-    const termQuantidade = document.getElementById('termQuantidade');
-    if (termQuantidade) {
-        termQuantidade.addEventListener('input', atualizarTotalVenda);
-    }
-
-    const prodQuantidade = document.getElementById('prodQuantidade');
-    if (prodQuantidade) {
-        prodQuantidade.addEventListener('input', atualizarInfoProducao);
-    }
-    
-    // Iniciar atualização automática
+    document.getElementById('termQuantidade')?.addEventListener('input', atualizarTotalVenda);
+    document.getElementById('prodQuantidade')?.addEventListener('input', atualizarInfoProducao);
     iniciarAtualizacaoAutomatica();
 });

@@ -225,20 +225,21 @@ function renderListaCustosCadastro() {
 }
 
 function subNavControle(painel) {
-    document.querySelectorAll('.controle-subtab').forEach(b => b.classList.remove('active'));
-    document.querySelectorAll('.controle-painel').forEach(p => p.style.display = 'none');
+    document.querySelectorAll('#sec-financeiro .controle-subtab').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('#sec-financeiro .controle-painel').forEach(p => p.style.display = 'none');
 
-    const btn = document.querySelector(`.controle-subtab[data-painel="${painel}"]`);
+    const btn = document.querySelector(`#sec-financeiro .controle-subtab[data-painel="${painel}"]`);
     if (btn) btn.classList.add('active');
     const el = document.getElementById(`painel-${painel}`);
     if (el) el.style.display = 'block';
 
-    if (painel === 'relatorio') atualizarRelatorioFinanceiro();
-    if (painel === 'cadastro') {
+    // Always refresh the financial report
+    if (painel === 'relatorio' || painel === 'cadastro') {
+        atualizarRelatorioFinanceiro();
         carregarCustos();
-        atualizarFormularioCustoCadastro();
     }
 }
+
 
 function filtrarVendasPorPeriodo(vendas, filtro) {
     const agora = new Date();
@@ -266,7 +267,31 @@ function filtrarVendasPorPeriodo(vendas, filtro) {
         return vendas.filter(v => new Date(v.data).getFullYear() === ano);
     }
 
+    if (filtro === 'personalizado') {
+        const startEl = document.getElementById('relDataInicio');
+        const endEl = document.getElementById('relDataFim');
+        const startStr = startEl ? startEl.value : '';
+        const endStr = endEl ? endEl.value : '';
+        if (!startStr && !endStr) return vendas;
+        const inicio = startStr ? new Date(startStr + 'T00:00:00') : null;
+        const fim = endStr ? new Date(endStr + 'T23:59:59') : null;
+        return vendas.filter(v => {
+            const d = new Date(v.data);
+            if (inicio && d < inicio) return false;
+            if (fim && d > fim) return false;
+            return true;
+        });
+    }
+
     return vendas;
+}
+
+function atualizarFiltroPeriodo() {
+    const filtro = document.getElementById('relFiltro')?.value;
+    const periodoPersonalizado = document.getElementById('relPeriodoPersonalizado');
+    if (periodoPersonalizado) {
+        periodoPersonalizado.style.display = filtro === 'personalizado' ? 'flex' : 'none';
+    }
 }
 
 function agregarMetricasVendas(vendas) {
@@ -464,7 +489,6 @@ async function atualizarRelatorioFinanceiro() {
         if (elLucroTotal) elLucroTotal.textContent = formatarMoeda(metricasTotal.lucro);
 
         document.getElementById('relBruto').textContent = formatarMoeda(m.bruto);
-        document.getElementById('relLucro').textContent = formatarMoeda(m.lucro);
         document.getElementById('relCustoVendas').textContent = formatarMoeda(m.custo);
         document.getElementById('relMargem').textContent = margemPeriodo.toFixed(1) + '%';
         document.getElementById('relEstoqueValor').textContent = formatarMoeda(valorEstoqueFilamento);
@@ -483,11 +507,14 @@ async function atualizarRelatorioFinanceiro() {
             compLucro.textContent = `Lucro: ${formatarMoeda(m.lucro)}`;
         }
 
+        const startVal = document.getElementById('relDataInicio')?.value || '';
+        const endVal = document.getElementById('relDataFim')?.value || '';
         const labels = {
             mes_atual: 'Mês atual',
             mes_anterior: 'Mês anterior',
             ano_atual: 'Ano atual',
-            todos: 'Todo o histórico'
+            todos: 'Todo o histórico',
+            personalizado: startVal && endVal ? `${startVal} a ${endVal}` : (startVal || endVal || 'Período personalizado')
         };
         const textoPeriodo = labels[filtro] || filtro;
         const labelPeriodo = document.getElementById('relLabelPeriodo');
@@ -766,6 +793,7 @@ if (typeof window !== 'undefined') {
     window.atualizarFormularioCustoCadastro = atualizarFormularioCustoCadastro;
     window.atualizarPreviewCustoCadastro = atualizarPreviewCustoCadastro;
     window.atualizarRelatorioFinanceiro = atualizarRelatorioFinanceiro;
+    window.atualizarFiltroPeriodo = atualizarFiltroPeriodo;
     window.baixarEstoqueCustosExtras = baixarEstoqueCustosExtras;
     window.renderListaCustosCadastro = renderListaCustosCadastro;
     window.atualizarFormularioCustoCadastroEstoque = atualizarFormularioCustoCadastroEstoque;

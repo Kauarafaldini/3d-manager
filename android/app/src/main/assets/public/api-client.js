@@ -63,7 +63,13 @@
     async function request(method, path, body) {
         const headers = { 'Content-Type': 'application/json' };
         const token = getToken();
-        if (token) headers.Authorization = 'Bearer ' + token;
+        const user = getUser();
+        
+        // Verificar se é usuário de desenvolvimento (sem login)
+        const isDevUser = user && user.id === 'dev-temp';
+        
+        // Só envia token se não for usuário de desenvolvimento
+        if (token && !isDevUser) headers.Authorization = 'Bearer ' + token;
 
         const url = buildUrl(path);
         let res;

@@ -228,9 +228,10 @@ if (typeof window !== 'undefined') {
     window.atualizarOpcoesCanal = atualizarOpcoesCanal;
     window.salvarModeloPadrao = salvarModeloPadrao;
     window.carregarListaModelos = carregarListaModelos;
+    window.vincularProdutoCalculadora = vincularProdutoCalculadora;
+    window.atualizarSelectProdutosCalculadora = atualizarSelectProdutosCalculadora;
     window.getModeloModel = getModeloModel;
     window.getEstoqueModel = getEstoqueModel;
-    window.carregarEstoqueProdutos = carregarEstoqueProdutos;
     window.lancarVendaFinanceiro = lancarVendaFinanceiro;
     window.subNavEstoque = subNavEstoque;
     window.editarEstoque = editarEstoque;
@@ -246,12 +247,15 @@ function atualizarOpcoesCanal() {
 }
 
 function subNavEstoque(painel) {
-    document.querySelectorAll('.controle-subtab').forEach(btn => {
+    const sec = document.getElementById('sec-estoque');
+    if (!sec) return;
+
+    sec.querySelectorAll('.controle-subtab').forEach(btn => {
         btn.classList.remove('active');
         if (btn.dataset.painel === painel) btn.classList.add('active');
     });
 
-    document.querySelectorAll('.controle-painel').forEach(p => {
+    sec.querySelectorAll('.controle-painel').forEach(p => {
         p.style.display = 'none';
     });
 
@@ -744,124 +748,171 @@ function dadosModeloReceita(dados) {
         filamentosUsados: dados.filamentosUsados,
         custoProducao: dados.custoProducao,
         custoProducaoTotal: dados.custoProducaoTotal,
-        venda: dados.venda
+        venda: dados.venda,
+        custoMat: dados.custoMat,
+        custoEnergia: dados.custoEnergia,
+        custoMaquina: dados.custoMaquina,
+        custoTrabalho: dados.custoTrabalho,
+        custoDesgaste: dados.custoDesgaste,
+        custoExtras: dados.custoExtras,
+        custosExtras: dados.custosExtras || [],
+        temReceita: true
     };
 }
 
-async function salvarModeloPadrao() {
-    console.log('=== INICIANDO salvarModeloPadrao ===');
-    if (!bancoOnline()) {
-        console.log('ERRO: Servidor offline');
-        return alert("Servidor offline.");
-    }
+function encontrarProdutoParaReceita(nome, sku, produtoVinculoId) {
+    const cacheModelos = typeof modelosCache !== 'undefined' ? modelosCache : [];
+    const cacheEstoque = typeof estoqueProdutosCache !== 'undefined' ? estoqueProdutosCache : [];
+    const cache = [...cacheModelos];
+    cacheEstoque.forEach(p => {
+        if (!cache.some(m => String(m._id) === String(p._id))) cache.push(p);
+    });
 
-    const nome = document.getElementById('pNome').value;
-    console.log('Nome do produto:', nome);
-    if(!nome) {
-        console.log('ERRO: Nome vazio');
-        return alert("Dê um nome ao item para salvar como modelo padrão.");
+    if (produtoVinculoId) {
+        return cache.find(p => String(p._id) === String(produtoVinculoId));
     }
+    if (sku) {
+        const porSku = cache.find(p => p.sku && p.sku.toLowerCase() === sku.toLowerCase());
+        if (porSku) return porSku;
+    }
+    return cache.find(p => p.nome && p.nome.toLowerCase() === nome.toLowerCase());
+}
+
+function obterTenantIdCriacao() {
+    const user = typeof window !== 'undefined' && window.apiClient?.getUser?.();
+    if (user?.tenantId && user.role === 'super_admin') return user.tenantId;
+    return null;
+}
+
+async function salvarModeloPadrao() {
+    if (!bancoOnline()) return alert('Servidor offline.');
+
+    const nome = document.getElementById('pNome').value?.trim();
+    if (!nome) return alert('Informe o nome do produto para salvar a receita.');
 
     const dados = calcFinanceiro();
-    console.log('Dados calculados:', dados);
     const ModeloModel = getModeloModel();
-    console.log('ModeloModel obtido:', ModeloModel);
+    const produtoVinculoId = document.getElementById('pProdutoEstoqueSelect')?.value || '';
+    const sku = document.getElementById('pSKU').value?.trim() || '';
 
     const filamentosSincronizados = await sincronizarFilamentosReceita(dados.filamentosUsados);
     const payload = dadosModeloReceita({ ...dados, filamentosUsados: filamentosSincronizados });
-    const estoqueInicial = payload.quantidadeChapa;
 
-    const existente = modelosCache.find(m => m.nome.toLowerCase() === nome.toLowerCase());
-    console.log('Modelo existente:', existente);
-    if (existente) {
-        if (!confirm(`Já existe um modelo com o nome "${nome}". Deseja substituí-lo?`)) {
-            return;
-        }
-        try {
-            await ModeloModel.findByIdAndUpdate(existente._id, {
-                nome,
-                ...payload,
-                estoque: existente.estoque > 0 ? existente.estoque : estoqueInicial
-            });
-            console.log('Modelo atualizado com sucesso');
-            await carregarListaModelos();
-            await atualizarInterface();
+    const existente = encontrarProdutoParaReceita(nome, sku, produtoVinculoId)
+        || modelosCache.find(m => m.nome.toLowerCase() === nome.toLowerCase());
 
-            if (typeof carregarEstoqueProdutos === 'function') {
-                await carregarEstoqueProdutos();
-            }
-
-            if (typeof mostrarToast === 'function') {
-                mostrarToast(`Receita atualizada! Produto no estoque: ${existente.estoque > 0 ? existente.estoque : estoqueInicial} un.`);
-            }
-            if (typeof reativarFormularios === 'function') reativarFormularios('#pNome');
-            return;
-        } catch (err) {
-            console.error('Erro ao atualizar modelo:', err);
-            alert("Erro ao atualizar modelo: " + err.message);
-            if (typeof reativarFormularios === 'function') reativarFormularios('#pNome');
-            return;
-        }
+    const jaTemReceita = existente && (
+        typeof produtoTemReceita === 'function' ? produtoTemReceita(existente) : existente.temReceita
+    );
+    if (jaTemReceita && !confirm(`O produto "${existente.nome}" já possui receita. Deseja substituí-la?`)) {
+        return;
     }
 
     try {
-        const modelo = new ModeloModel({
-            nome,
-            estoque: estoqueInicial,
-            ...payload
-        });
+        let savedId = null;
 
-        console.log('Salvando modelo no banco...');
-        await modelo.save();
-        console.log('Modelo salvo com sucesso:', modelo);
+        if (existente) {
+            const updated = await ModeloModel.findByIdAndUpdate(String(existente._id), {
+                nome,
+                ...payload,
+                estoque: existente.estoque || 0,
+                venda: payload.venda || existente.venda || 0
+            });
+            savedId = updated?._id || existente._id;
+            if (typeof mostrarToast === 'function') {
+                mostrarToast(`Receita salva para "${nome}". Estoque mantido em ${existente.estoque || 0} un.`);
+            }
+        } else {
+            const createData = { nome, estoque: 0, ...payload };
+            const tenantId = obterTenantIdCriacao();
+            if (tenantId) createData.tenantId = tenantId;
 
-        await carregarListaModelos();
+            const modelo = new ModeloModel(createData);
+            await modelo.save();
+            savedId = modelo._id;
+            if (typeof mostrarToast === 'function') {
+                mostrarToast(`Produto e receita criados. Estoque inicial: 0 un. Registre a produção no Estoque.`);
+            }
+        }
+
+        await carregarListaModelos(savedId);
         await atualizarInterface();
-
-        if (typeof carregarEstoqueProdutos === 'function') {
-            await carregarEstoqueProdutos();
-        }
-
-        if (typeof mostrarToast === 'function') {
-            mostrarToast(`Receita cadastrada! ${estoqueInicial} un. adicionadas ao estoque de produtos.`);
-        }
         if (typeof reativarFormularios === 'function') reativarFormularios('#pNome');
     } catch (err) {
-        console.error('Erro ao salvar modelo:', err);
-        alert("Erro ao salvar modelo: " + err.message);
+        alert('Erro ao salvar receita: ' + err.message);
         if (typeof reativarFormularios === 'function') reativarFormularios('#pNome');
     }
 }
 
-async function carregarListaModelos() {
-    console.log('=== INICIANDO carregarListaModelos ===');
+async function carregarListaModelos(idReceitaSelecionar = null) {
     try {
         const ModeloModel = getModeloModel();
-        console.log('ModeloModel:', ModeloModel);
         modelosCache = await ModeloModel.find({});
-        console.log('Modelos carregados do banco:', modelosCache.length);
-        const select = document.getElementById('pModeloSelect');
-        if (!select) {
-            console.log('ERRO: Select pModeloSelect não encontrado');
-            return;
-        }
-        select.innerHTML = '<option value="">-- Novo Item Personalizado --</option>';
-        modelosCache.forEach(m => {
-            select.innerHTML += `<option value="${m._id}">${m.nome}</option>`;
-        });
-        console.log('Select atualizado com', modelosCache.length, 'modelos');
 
-        // Atualizar também o cache de estoque de produtos
-        console.log('Verificando se carregarEstoqueProdutos existe:', typeof carregarEstoqueProdutos);
         if (typeof carregarEstoqueProdutos === 'function') {
-            console.log('Chamando carregarEstoqueProdutos...');
             await carregarEstoqueProdutos();
-            console.log('carregarEstoqueProdutos concluído');
         } else {
-            console.log('ERRO: carregarEstoqueProdutos não é uma função');
+            atualizarSelectProdutosCalculadora();
+        }
+
+        const selectReceita = document.getElementById('pModeloSelect');
+        if (selectReceita) {
+            const fonteReceitas = (typeof estoqueProdutosCache !== 'undefined' && estoqueProdutosCache.length)
+                ? estoqueProdutosCache
+                : modelosCache;
+            const comReceita = fonteReceitas.filter(m =>
+                typeof produtoTemReceita === 'function' ? produtoTemReceita(m) : m.temReceita
+            );
+            selectReceita.innerHTML = '<option value="">-- Selecione uma receita --</option>';
+            comReceita.forEach(m => {
+                selectReceita.innerHTML += `<option value="${m._id}">${m.nome}${m.sku ? ` (${m.sku})` : ''}</option>`;
+            });
+
+            if (idReceitaSelecionar) {
+                const idStr = String(idReceitaSelecionar);
+                if (comReceita.some(m => String(m._id) === idStr)) {
+                    selectReceita.value = idStr;
+                    const btnExcluir = document.getElementById('btnExcluirModelo');
+                    if (btnExcluir) btnExcluir.style.display = 'block';
+                }
+            }
         }
     } catch (e) {
-        console.error("Erro ao carregar lista de modelos:", e);
+        console.error('Erro ao carregar lista de modelos:', e);
+    }
+}
+
+function atualizarSelectProdutosCalculadora() {
+    const select = document.getElementById('pProdutoEstoqueSelect');
+    if (!select) return;
+
+    const cache = typeof estoqueProdutosCache !== 'undefined' ? estoqueProdutosCache : modelosCache;
+    select.innerHTML = '<option value="">-- Novo produto (criar ao salvar receita) --</option>';
+    cache.forEach(p => {
+        const temReceita = typeof produtoTemReceita === 'function' ? produtoTemReceita(p) : p.temReceita;
+        const sufixo = temReceita ? ' · com receita' : '';
+        select.innerHTML += `<option value="${p._id}">${p.nome}${p.sku ? ` (${p.sku})` : ''}${sufixo}</option>`;
+    });
+}
+
+function vincularProdutoCalculadora() {
+    const id = document.getElementById('pProdutoEstoqueSelect')?.value;
+    if (!id) return;
+
+    const cache = typeof estoqueProdutosCache !== 'undefined' ? estoqueProdutosCache : modelosCache;
+    const produto = cache.find(p => p._id.toString() === id);
+    if (!produto) return;
+
+    document.getElementById('pNome').value = produto.nome || '';
+    document.getElementById('pSKU').value = produto.sku || '';
+    document.getElementById('pVenda').value = produto.venda || produto.precoVenda || 0;
+
+    const temReceita = typeof produtoTemReceita === 'function' ? produtoTemReceita(produto) : produto.temReceita;
+    if (temReceita) {
+        document.getElementById('pModeloSelect').value = id;
+        carregarModeloPadrao();
+    } else if (typeof calcFinanceiro === 'function') {
+        calcFinanceiro(false);
     }
 }
 
@@ -900,6 +951,15 @@ function carregarModeloPadrao() {
                 adicionarLinhaFilamento({ peso: m.peso, precoKg: m.precoKg, estoqueId: null });
             } else {
                 adicionarLinhaFilamento();
+            }
+        }
+
+        // Reload custos extras
+        const containerExtras = document.getElementById('container-custos-extras-linhas');
+        if (containerExtras) {
+            containerExtras.innerHTML = '';
+            if (m.custosExtras && m.custosExtras.length > 0 && typeof adicionarLinhaCustoExtra === 'function') {
+                m.custosExtras.forEach(c => adicionarLinhaCustoExtra(c));
             }
         }
 
@@ -979,7 +1039,7 @@ async function atualizarInterface() {
         if (typeof atualizarTodosSelectsCustoExtra === 'function') {
             atualizarTodosSelectsCustoExtra();
         }
-        if (document.getElementById('sec-controle')?.style.display !== 'none') {
+        if (document.getElementById('sec-financeiro')?.style.display !== 'none') {
             if (typeof atualizarRelatorioFinanceiro === 'function') atualizarRelatorioFinanceiro();
         }
         garantirCamposEditaveis();

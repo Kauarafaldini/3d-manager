@@ -46,9 +46,36 @@ function shopeePctTotal(cfg) {
 
 function mlTaxaFixaPorVenda(venda, cfg) {
     if (venda <= 0) return 0;
-    if (cfg.freteGratis && venda >= cfg.limiteFixo) return cfg.custoFrete;
-    if (venda < cfg.limiteFixo) return cfg.taxaFixa;
-    return 0;
+    // Com frete grátis:
+    //   - Acima do limite: cobra o custo do frete ao invés da taxa fixa
+    //   - Abaixo do limite: cobra a taxa fixa normal (R$6,50)
+    if (cfg.freteGratis) {
+        return venda >= cfg.limiteFixo ? cfg.custoFrete : cfg.taxaFixa;
+    }
+    // Sem frete grátis: só a taxa fixa abaixo do limite
+    return venda < cfg.limiteFixo ? cfg.taxaFixa : 0;
+}
+
+function calcularVendaML(custoELucro, cfg) {
+    const pct = mlPctTotal(cfg);
+    if (pct >= 1) return 0;
+
+    // Cenário com frete grátis:
+    if (cfg.freteGratis) {
+        // Tenta aplicar com frete (acima de R$79)
+        const comFrete = (custoELucro + cfg.custoFrete) / (1 - pct);
+        if (comFrete >= cfg.limiteFixo) return Math.max(0, comFrete);
+        // Se não cheegar em R$79, aplica a taxa fixa normal
+        const comFixo = (custoELucro + cfg.taxaFixa) / (1 - pct);
+        return Math.max(0, comFixo);
+    }
+
+    // Sem frete grátis: abaixo do limite há taxa fixa
+    const comFixo = (custoELucro + cfg.taxaFixa) / (1 - pct);
+    const semFixo = custoELucro / (1 - pct);
+    // Se o preço resultante sem a taxa fixa já ultrapassa o limite, não há taxa
+    if (semFixo >= cfg.limiteFixo) return Math.max(0, semFixo);
+    return Math.max(0, comFixo);
 }
 
 function shopeeTaxaFixaPorVenda(venda, cfg) {
@@ -62,18 +89,6 @@ function shopeeTaxaFixaPorVenda(venda, cfg) {
     if (venda < 100) return 16;
     if (venda < 200) return 20;
     return 26;
-}
-
-function calcularVendaML(custoELucro, cfg) {
-    const pct = mlPctTotal(cfg);
-    if (pct >= 1) return 0;
-
-    const comFixo = (custoELucro + cfg.taxaFixa) / (1 - pct);
-    if (!cfg.freteGratis) return Math.max(0, comFixo);
-
-    const comFrete = (custoELucro + cfg.custoFrete) / (1 - pct);
-    if (comFrete >= cfg.limiteFixo) return comFrete;
-    return Math.max(0, comFixo);
 }
 
 function calcularVendaShopee(custoELucro, cfg) {
