@@ -116,36 +116,6 @@ async function loginApp() {
     }
 }
 
-async function entrarSemLogin() {
-    const apiUrl = document.getElementById('authApiUrl')?.value?.trim();
-    if (apiUrl) window.APP_CONFIG.setApiUrl(apiUrl);
-
-    if (!window.APP_CONFIG.getApiUrl()) {
-        return alert('Informe a URL completa da API antes de tentar conectar (ex: http://10.0.0.197:5657).');
-    }
-
-    if (!(await tentarConectarApi())) {
-        return alert('Não foi possível conectar ao servidor. Confira a URL da API e se o servidor está rodando.');
-    }
-
-    // Criar usuário temporário para desenvolvimento
-    const tempUser = {
-        id: 'dev-temp',
-        nome: 'Desenvolvedor',
-        email: 'dev@temp.local',
-        role: 'super_admin',
-        tenantId: '000000000000000000000000',
-        empresa: 'DEV',
-        ativo: true,
-        lastOnline: new Date()
-    };
-
-    sessaoUsuario = tempUser;
-    window.apiClient.setUser(tempUser);
-    
-    // Não setar token, pois não há autenticação
-    await entrarNoApp();
-}
 
 async function registrarCliente() {
     const nome = document.getElementById('regNome').value.trim();

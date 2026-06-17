@@ -8,12 +8,14 @@ let produtoSelecionadoTerminal = null;
 function produtoTemReceita(produto) {
     if (!produto) return false;
     if (produto.temReceita === true) return true;
-    return Boolean(
+    const temDados = Boolean(
         produto.filamentosUsados?.length > 0 ||
         Number(produto.tempo) > 0 ||
         Number(produto.custoProducaoTotal) > 0 ||
         Number(produto.custoProducao) > 0
     );
+    console.log('produtoTemReceita - produto:', produto.nome, 'temReceita:', produto.temReceita, 'temDados:', temDados, 'filamentos:', produto.filamentosUsados?.length, 'tempo:', produto.tempo, 'custoProducaoTotal:', produto.custoProducaoTotal);
+    return temDados;
 }
 
 function formatarTempoHoras(horas) {
@@ -33,12 +35,14 @@ async function carregarEstoqueProdutos() {
         if (!ModeloModel) return;
 
         const modelos = await ModeloModel.find().lean();
+        console.log('carregarEstoqueProdutos - modelos carregados:', modelos.length);
         estoqueProdutosCache = modelos.map(m => ({
             ...m,
             estoque: m.estoque || 0,
             precoVenda: m.venda || 0,
             temReceita: produtoTemReceita(m)
         }));
+        console.log('carregarEstoqueProdutos - cache atualizado, produtos com receita:', estoqueProdutosCache.filter(p => p.temReceita).length);
 
         renderizarListaEstoqueProdutos();
         atualizarResumoEstoqueProdutos();
@@ -286,6 +290,7 @@ function atualizarSelectProducao() {
     if (!select) return;
 
     const comReceita = estoqueProdutosCache.filter(produtoTemReceita);
+    console.log('atualizarSelectProducao - produtos no cache:', estoqueProdutosCache.length, 'com receita:', comReceita.length);
     select.innerHTML = '<option value="">Selecione um produto com receita</option>' +
         comReceita.map(p => `
             <option value="${p._id}">${p.nome}${p.sku ? ` (${p.sku})` : ''}</option>
