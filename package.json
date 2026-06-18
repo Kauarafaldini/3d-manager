@@ -30,6 +30,7 @@
     "dotenv": "^16.6.1",
     "electron": "^41.0.3",
     "express": "^4.22.2",
+    "git-filter-repo": "^0.0.30",
     "jsonwebtoken": "^9.0.3",
     "mongodb": "^7.2.0",
     "mongoose": "^9.6.3"
