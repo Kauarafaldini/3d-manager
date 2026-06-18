@@ -8,14 +8,13 @@ let produtoSelecionadoTerminal = null;
 function produtoTemReceita(produto) {
     if (!produto) return false;
     if (produto.temReceita === true) return true;
-    const temDados = Boolean(
+    return Boolean(
         produto.filamentosUsados?.length > 0 ||
         Number(produto.tempo) > 0 ||
         Number(produto.custoProducaoTotal) > 0 ||
-        Number(produto.custoProducao) > 0
+        Number(produto.custoProducao) > 0 ||
+        (Number(produto.peso) > 0 && Number(produto.precoKg) > 0)
     );
-    console.log('produtoTemReceita - produto:', produto.nome, 'temReceita:', produto.temReceita, 'temDados:', temDados, 'filamentos:', produto.filamentosUsados?.length, 'tempo:', produto.tempo, 'custoProducaoTotal:', produto.custoProducaoTotal);
-    return temDados;
 }
 
 function formatarTempoHoras(horas) {
@@ -35,14 +34,13 @@ async function carregarEstoqueProdutos() {
         if (!ModeloModel) return;
 
         const modelos = await ModeloModel.find().lean();
-        console.log('carregarEstoqueProdutos - modelos carregados:', modelos.length);
         estoqueProdutosCache = modelos.map(m => ({
             ...m,
             estoque: m.estoque || 0,
             precoVenda: m.venda || 0,
             temReceita: produtoTemReceita(m)
         }));
-        console.log('carregarEstoqueProdutos - cache atualizado, produtos com receita:', estoqueProdutosCache.filter(p => p.temReceita).length);
+        window.estoqueProdutosCache = estoqueProdutosCache;
 
         renderizarListaEstoqueProdutos();
         atualizarResumoEstoqueProdutos();
@@ -190,8 +188,18 @@ function abrirReceitaProduto(id) {
         nav('calculadora', btnCalc);
     }
 
-    const selectProduto = document.getElementById('pProdutoEstoqueSelect');
-    if (selectProduto) selectProduto.value = id;
+    if (typeof definirVinculoProdutoReceita === 'function') {
+        definirVinculoProdutoReceita(id);
+    } else {
+        const selectProduto = document.getElementById('pProdutoEstoqueSelect');
+        if (selectProduto) selectProduto.value = id;
+        const hiddenVinculo = document.getElementById('pProdutoVinculoId');
+        if (hiddenVinculo) hiddenVinculo.value = id;
+    }
+
+    if (typeof atualizarSelectProdutosCalculadora === 'function') {
+        atualizarSelectProdutosCalculadora();
+    }
 
     if (produtoTemReceita(produto) && typeof carregarModeloPadrao === 'function') {
         const selectReceita = document.getElementById('pModeloSelect');
@@ -290,7 +298,6 @@ function atualizarSelectProducao() {
     if (!select) return;
 
     const comReceita = estoqueProdutosCache.filter(produtoTemReceita);
-    console.log('atualizarSelectProducao - produtos no cache:', estoqueProdutosCache.length, 'com receita:', comReceita.length);
     select.innerHTML = '<option value="">Selecione um produto com receita</option>' +
         comReceita.map(p => `
             <option value="${p._id}">${p.nome}${p.sku ? ` (${p.sku})` : ''}</option>
@@ -414,19 +421,9 @@ async function registrarProducao() {
 // TERMINAL DE VENDAS
 // ==========================================
 
-function buscarProdutoTerminal() {
-    const termo = document.getElementById('termBuscaProduto').value.toLowerCase().trim();
+function renderizarResultadosTerminal(resultados) {
     const container = document.getElementById('termResultadoBusca');
-
-    if (!termo) {
-        container.innerHTML = '';
-        return;
-    }
-
-    const resultados = estoqueProdutosCache.filter(p =>
-        (p.nome && p.nome.toLowerCase().includes(termo)) ||
-        (p.sku && p.sku.toLowerCase().includes(termo))
-    );
+    if (!container) return;
 
     if (!resultados.length) {
         container.innerHTML = '<p class="empty-msg">Nenhum produto encontrado.</p>';
@@ -440,6 +437,7 @@ function buscarProdutoTerminal() {
                 <span>${p.sku || 'Sem SKU'}</span>
                 <small style="color:#64748b;display:block;margin-top:4px;">
                     Estoque: ${p.estoque || 0} un. · Preço: R$ ${(p.precoVenda || 0).toFixed(2)}
+                    ${produtoTemReceita(p) ? '' : ' · <em style="color:#94a3b8;">sem receita</em>'}
                 </small>
             </div>
             <div class="item-actions">
@@ -447,6 +445,22 @@ function buscarProdutoTerminal() {
             </div>
         </div>
     `).join('');
+}
+
+function buscarProdutoTerminal() {
+    const termo = document.getElementById('termBuscaProduto').value.toLowerCase().trim();
+
+    if (!termo) {
+        renderizarResultadosTerminal(estoqueProdutosCache);
+        return;
+    }
+
+    const resultados = estoqueProdutosCache.filter(p =>
+        (p.nome && p.nome.toLowerCase().includes(termo)) ||
+        (p.sku && p.sku.toLowerCase().includes(termo))
+    );
+
+    renderizarResultadosTerminal(resultados);
 }
 
 function selecionarProdutoTerminal(modeloId) {
@@ -479,12 +493,12 @@ function atualizarTotalVenda() {
 function limparTerminal() {
     produtoSelecionadoTerminal = null;
     document.getElementById('termBuscaProduto').value = '';
-    document.getElementById('termResultadoBusca').innerHTML = '';
     const formVenda = document.getElementById('termFormVenda');
     if (formVenda) formVenda.style.display = 'none';
     document.getElementById('termQuantidade').value = 1;
     document.getElementById('termCanal').value = 'direta';
     document.getElementById('termPedidoId').value = '';
+    renderizarResultadosTerminal(estoqueProdutosCache);
 }
 
 async function efetuarVendaTerminal() {

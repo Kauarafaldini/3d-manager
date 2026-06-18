@@ -71,6 +71,7 @@ function nav(tab, btn) {
 
     if (tab === 'calculadora') {
         if (typeof carregarCustos === 'function') carregarCustos();
+        if (typeof carregarListaModelos === 'function') carregarListaModelos();
         atualizarOpcoesCanal();
         
         // Atualizar o cache de estoque ao abrir a calculadora
@@ -108,10 +109,20 @@ function nav(tab, btn) {
     }
 
     if (tab === 'terminal') {
-        if (typeof carregarEstoqueProdutos === 'function') carregarEstoqueProdutos();
+        produtoSelecionadoTerminal = null;
+        document.getElementById('termBuscaProduto').value = '';
+        const formVenda = document.getElementById('termFormVenda');
+        if (formVenda) formVenda.style.display = 'none';
+        document.getElementById('termQuantidade').value = 1;
+        document.getElementById('termCanal').value = 'direta';
+        document.getElementById('termPedidoId').value = '';
+        if (typeof carregarEstoqueProdutos === 'function') {
+            carregarEstoqueProdutos().then(() => {
+                if (typeof buscarProdutoTerminal === 'function') buscarProdutoTerminal();
+            });
+        }
         if (typeof renderizarUltimasVendas === 'function') renderizarUltimasVendas();
         if (typeof subNavTerminal === 'function') subNavTerminal('venda');
-        limparTerminal();
     }
 
     if (tab === 'estoque') {
@@ -229,6 +240,8 @@ if (typeof window !== 'undefined') {
     window.salvarModeloPadrao = salvarModeloPadrao;
     window.carregarListaModelos = carregarListaModelos;
     window.vincularProdutoCalculadora = vincularProdutoCalculadora;
+    window.definirVinculoProdutoReceita = definirVinculoProdutoReceita;
+    window.limparVinculoProdutoReceita = limparVinculoProdutoReceita;
     window.atualizarSelectProdutosCalculadora = atualizarSelectProdutosCalculadora;
     window.getModeloModel = getModeloModel;
     window.getEstoqueModel = getEstoqueModel;
@@ -760,6 +773,18 @@ function dadosModeloReceita(dados) {
     };
 }
 
+function definirVinculoProdutoReceita(id) {
+    const idStr = id ? String(id) : '';
+    const hidden = document.getElementById('pProdutoVinculoId');
+    const select = document.getElementById('pProdutoEstoqueSelect');
+    if (hidden) hidden.value = idStr;
+    if (select) select.value = idStr;
+}
+
+function limparVinculoProdutoReceita() {
+    definirVinculoProdutoReceita('');
+}
+
 function encontrarProdutoParaReceita(nome, sku, produtoVinculoId) {
     const cacheModelos = typeof modelosCache !== 'undefined' ? modelosCache : [];
     const cacheEstoque = typeof estoqueProdutosCache !== 'undefined' ? estoqueProdutosCache : [];
@@ -792,14 +817,22 @@ async function salvarModeloPadrao() {
 
     const dados = calcFinanceiro();
     const ModeloModel = getModeloModel();
-    const produtoVinculoId = document.getElementById('pProdutoEstoqueSelect')?.value || '';
+    const produtoVinculoId = document.getElementById('pProdutoVinculoId')?.value
+        || document.getElementById('pProdutoEstoqueSelect')?.value
+        || '';
     const sku = document.getElementById('pSKU').value?.trim() || '';
 
     const filamentosSincronizados = await sincronizarFilamentosReceita(dados.filamentosUsados);
     const payload = dadosModeloReceita({ ...dados, filamentosUsados: filamentosSincronizados });
 
-    const existente = encontrarProdutoParaReceita(nome, sku, produtoVinculoId)
-        || modelosCache.find(m => m.nome.toLowerCase() === nome.toLowerCase());
+    let existente = encontrarProdutoParaReceita(nome, sku, produtoVinculoId);
+    if (!existente && produtoVinculoId) {
+        const cache = typeof estoqueProdutosCache !== 'undefined' ? estoqueProdutosCache : modelosCache;
+        existente = cache.find(p => String(p._id) === String(produtoVinculoId));
+    }
+    if (!existente) {
+        existente = modelosCache.find(m => m.nome && m.nome.toLowerCase() === nome.toLowerCase());
+    }
 
     const jaTemReceita = existente && (
         typeof produtoTemReceita === 'function' ? produtoTemReceita(existente) : existente.temReceita
@@ -835,8 +868,10 @@ async function salvarModeloPadrao() {
             }
         }
 
+        definirVinculoProdutoReceita(savedId);
         await carregarListaModelos(savedId);
         await atualizarInterface();
+        if (typeof atualizarSelectProducao === 'function') atualizarSelectProducao();
         if (typeof reativarFormularios === 'function') reativarFormularios('#pNome');
     } catch (err) {
         alert('Erro ao salvar receita: ' + err.message);
@@ -897,7 +932,12 @@ function atualizarSelectProdutosCalculadora() {
 
 function vincularProdutoCalculadora() {
     const id = document.getElementById('pProdutoEstoqueSelect')?.value;
-    if (!id) return;
+    if (!id) {
+        limparVinculoProdutoReceita();
+        return;
+    }
+
+    definirVinculoProdutoReceita(id);
 
     const cache = typeof estoqueProdutosCache !== 'undefined' ? estoqueProdutosCache : modelosCache;
     const produto = cache.find(p => p._id.toString() === id);
@@ -911,8 +951,11 @@ function vincularProdutoCalculadora() {
     if (temReceita) {
         document.getElementById('pModeloSelect').value = id;
         carregarModeloPadrao();
-    } else if (typeof calcFinanceiro === 'function') {
-        calcFinanceiro(false);
+    } else {
+        document.getElementById('pModeloSelect').value = '';
+        const btnExcluir = document.getElementById('btnExcluirModelo');
+        if (btnExcluir) btnExcluir.style.display = 'none';
+        if (typeof calcFinanceiro === 'function') calcFinanceiro(false);
     }
 }
 
@@ -922,10 +965,12 @@ function carregarModeloPadrao() {
 
     if(!id) {
         if (btnExcluir) btnExcluir.style.display = 'none';
+        limparVinculoProdutoReceita();
         return; 
     }
     
     if (btnExcluir) btnExcluir.style.display = 'block';
+    definirVinculoProdutoReceita(id);
 
     const m = modelosCache.find(mod => mod._id.toString() === id);
     if(m) {

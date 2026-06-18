@@ -225,6 +225,16 @@
                         </div>
                     </div>
 
+                    <input type="hidden" id="pProdutoVinculoId" value="">
+
+                    <div class="input-container full" style="margin-bottom: 15px;">
+                        <label>Vincular ao produto do estoque</label>
+                        <select id="pProdutoEstoqueSelect" onchange="vincularProdutoCalculadora()">
+                            <option value="">-- Novo produto (criar ao salvar receita) --</option>
+                        </select>
+                        <small style="font-size:9px;color:#64748b;">Selecione um produto já cadastrado no estoque para salvar a receita nele, em vez de criar um registro duplicado.</small>
+                    </div>
+
                     <div class="grid-form">
                         <div class="input-container full">
                             <label>Nome do Item</label>
