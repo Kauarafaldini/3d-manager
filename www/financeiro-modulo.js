@@ -368,7 +368,7 @@ function adicionarLinhaCustoExtra(dados = null) {
     row.className = 'linha-custo-extra';
 
     let opts = '<option value="">-- Selecione um custo cadastrado --</option>';
-    custosCache.filter(custoUsavelNaPeca).forEach(c => {
+    custosCache.filter(c => custoUsavelNaPeca(c)).forEach(c => {
         const unit = c.custoUnitario || calcularCustoUnitario(c);
         opts += `<option value="${idCusto(c)}">${c.nome} (${formatarMoeda(unit)}/${c.unidade})</option>`;
     });
@@ -424,7 +424,7 @@ function atualizarTodosSelectsCustoExtra() {
         const qtd = qtdInput.value;
 
         let opts = '<option value="">-- Selecione um custo cadastrado --</option>';
-        custosCache.filter(custoUsavelNaPeca).forEach(c => {
+        custosCache.filter(c => custoUsavelNaPeca(c)).forEach(c => {
             const unit = c.custoUnitario || calcularCustoUnitario(c);
             opts += `<option value="${idCusto(c)}">${c.nome} (${formatarMoeda(unit)}/${c.unidade})</option>`;
         });

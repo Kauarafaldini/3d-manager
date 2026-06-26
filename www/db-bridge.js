@@ -45,7 +45,7 @@
             }
             const body = { ...this, _id: undefined, _isNew: undefined };
             const user = window.apiClient?.getUser?.();
-            if (user?.tenantId && user.role === 'super_admin' && !body.tenantId) {
+            if (user?.tenantId && !body.tenantId) {
                 body.tenantId = user.tenantId;
             }
             const created = await window.apiClient.post(path, body);
@@ -99,7 +99,12 @@
         };
 
         ModelConstructor.create = async function (doc) {
-            const created = await window.apiClient.post(path, doc);
+            const body = { ...doc };
+            const user = window.apiClient?.getUser?.();
+            if (user?.tenantId && !body.tenantId) {
+                body.tenantId = user.tenantId;
+            }
+            const created = await window.apiClient.post(path, body);
             return wrapDoc(path, created);
         };
 

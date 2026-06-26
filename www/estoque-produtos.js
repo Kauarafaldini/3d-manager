@@ -34,6 +34,7 @@ async function carregarEstoqueProdutos() {
         if (!ModeloModel) return;
 
         const modelos = await ModeloModel.find().lean();
+        console.log('[estoque-produtos] Modelos recebidos do banco:', modelos.length);
         estoqueProdutosCache = modelos.map(m => ({
             ...m,
             estoque: m.estoque || 0,
@@ -41,6 +42,7 @@ async function carregarEstoqueProdutos() {
             temReceita: produtoTemReceita(m)
         }));
         window.estoqueProdutosCache = estoqueProdutosCache;
+        console.log('[estoque-produtos] Cache atualizado com', estoqueProdutosCache.length, 'produtos');
 
         renderizarListaEstoqueProdutos();
         atualizarResumoEstoqueProdutos();
@@ -222,6 +224,8 @@ function abrirReceitaProduto(id) {
 function renderizarListaEstoqueProdutos(filtro = '') {
     const tbody = document.getElementById('lista-estoque-produtos');
     const emptyMsg = document.getElementById('estoqueListaVazia');
+    console.log('[renderizarListaEstoqueProdutos] tbody encontrado:', !!tbody);
+    console.log('[renderizarListaEstoqueProdutos] Cache tamanho:', estoqueProdutosCache.length);
     if (!tbody) return;
 
     const termo = filtro.toLowerCase();
@@ -230,6 +234,7 @@ function renderizarListaEstoqueProdutos(filtro = '') {
         return (p.nome && p.nome.toLowerCase().includes(termo)) ||
             (p.sku && p.sku.toLowerCase().includes(termo));
     });
+    console.log('[renderizarListaEstoqueProdutos] Produtos filtrados:', produtosFiltrados.length);
 
     if (!produtosFiltrados.length) {
         tbody.innerHTML = '';
@@ -271,6 +276,7 @@ function renderizarListaEstoqueProdutos(filtro = '') {
         `;
     }).join('');
 
+    console.log('[renderizarListaEstoqueProdutos] Renderização concluída');
     atualizarResumoEstoqueProdutos(produtosFiltrados);
 }
 
@@ -297,7 +303,7 @@ function atualizarSelectProducao() {
     const select = document.getElementById('prodSelectProducao');
     if (!select) return;
 
-    const comReceita = estoqueProdutosCache.filter(produtoTemReceita);
+    const comReceita = estoqueProdutosCache.filter(p => produtoTemReceita(p));
     select.innerHTML = '<option value="">Selecione um produto com receita</option>' +
         comReceita.map(p => `
             <option value="${p._id}">${p.nome}${p.sku ? ` (${p.sku})` : ''}</option>

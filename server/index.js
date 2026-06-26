@@ -118,7 +118,9 @@ function sanitizeUser(u) {
 function getTenantId(req) {
     if (req.user.role === 'super_admin') {
         const t = req.query.tenantId || req.body?.tenantId;
-        return t ? new mongoose.Types.ObjectId(t) : null;
+        if (t) return new mongoose.Types.ObjectId(t);
+        if (req.user.tenantId) return new mongoose.Types.ObjectId(req.user.tenantId);
+        return null;
     }
     return new mongoose.Types.ObjectId(req.user.tenantId);
 }
