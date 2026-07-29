@@ -314,28 +314,33 @@
                             </select>
                         </div>
                         <div id="opcoes-shopee" class="full config-canal" style="display:none;">
-                            <p class="canal-hint">Conforme a central do vendedor Shopee: comissão por categoria, programa Frete Grátis (+2%) e taxa fixa por faixa de preço (tabela oficial).</p>
+                            <p class="canal-hint">Shopee 2026: comissão escalonada por faixa de preço (50%/20%/14%), Frete Grátis obrigatório (+2%) e taxa fixa por faixa (tabela oficial).</p>
                             <div class="grid-form">
                                 <div class="input-container full" style="display:flex;flex-direction:row;align-items:center;gap:8px;">
-                                    <input type="checkbox" id="shopeeFreteGratis" onchange="calcFinanceiro(false)" style="width:auto;transform:scale(1.2);">
-                                    <label for="shopeeFreteGratis" style="cursor:pointer;text-transform:none;font-size:11px;">Programa Frete Grátis (+2% na comissão)</label>
+                                    <input type="checkbox" id="shopeeFreteGratis" checked disabled style="width:auto;transform:scale(1.2);">
+                                    <label for="shopeeFreteGratis" style="cursor:default;text-transform:none;font-size:11px;color:#94a3b8;">Programa Frete Grátis (+2% na comissão) — <b style="color:#f59e0b;">obrigatório desde 03/2026</b></label>
                                 </div>
                                 <div class="input-container">
-                                    <label>Comissão base (%)</label>
+                                    <label>Comissão faixa ≥ R$ 80 (%)</label>
                                     <input type="number" step="0.1" id="shopeeComissao" value="14" oninput="calcFinanceiro(false)">
-                                    <small style="font-size:9px;color:#64748b;">Varia por categoria — confira no painel Shopee</small>
+                                    <small style="font-size:9px;color:#64748b;">Padrão 14%. Faixas menores usam tabela fixa (50% até R$8 / 20% R$8–79). Ajuste aqui se sua categoria tiver taxa diferente.</small>
                                 </div>
                                 <div class="input-container full" style="display:flex;flex-direction:row;align-items:center;gap:8px;">
-                                    <input type="checkbox" id="shopeeTabelaOficial" onchange="atualizarInterfaceCanais(); calcFinanceiro(false)" style="width:auto;transform:scale(1.2);">
-                                    <label for="shopeeTabelaOficial" style="cursor:pointer;text-transform:none;font-size:11px;">Usar tabela oficial de taxa fixa (faixas R$ 4 / 16 / 20 / 26)</label>
+                                    <input type="checkbox" id="shopeeTabelaOficial" checked onchange="atualizarInterfaceCanais(); calcFinanceiro(false)" style="width:auto;transform:scale(1.2);">
+                                    <label for="shopeeTabelaOficial" style="cursor:pointer;text-transform:none;font-size:11px;">Usar tabela oficial de comissão e taxa fixa por faixa de preço</label>
                                 </div>
-                                <div id="shopee-bloco-tabela" class="input-container full" style="display:none;">
-                                    <small style="color:#94a3b8;">&lt; R$8: 50% do preço · R$8–79: R$4 · R$80–99: R$16 · R$100–199: R$20 · ≥ R$200: R$26</small>
+                                <div id="shopee-bloco-tabela" class="input-container full">
+                                    <small style="color:#94a3b8;line-height:1.6;">
+                                        <b>Comissão + Taxa Fixa por faixa:</b><br>
+                                        &lt; R$8: 50% + R$0 · R$8–79: 20% + R$4 · R$80–99: 14% + R$16<br>
+                                        R$100–199: 14% + R$20 · R$200–499: 14% + R$26 · ≥ R$500: 14% + R$26<br>
+                                        <b style="color:#60a5fa;">Subsídio Pix:</b> 5% (R$80–499) · 8% (≥R$500) — <i>informativo</i>
+                                    </small>
                                 </div>
                                 <div class="input-container">
                                     <label>Taxa fixa manual (R$)</label>
                                     <input type="number" step="0.01" id="shopeeFixo" value="4.00" oninput="calcFinanceiro(false)">
-                                    <small style="font-size:9px;color:#64748b;">Se não usar tabela oficial</small>
+                                    <small style="font-size:9px;color:#64748b;">Usada apenas se a tabela oficial estiver desabilitada</small>
                                 </div>
                                 <div class="input-container">
                                     <label>Isenta taxa fixa se preço ≥ (R$)</label>
@@ -345,7 +350,7 @@
                         </div>
 
                         <div id="opcoes-ml" class="full config-canal" style="display:none;">
-                            <p class="canal-hint">Mercado Livre: tipo de anúncio (Clássico ~13% / Premium ~19%), comissão da sua categoria, taxa fixa R$ 6,50 (&lt; R$ 79) e custo de frete grátis quando aplicável.</p>
+                            <p class="canal-hint">Mercado Livre 2026: Clássico (~10-14%) / Premium (~15-19%). Taxa fixa varia por peso/dimensão (padrão R$ 6,50). Itens &lt; R$ 12,50: taxa = 50% do valor.</p>
                             <div class="grid-form">
                                 <div class="input-container">
                                     <label>Tipo de anúncio</label>
@@ -357,12 +362,12 @@
                                 <div class="input-container highlight-box">
                                     <label>Comissão ML (%)</label>
                                     <input type="number" step="0.1" id="mlComissao" value="13" oninput="onMlComissaoManual(); calcFinanceiro(false)">
-                                    <small style="font-size:9px;color:#64748b;">Confira em Custos por vender no ML</small>
+                                    <small style="font-size:9px;color:#64748b;">Confira em Custos por vender no ML. Varia por categoria.</small>
                                 </div>
                                 <div class="input-container">
                                     <label>Taxa fixa (R$)</label>
                                     <input type="number" step="0.01" id="mlFixo" value="6.50" oninput="calcFinanceiro(false)">
-                                    <small style="font-size:9px;color:#64748b;">Padrão: R$ 6,50 em vendas &lt; R$ 79</small>
+                                    <small style="font-size:9px;color:#64748b;">Desde 2026 varia por peso/dimensão. R$ 6,50 é referência para itens leves. Itens &lt; R$ 12,50 usam 50% do valor automaticamente.</small>
                                 </div>
                                 <div class="input-container">
                                     <label>Limite para taxa fixa (R$)</label>

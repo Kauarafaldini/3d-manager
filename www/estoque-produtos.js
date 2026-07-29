@@ -527,12 +527,30 @@ async function efetuarVendaTerminal() {
             const precoUnitario = produtoSelecionadoTerminal.precoVenda || 0;
             const valorTotal = quantidade * precoUnitario;
 
+            // Calcular taxas de marketplace para descontar do lucro
+            let taxaComissao = 0;
+            let taxaFixa = 0;
+            if (canal === 'shopee' && typeof resolverTaxasShopee === 'function') {
+                const cfg = typeof obterConfigShopee === 'function' ? obterConfigShopee() : {};
+                const t = resolverTaxasShopee(precoUnitario, cfg);
+                taxaComissao = t.valorComissao * quantidade;
+                taxaFixa = t.taxaFixa * quantidade;
+            } else if (canal === 'ml' && typeof resolverTaxasML === 'function') {
+                const cfg = typeof obterConfigML === 'function' ? obterConfigML() : {};
+                const t = resolverTaxasML(precoUnitario, cfg);
+                taxaComissao = t.valorComissao * quantidade;
+                taxaFixa = t.taxaFixa * quantidade;
+            }
+
+            const custoTotal = (produtoSelecionadoTerminal.custoProducao || 0) * quantidade;
+            const lucroReal = valorTotal - custoTotal - taxaComissao - taxaFixa;
+
             const novaVenda = new VendaModel({
                 nome: produtoSelecionadoTerminal.nome,
                 sku: produtoSelecionadoTerminal.sku,
-                lucro: valorTotal - (produtoSelecionadoTerminal.custoProducao || 0) * quantidade,
+                lucro: lucroReal,
                 bruto: valorTotal,
-                custo: (produtoSelecionadoTerminal.custoProducao || 0) * quantidade,
+                custo: custoTotal,
                 canal,
                 quantidade,
                 pedidoId,
@@ -545,7 +563,8 @@ async function efetuarVendaTerminal() {
                     embalagem: produtoSelecionadoTerminal.embalagem || 0,
                     extras: produtoSelecionadoTerminal.custoExtras || 0,
                     tempoHoras: produtoSelecionadoTerminal.tempo || 0
-                }
+                },
+                taxas: { comissao: taxaComissao, fixa: taxaFixa }
             });
             await novaVenda.save();
         }
