@@ -21,16 +21,27 @@ function mostrarToast(mensagem, tipo = 'ok') {
 }
 
 function reativarFormularios(seletorFoco) {
-    const liberar = typeof liberarInput === 'function' ? liberarInput : () => {};
+    const liberar = typeof liberarInput === 'function' ? liberarInput : (el) => {
+        if (!el) return;
+        el.readOnly = false;
+        el.disabled = false;
+        el.removeAttribute('readonly');
+        el.removeAttribute('disabled');
+    };
     const garantir = typeof garantirCamposEditaveis === 'function' ? garantirCamposEditaveis : () => {};
 
-  const run = () => {
+    const run = () => {
         const app = document.getElementById('app-screen');
         if (app) {
             app.style.pointerEvents = '';
             app.removeAttribute('inert');
         }
-        document.querySelectorAll('#app-screen input, #app-screen select, #app-screen textarea, #app-screen button').forEach(el => {
+        const auth = document.getElementById('auth-screen');
+        if (auth) {
+            auth.style.pointerEvents = '';
+            auth.removeAttribute('inert');
+        }
+        document.querySelectorAll('#app-screen input, #app-screen select, #app-screen textarea, #app-screen button, #auth-screen input, #auth-screen select, #auth-screen textarea, #auth-screen button').forEach(el => {
             liberar(el);
             if (el.tagName === 'BUTTON') el.disabled = false;
         });

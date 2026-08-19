@@ -3,33 +3,69 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="description" content="3D Manager Pro — Gerencie sua impressora 3D: estoque, custos, vendas e relatórios financeiros.">
     <link rel="stylesheet" href="style.css">
     <title>3D Manager Pro</title>
 </head>
 <body>
 
+    <!-- THEME SWITCHER MODAL -->
+    <div class="theme-modal-overlay" id="themeModalOverlay" onclick="fecharModalTema(event)">
+        <div class="theme-modal">
+            <div class="theme-modal-header">
+                <h3>🎨 Aparência</h3>
+                <button class="btn-close-modal" onclick="toggleModalTema()">✕</button>
+            </div>
+
+            <div class="theme-section-label">🌙 Temas Escuros</div>
+            <div class="theme-grid">
+                <div class="theme-card" id="theme-card-obsidian" onclick="aplicarTema('obsidian')">
+                    <div class="theme-swatch" style="background:linear-gradient(135deg,#0891b2,#7c3aed);">🌑</div>
+                    <span class="theme-name">Obsidian</span>
+                    <span class="theme-sub">Azul + Cyan</span>
+                </div>
+                <div class="theme-card" id="theme-card-neon" onclick="aplicarTema('neon')">
+                    <div class="theme-swatch" style="background:linear-gradient(135deg,#a21caf,#6d28d9);">⚡</div>
+                    <span class="theme-name">Neon</span>
+                    <span class="theme-sub">Roxo + Magenta</span>
+                </div>
+                <div class="theme-card" id="theme-card-forest" onclick="aplicarTema('forest')">
+                    <div class="theme-swatch" style="background:linear-gradient(135deg,#059669,#065f46);">🌿</div>
+                    <span class="theme-name">Forest</span>
+                    <span class="theme-sub">Verde + Mint</span>
+                </div>
+            </div>
+
+            <div class="theme-section-label">☀️ Temas Claros</div>
+            <div class="theme-grid">
+                <div class="theme-card" id="theme-card-arctic" onclick="aplicarTema('arctic')">
+                    <div class="theme-swatch" style="background:linear-gradient(135deg,#0284c7,#7c3aed);">❄️</div>
+                    <span class="theme-name">Arctic</span>
+                    <span class="theme-sub">Branco + Azul</span>
+                </div>
+                <div class="theme-card" id="theme-card-sunrise" onclick="aplicarTema('sunrise')">
+                    <div class="theme-swatch" style="background:linear-gradient(135deg,#ea580c,#dc2626);">🌅</div>
+                    <span class="theme-name">Sunrise</span>
+                    <span class="theme-sub">Creme + Laranja</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <div id="auth-screen" class="modal-auth">
         <div class="auth-card auth-card-wide">
             <div class="logo-box">🧊</div>
-            <h2>3D Manager Pro</h2>
-            <p id="auth-api-status" style="font-size:11px;text-align:center;margin:0 0 12px;color:#64748b;">Conectando...</p>
+            <h2 style="text-align:center;margin:0 0 4px;">3D Manager Pro</h2>
+            <p id="auth-api-status" style="font-size:11px;text-align:center;margin:0 0 16px;color:var(--text-dim);">Conectando...</p>
 
             <div class="auth-tabs">
                 <button type="button" class="auth-tab active" data-tab="login" onclick="mostrarAuthTab('login')">Entrar</button>
                 <button type="button" class="auth-tab" data-tab="register" onclick="mostrarAuthTab('register')">Cadastrar</button>
             </div>
 
-            <div class="input-container full">
-                <div style="display:flex;gap:8px;align-items:flex-start;margin-bottom:8px;">
-                    <div style="flex:1;">
-                        <label>URL do servidor API</label>
-                        <input type="url" id="authApiUrl" placeholder="http://127.0.0.1:5657">
-                    </div>
-                    <button type="button" id="btnTestarConexao" class="btn-test-connection" onclick="testarConexaoUrl()" title="Testar conexão" style="margin-top:26px;padding:8px 12px;background:#7c3aed;color:white;border:none;border-radius:6px;cursor:pointer;font-size:12px;font-weight:500;">🔗 Testar</button>
-                </div>
-                <small style="font-size:10px;color:#64748b;">No celular use o IP do PC na rede e a porta correta (ex: http://10.0.0.197:5657)</small>
-                <div id="testResultMessage" style="margin-top:6px;font-size:11px;display:none;padding:8px;border-radius:4px;"></div>
-            </div>
+            <input type="hidden" id="authApiUrl" value="https://threed-manager-q1tc.onrender.com">
+
+            <div id="auth-error-msg" style="display:none;margin-bottom:14px;padding:10px 14px;border-radius:10px;background:rgba(239,68,68,0.15);border:1px solid rgba(239,68,68,0.3);color:#f87171;font-size:12px;text-align:center;font-weight:600;line-height:1.4;"></div>
 
             <div id="auth-form-login">
                 <div class="input-container">
@@ -41,8 +77,8 @@
                     <input type="password" id="authSenha" placeholder="••••••" autocomplete="current-password">
                 </div>
                 <div class="input-container" style="display:flex;align-items:center;gap:8px;">
-                    <input type="checkbox" id="authManterConectado" style="width:auto;transform:scale(1.2);">
-                    <label for="authManterConectado" style="cursor:pointer;text-transform:none;font-size:11px;">Manter conectado</label>
+                    <input type="checkbox" id="authManterConectado">
+                    <label for="authManterConectado" style="cursor:pointer;text-transform:none;font-size:12px;color:var(--text-muted);">Manter conectado</label>
                 </div>
                 <button class="btn-login" type="button" onclick="loginApp()">Entrar</button>
             </div>
@@ -72,13 +108,16 @@
     <div id="admin-screen" class="app-wrapper" style="display:none;">
         <header class="mobile-header">
             <div class="user-info">
-                <div class="avatar" style="background:#7c3aed;">⚙️</div>
-                <div>
-                    <span style="font-weight:bold;font-size:14px;">Painel Administrador</span>
-                    <span style="font-size:10px;color:#94a3b8;">Gestão de clientes</span>
+                <div class="avatar" style="background:var(--accent);">⚙️</div>
+                <div style="display:flex;flex-direction:column;">
+                    <span style="font-weight:700;font-size:14px;color:var(--text);">Painel Admin</span>
+                    <span style="font-size:10px;color:var(--text-dim);">Gestão de clientes</span>
                 </div>
             </div>
-            <button class="btn-exit" type="button" onclick="sairApp()">Sair</button>
+            <div class="header-actions">
+                <button class="btn-theme-switcher" onclick="toggleModalTema()" title="Mudar tema">🎨</button>
+                <button class="btn-exit" type="button" onclick="sairApp()">Sair</button>
+            </div>
         </header>
         <main class="main-content" style="padding-bottom:24px;">
             <div class="grid-relatorio-cards" style="margin-bottom:16px;">
@@ -96,54 +135,74 @@
     </div>
 
     <div id="app-screen" class="app-wrapper" style="display: none;">
-        
+
         <header class="mobile-header">
             <div class="user-info">
-                <div class="avatar">A</div>
-                <div style="display: flex; flex-direction: column;">
-                    <span id="tab-title" style="font-weight: bold; font-size: 14px;">Visão Geral</span>
-                    <span id="user-email-sub" style="font-size: 10px; color: #64748b;"></span>
-                    <span id="db-status-indicator" style="font-size: 10px; color: #ef4444; display: flex; align-items: center; gap: 4px; margin-top: 2px;">
-                        <span class="status-dot" style="width: 8px; height: 8px; background-color: #ef4444; border-radius: 50%; display: inline-block;"></span>
-                        MongoDB Offline
+                <div class="avatar" id="user-avatar-letter">A</div>
+                <div style="display:flex;flex-direction:column;gap:1px;">
+                    <span id="tab-title" style="font-weight:700;font-size:14px;color:var(--text);">Visão Geral</span>
+                    <span id="user-email-sub" style="font-size:10px;color:var(--text-dim);"></span>
+                    <span id="db-status-indicator" style="font-size:10px;color:#ef4444;display:flex;align-items:center;gap:4px;margin-top:1px;">
+                        <span class="status-dot" style="width:7px;height:7px;background-color:#ef4444;border-radius:50%;display:inline-block;"></span>
+                        Servidor offline
                     </span>
                 </div>
             </div>
-            <button class="btn-exit" type="button" onclick="sairApp()">Sair</button>
+            <div class="header-actions">
+                <button class="btn-theme-switcher" onclick="toggleModalTema()" title="Mudar tema">🎨</button>
+                <button class="btn-exit" type="button" onclick="sairApp()">Sair</button>
+            </div>
         </header>
 
         <main class="main-content">
             
             <section id="sec-home" class="app-section" style="display:block">
-                <div class="card-glass">
-                    <h3>Visão Geral</h3>
-                    <p style="color: #94a3b8; margin: 10px 0;">Resumo rápido de desempenho, estoque e receitas.</p>
+                <div class="card-glass" style="background:var(--primary-btn);border-color:transparent;">
+                    <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+                        <div>
+                            <p style="margin:0 0 4px;font-size:12px;color:rgba(255,255,255,0.7);font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">3D Manager Pro</p>
+                            <h2 style="margin:0 0 2px;font-size:22px;color:white;">Visão Geral</h2>
+                            <p style="margin:0;font-size:12px;color:rgba(255,255,255,0.65);">Desempenho, estoque e receitas</p>
+                        </div>
+                        <span style="font-size:32px;">📊</span>
+                    </div>
+                </div>
 
-                    <div class="grid-relatorio-cards" style="grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px;">
-                        <div class="mini-stat mini-stat-destaque" style="padding: 16px;">
-                            <span>Vendas registradas</span>
-                            <strong id="homeTotalVendas">0</strong>
-                        </div>
-                        <div class="mini-stat" style="padding: 16px;">
-                            <span>Lucro total</span>
-                            <strong id="homeTotalLucro">R$ 0,00</strong>
-                        </div>
-                        <div class="mini-stat" style="padding: 16px;">
-                            <span>Receita bruta</span>
-                            <strong id="homeTotalBruto">R$ 0,00</strong>
-                        </div>
-                        <div class="mini-stat" style="padding: 16px;">
-                            <span>Estoque de filamentos</span>
-                            <strong id="homeEstoqueFilamento">0 g</strong>
-                        </div>
-                        <div class="mini-stat" style="padding: 16px;">
-                            <span>Modelos/Receitas</span>
-                            <strong id="homeTotalModelos">0</strong>
-                        </div>
-                        <div class="mini-stat" style="padding: 16px;">
-                            <span>Custos cadastrados</span>
-                            <strong id="homeTotalCustos">0</strong>
-                        </div>
+                <div class="grid-relatorio-cards" style="grid-template-columns:repeat(2,1fr);">
+                    <div class="mini-stat mini-stat-destaque">
+                        <span>💰 Lucro Total</span>
+                        <strong id="homeTotalLucro" style="color:var(--success);">R$ 0,00</strong>
+                    </div>
+                    <div class="mini-stat">
+                        <span>📦 Receita Bruta</span>
+                        <strong id="homeTotalBruto">R$ 0,00</strong>
+                    </div>
+                    <div class="mini-stat">
+                        <span>🛒 Vendas</span>
+                        <strong id="homeTotalVendas">0</strong>
+                    </div>
+                    <div class="mini-stat">
+                        <span>🧵 Filamento</span>
+                        <strong id="homeEstoqueFilamento">0 g</strong>
+                    </div>
+                    <div class="mini-stat">
+                        <span>📐 Modelos</span>
+                        <strong id="homeTotalModelos">0</strong>
+                    </div>
+                    <div class="mini-stat">
+                        <span>🏷️ Insumos</span>
+                        <strong id="homeTotalCustos">0</strong>
+                    </div>
+                </div>
+
+                <div class="card-glass">
+                    <h3 style="margin:0 0 14px;font-size:14px;color:var(--text-muted);">⚡ Acesso Rápido</h3>
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+                        <button class="btn-main" style="margin:0;padding:12px;" onclick="nav('terminal', document.querySelector('.nav-item[data-nav=terminal]'))">⚡ Nova Venda</button>
+                        <button class="btn-secondary" style="padding:12px;" onclick="irParaPreVendas()">📋 Pré-Vendas</button>
+                        <button class="btn-secondary" style="padding:12px;" onclick="nav('calculadora', document.querySelector('.nav-item[data-nav=calculadora]'))">💰 Calculadora</button>
+                        <button class="btn-secondary" style="padding:12px;" onclick="nav('estoque', document.querySelector('.nav-item[data-nav=estoque]'))">🧵 Estoque</button>
+                        <button class="btn-secondary" style="padding:12px;" onclick="nav('financeiro', document.querySelector('.nav-item[data-nav=financeiro]'))">📊 Relatório</button>
                     </div>
                 </div>
             </section>
@@ -151,10 +210,13 @@
             <section id="sec-financeiro" class="app-section" style="display:none">
                 <div class="sub-nav-tabs">
                     <button type="button" class="controle-subtab active" data-painel="relatorio" onclick="subNavControle('relatorio')">📊 Relatório</button>
+                    <button type="button" class="controle-subtab" data-painel="historico-vendas" onclick="subNavControle('historico-vendas')">🧾 Histórico</button>
+                    <button type="button" class="controle-subtab" data-painel="parcelas" onclick="subNavControle('parcelas')">💳 Parcelas</button>
+                    <button type="button" class="controle-subtab" data-painel="insumos" onclick="subNavControle('insumos')">🧰 Insumos</button>
                 </div>
 
                 <div id="painel-relatorio" class="controle-painel">
-                    <div class="card-glass filtro-relatorio-box">
+                    <div class="filtro-relatorio-box">
                         <label>Período do relatório</label>
                         <select id="relFiltro" onchange="atualizarFiltroPeriodo(); atualizarRelatorioFinanceiro()">
                             <option value="mes_atual" selected>Mês atual</option>
@@ -163,7 +225,7 @@
                             <option value="todos">Todo o histórico</option>
                             <option value="personalizado">Período Personalizado</option>
                         </select>
-                        <div id="relPeriodoPersonalizado" style="display:none; gap:10px; margin-top:10px; align-items:center;">
+                        <div id="relPeriodoPersonalizado">
                             <div style="flex:1;">
                                 <label style="font-size:11px;">De</label>
                                 <input type="date" id="relDataInicio" onchange="atualizarRelatorioFinanceiro()">
@@ -173,22 +235,23 @@
                                 <input type="date" id="relDataFim" onchange="atualizarRelatorioFinanceiro()">
                             </div>
                         </div>
-                        <small id="relLabelPeriodo" style="color:#94a3b8;">Mês atual</small>
+                        <small id="relLabelPeriodo" style="color:var(--text-dim);">Mês atual</small>
                     </div>
 
                     <div class="grid-relatorio-cards">
                         <div class="mini-stat mini-stat-destaque"><span>Lucro no período</span><strong id="relLucroMes" style="color:var(--success)">R$ 0,00</strong></div>
                         <div class="mini-stat"><span>Lucro total (geral)</span><strong id="relLucroTotal" style="color:var(--success)">R$ 0,00</strong></div>
                         <div class="mini-stat"><span>Receita bruta</span><strong id="relBruto">R$ 0,00</strong></div>
-                        <div class="mini-stat"><span>Custo das vendas</span><strong id="relCustoVendas" style="color:#f87171">R$ 0,00</strong></div>
+                        <div class="mini-stat"><span>Custo das vendas</span><strong id="relCustoVendas" style="color:var(--danger);">R$ 0,00</strong></div>
+                        <div class="mini-stat"><span>🛠️ Mão de Obra</span><strong id="relMaoObra" style="color:#06b6d4;">R$ 0,00</strong></div>
                         <div class="mini-stat"><span>Margem média</span><strong id="relMargem">0%</strong></div>
                         <div class="mini-stat"><span>Estoque filamento</span><strong id="relEstoqueValor">R$ 0,00</strong><small id="relEstoquePeso">0 g</small></div>
-                        <div class="mini-stat"><span>Parcelas / mês</span><strong id="relParcelas" style="color:#fbbf24">R$ 0,00</strong></div>
+                        <div class="mini-stat"><span>Parcelas / mês</span><strong id="relParcelas" style="color:var(--warning);">R$ 0,00</strong></div>
                     </div>
-                    <p style="font-size:11px;color:#64748b;text-align:center;margin:8px 0;"><span id="relNumVendas">0</span> · <span id="rel-hint-hora"></span></p>
+                    <p style="font-size:11px;color:var(--text-dim);text-align:center;margin:4px 0 12px;"><span id="relNumVendas">0</span> vendas · <span id="rel-hint-hora"></span></p>
 
                     <div class="card-glass">
-                        <h3 style="margin-top:0;">Custo × Lucro (<span id="relLabelPeriodo2">período</span>)</h3>
+                        <h3 style="margin-top:0;font-size:15px;">Custo × Lucro — <span id="relLabelPeriodo2">período</span></h3>
                         <div class="comparativo-custo-lucro" id="relComparativoTrack">
                             <div class="comp-bar comp-custo" id="relComparativoCusto">Custos: R$ 0</div>
                             <div class="comp-bar comp-lucro" id="relComparativoLucro">Lucro: R$ 0</div>
@@ -196,19 +259,34 @@
                     </div>
 
                     <div class="card-glass">
-                        <h3 style="margin-top:0;">Detalhamento de custos (período)</h3>
+                        <h3 style="margin-top:0;font-size:15px;">Detalhamento de custos</h3>
                         <div id="relatorio-conteudo" class="rel-barras-wrap"></div>
                     </div>
+                </div>
 
+                <div id="painel-parcelas" class="controle-painel" style="display:none">
                     <div class="card-glass">
-                        <h3 style="margin-top:0;">💳 Parcelas e financiamentos</h3>
+                        <h3 style="margin-top:0;font-size:15px;">💳 Parcelas e financiamentos</h3>
                         <div id="rel-lista-parcelas" class="list-container"></div>
                     </div>
+                </div>
 
+                <div id="painel-historico-vendas" class="controle-painel" style="display:none">
                     <div class="card-glass">
-                        <h3 style="margin-top:0;">🧰 Catálogo de insumos</h3>
+                        <h3 style="margin-top:0;font-size:15px;">🧾 Histórico de Vendas</h3>
+                        <div class="input-container full" style="margin-bottom:12px;">
+                            <input type="text" id="finHistoricoBusca" placeholder="Buscar por nome, canal, pedido..." oninput="filtrarHistoricoVendasFinanceiro()">
+                        </div>
+                        <div id="fin-lista-historico-vendas" class="list-container"></div>
+                    </div>
+                </div>
+
+                <div id="painel-insumos" class="controle-painel" style="display:none">
+                    <div class="card-glass">
+                        <h3 style="margin-top:0;font-size:15px;">🧰 Catálogo de insumos</h3>
                         <div id="rel-lista-insumos" class="list-container"></div>
                     </div>
+                </div>
             </section>
 
             <section id="sec-calculadora" class="app-section" style="display:none">
@@ -232,7 +310,7 @@
                         <select id="pProdutoEstoqueSelect" onchange="vincularProdutoCalculadora()">
                             <option value="">-- Novo produto (criar ao salvar receita) --</option>
                         </select>
-                        <small style="font-size:9px;color:#64748b;">Selecione um produto já cadastrado no estoque para salvar a receita nele, em vez de criar um registro duplicado.</small>
+                        <small style="font-size:9px;color:var(--text-dim);">Selecione um produto já cadastrado no estoque para salvar a receita nele, em vez de criar um registro duplicado.</small>
                     </div>
 
                     <div class="grid-form">
@@ -243,10 +321,10 @@
                         <div class="input-container full">
                             <label>SKU (Código do Produto)</label>
                             <input type="text" id="pSKU" placeholder="Ex: AF-001">
-                            <small style="font-size:9px;color:#64748b;">Código único para controle de estoque</small>
+                            <small style="font-size:9px;color:var(--text-dim);">Código único para controle de estoque</small>
                         </div>
                         
-                        <div class="input-container full" style="background: #0f172a; padding: 15px; border-radius: 12px; border: 1px solid #334155; margin-bottom: 10px;">
+                        <div class="input-container full" style="background: var(--bg-secondary); padding: 15px; border-radius: 12px; border: 1px solid var(--border-input); margin-bottom: 10px;">
                             <label style="color: var(--primary); margin-bottom: 8px;">🧵 Filamentos Utilizados</label>
                             <div id="container-filamentos-linhas" style="display: flex; flex-direction: column; gap: 10px;">
                             </div>
@@ -256,7 +334,7 @@
                         <div class="input-container full">
                             <label>Quantidade por Chapa</label>
                             <input type="number" step="1" min="1" id="pQuantidadeChapa" value="1" oninput="calcFinanceiro(false)">
-                            <small style="font-size:9px;color:#64748b;">Divide o custo total do material pela quantidade de itens na chapa</small>
+                            <small style="font-size:9px;color:var(--text-dim);">Divide o custo total do material pela quantidade de itens na chapa</small>
                         </div>
                         
                         <div class="input-container full">
@@ -271,13 +349,13 @@
                                     <input type="number" id="pTempoMinutos" min="0" max="59" step="1" value="0" placeholder="0" oninput="onTempoInput()">
                                 </div>
                             </div>
-                            <small id="resTempoEquiv" style="color:#64748b;font-size:10px;display:block;margin-top:6px;">Total: 0h 0min (0,00 h)</small>
+                            <small id="resTempoEquiv" style="color:var(--text-dim);font-size:10px;display:block;margin-top:6px;">Total: 0h 0min (0,00 h)</small>
                         </div>
 
                         <div class="input-container">
                             <label>Custo hora de trabalho (R$/h)</label>
                             <input type="number" step="0.01" id="pTrabalhoHora" value="1.00" oninput="calcFinanceiro(false)">
-                            <small style="font-size:9px;color:#64748b;">Ex: R$ 1,00 × 1h30 = R$ 1,50</small>
+                            <small style="font-size:9px;color:var(--text-dim);">Ex: R$ 1,00 × 1h30 = R$ 1,50</small>
                         </div>
                         <div class="input-container">
                             <label>Desgaste impressora (R$/h)</label>
@@ -287,7 +365,7 @@
                         <div class="input-container">
                             <label>Custo Energia (R$/h)</label>
                             <input type="number" step="0.01" id="pEnergia" value="1.00" oninput="calcFinanceiro(false)">
-                            <small style="font-size:9px;color:#64748b;">Ex: R$ 1,00 × 2h = R$ 2,00</small>
+                            <small style="font-size:9px;color:var(--text-dim);">Ex: R$ 1,00 × 2h = R$ 2,00</small>
                         </div>
                         <div class="input-container">
                             <label>Consumo Máquina (W)</label>
@@ -298,14 +376,14 @@
                             <input type="number" step="0.01" id="pEmbalagem" value="2.50" oninput="calcFinanceiro(false)">
                         </div>
 
-                        <div class="input-container full" style="background: #0f172a; padding: 15px; border-radius: 12px; border: 1px solid #334155;">
-                            <label style="color: #c4b5fd; margin-bottom: 8px;">📦 Custos cadastrados (argolas, tinta, AMS…)</label>
-                            <p style="font-size: 11px; color: #64748b; margin: 0 0 10px;">Cadastre em Financeiro → Cadastro. Ex: 100 argolas por R$ 22 → R$ 0,22/un.</p>
+                        <div class="input-container full" style="background: var(--bg-secondary); padding: 15px; border-radius: 12px; border: 1px solid var(--border-input);">
+                            <label style="color: var(--accent); margin-bottom: 8px;">📦 Custos cadastrados (argolas, tinta, AMS…)</label>
+                            <p style="font-size: 11px; color: var(--text-dim); margin: 0 0 10px;">Cadastre em Financeiro → Insumos. Ex: 100 argolas por R$ 22 → R$ 0,22/un.</p>
                             <div id="container-custos-extras-linhas" style="display: flex; flex-direction: column; gap: 10px;"></div>
                             <button type="button" class="btn-secondary" onclick="adicionarLinhaCustoExtra()" style="margin-top: 10px; width: 100%;">➕ Adicionar custo do catálogo</button>
                         </div>
 
-                        <div class="input-container full" style="border-top: 1px solid #334155; padding-top: 15px; margin-top: 10px;">
+                        <div class="input-container full" style="border-top: 1px solid var(--border-subtle); padding-top: 15px; margin-top: 10px;">
                             <label style="color: var(--primary);">Canal de Venda</label>
                             <select id="pCanal" onchange="atualizarOpcoesCanal(); calcFinanceiro(false)">
                                 <option value="direta">Venda Direta (0%)</option>
@@ -318,29 +396,29 @@
                             <div class="grid-form">
                                 <div class="input-container full" style="display:flex;flex-direction:row;align-items:center;gap:8px;">
                                     <input type="checkbox" id="shopeeFreteGratis" checked disabled style="width:auto;transform:scale(1.2);">
-                                    <label for="shopeeFreteGratis" style="cursor:default;text-transform:none;font-size:11px;color:#94a3b8;">Programa Frete Grátis (+2% na comissão) — <b style="color:#f59e0b;">obrigatório desde 03/2026</b></label>
+                                    <label for="shopeeFreteGratis" style="cursor:default;text-transform:none;font-size:11px;color:var(--text-muted);">Programa Frete Grátis (+2% na comissão) — <b style="color:var(--warning);">obrigatório desde 03/2026</b></label>
                                 </div>
                                 <div class="input-container">
                                     <label>Comissão faixa ≥ R$ 80 (%)</label>
                                     <input type="number" step="0.1" id="shopeeComissao" value="14" oninput="calcFinanceiro(false)">
-                                    <small style="font-size:9px;color:#64748b;">Padrão 14%. Faixas menores usam tabela fixa (50% até R$8 / 20% R$8–79). Ajuste aqui se sua categoria tiver taxa diferente.</small>
+                                    <small style="font-size:9px;color:var(--text-dim);">Padrão 14%. Faixas menores usam tabela fixa (50% até R$8 / 20% R$8–79). Ajuste aqui se sua categoria tiver taxa diferente.</small>
                                 </div>
                                 <div class="input-container full" style="display:flex;flex-direction:row;align-items:center;gap:8px;">
                                     <input type="checkbox" id="shopeeTabelaOficial" checked onchange="atualizarInterfaceCanais(); calcFinanceiro(false)" style="width:auto;transform:scale(1.2);">
                                     <label for="shopeeTabelaOficial" style="cursor:pointer;text-transform:none;font-size:11px;">Usar tabela oficial de comissão e taxa fixa por faixa de preço</label>
                                 </div>
                                 <div id="shopee-bloco-tabela" class="input-container full">
-                                    <small style="color:#94a3b8;line-height:1.6;">
+                                    <small style="color:var(--text-dim);line-height:1.6;">
                                         <b>Comissão + Taxa Fixa por faixa:</b><br>
                                         &lt; R$8: 50% + R$0 · R$8–79: 20% + R$4 · R$80–99: 14% + R$16<br>
                                         R$100–199: 14% + R$20 · R$200–499: 14% + R$26 · ≥ R$500: 14% + R$26<br>
-                                        <b style="color:#60a5fa;">Subsídio Pix:</b> 5% (R$80–499) · 8% (≥R$500) — <i>informativo</i>
+                                        <b style="color:var(--primary);">Subsídio Pix:</b> 5% (R$80–499) · 8% (≥R$500) — <i>informativo</i>
                                     </small>
                                 </div>
                                 <div class="input-container">
                                     <label>Taxa fixa manual (R$)</label>
                                     <input type="number" step="0.01" id="shopeeFixo" value="4.00" oninput="calcFinanceiro(false)">
-                                    <small style="font-size:9px;color:#64748b;">Usada apenas se a tabela oficial estiver desabilitada</small>
+                                    <small style="font-size:9px;color:var(--text-dim);">Usada apenas se a tabela oficial estiver desabilitada</small>
                                 </div>
                                 <div class="input-container">
                                     <label>Isenta taxa fixa se preço ≥ (R$)</label>
@@ -362,12 +440,12 @@
                                 <div class="input-container highlight-box">
                                     <label>Comissão ML (%)</label>
                                     <input type="number" step="0.1" id="mlComissao" value="13" oninput="onMlComissaoManual(); calcFinanceiro(false)">
-                                    <small style="font-size:9px;color:#64748b;">Confira em Custos por vender no ML. Varia por categoria.</small>
+                                    <small style="font-size:9px;color:var(--text-dim);">Confira em Custos por vender no ML. Varia por categoria.</small>
                                 </div>
                                 <div class="input-container">
                                     <label>Taxa fixa (R$)</label>
                                     <input type="number" step="0.01" id="mlFixo" value="6.50" oninput="calcFinanceiro(false)">
-                                    <small style="font-size:9px;color:#64748b;">Desde 2026 varia por peso/dimensão. R$ 6,50 é referência para itens leves. Itens &lt; R$ 12,50 usam 50% do valor automaticamente.</small>
+                                    <small style="font-size:9px;color:var(--text-dim);">Desde 2026 varia por peso/dimensão. R$ 6,50 é referência para itens leves. Itens &lt; R$ 12,50 usam 50% do valor automaticamente.</small>
                                 </div>
                                 <div class="input-container">
                                     <label>Limite para taxa fixa (R$)</label>
@@ -380,7 +458,7 @@
                                 <div id="ml-bloco-frete" class="input-container">
                                     <label>Custo estimado do frete (R$)</label>
                                     <input type="number" step="0.01" id="mlFrete" value="20.00" oninput="calcFinanceiro(false)">
-                                    <small style="font-size:9px;color:#64748b;">Quando o preço final ≥ limite acima</small>
+                                    <small style="font-size:9px;color:var(--text-dim);">Quando o preço final ≥ limite acima</small>
                                 </div>
                             </div>
                         </div>
@@ -396,28 +474,51 @@
                     </div>
 
                     <div class="resumo-financeiro">
-                        <div class="line" style="color:#94a3b8;font-size:11px;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;">📊 Custos de Produção</div>
-                        <div class="line">Material (Filamentos): <b id="resCustoMat" style="color:#60a5fa;">R$ 0,00</b></div>
-                        <div class="line">Trabalho (hora × tempo): <b id="resCustoTrabalho" style="color:#60a5fa;">R$ 0,00</b></div>
-                        <div class="line">Desgaste impressora: <b id="resCustoMaquina" style="color:#60a5fa;">R$ 0,00</b></div>
-                        <div class="line">Energia elétrica: <b id="resCustoEnergia" style="color:#60a5fa;">R$ 0,00</b></div>
-                        <div class="line">Embalagem: <b id="resEmbalagem" style="color:#60a5fa;">R$ 0,00</b></div>
-                        <div class="line">Insumos cadastrados: <b id="resCustoExtras" style="color:#60a5fa;">R$ 0,00</b></div>
-                        <div class="line" style="border-top: 2px solid #334155; padding-top: 8px; margin-top: 8px;">
-                            <span style="color:#fbbf24;font-weight:bold;">Custo Total de Produção:</span> <b id="resCustoTotalProducao" style="color:#fbbf24;font-size:16px;">R$ 0,00</b>
+                        <div class="line" style="color:var(--text-dim);font-size:11px;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:10px;">📊 Custos de Produção</div>
+                        <div class="line">Material (Filamentos): <b id="resCustoMat" style="color:var(--primary);">R$ 0,00</b></div>
+                        <div class="line">Trabalho (hora × tempo): <b id="resCustoTrabalho" style="color:var(--primary);">R$ 0,00</b></div>
+                        <div class="line">Desgaste impressora: <b id="resCustoMaquina" style="color:var(--primary);">R$ 0,00</b></div>
+                        <div class="line">Energia elétrica: <b id="resCustoEnergia" style="color:var(--primary);">R$ 0,00</b></div>
+                        <div class="line">Embalagem: <b id="resEmbalagem" style="color:var(--primary);">R$ 0,00</b></div>
+                        <div class="line">Insumos cadastrados: <b id="resCustoExtras" style="color:var(--primary);">R$ 0,00</b></div>
+                        <div class="line" style="border-top:2px solid var(--border-subtle);padding-top:10px;margin-top:8px;">
+                            <span style="color:var(--warning);font-weight:700;">Custo Total de Produção:</span>
+                            <b id="resCustoTotalProducao" style="color:var(--warning);font-size:18px;">R$ 0,00</b>
                         </div>
-                        <div class="line" style="color:#94a3b8;font-size:11px;text-transform:uppercase;letter-spacing:0.5px;margin:15px 0 8px;">💰 Venda e Lucro</div>
-                        <div class="line">Comissão Plataforma: <b id="resTaxaCanal" style="color:#ef4444;">-R$ 0,00</b></div>
-                        <div class="line">Taxas Fixas / Frete: <b id="resFixoCanal" style="color:#ef4444;">-R$ 0,00</b></div>
-                        <div class="line total">Lucro Líquido Real: <b id="resLucro" style="color:#10b981;font-size:18px;">R$ 0,00</b></div>
-                        <div class="line" style="justify-content: flex-end;"><small id="resMargemReal" style="color:#10b981;font-weight:bold;">Markup Real: 0%</small></div>
-                        <div class="line" style="color:#94a3b8;font-size:10px;margin-top:8px;">Peso Total: <b id="resPesoTotal">0 g</b></div>
+                        <div class="line" style="color:var(--text-dim);font-size:11px;text-transform:uppercase;letter-spacing:0.5px;margin:16px 0 10px;">💰 Venda e Lucro</div>
+                        <div class="line">Comissão Plataforma: <b id="resTaxaCanal" style="color:var(--danger);">-R$ 0,00</b></div>
+                        <div class="line">Taxas Fixas / Frete: <b id="resFixoCanal" style="color:var(--danger);">-R$ 0,00</b></div>
+                        <div class="line total">Lucro Líquido Real: <b id="resLucro" style="color:var(--success);font-size:20px;">R$ 0,00</b></div>
+                        <div class="line" style="justify-content:flex-end;"><small id="resMargemReal" style="color:var(--success);font-weight:700;">Markup Real: 0%</small></div>
+                        <div class="line" style="color:var(--text-dim);font-size:10px;margin-top:8px;">Peso Total: <b id="resPesoTotal">0 g</b></div>
                     </div>
 
-                    <div style="display:flex;gap:8px;">
-                        <button class="btn-main" onclick="lancarVendaFinanceiro()" style="flex:1;">Lançar Venda</button>
-                        <button class="btn-secondary" onclick="salvarModeloPadrao()" style="flex:1;">Cadastrar Receita</button>
+                    <div style="display:flex;gap:10px;margin-top:14px;">
+                        <button class="btn-main" onclick="lancarPreVendaFinanceiro()" style="flex:1;margin-top:0;">📋 Lançar Pré-Venda</button>
+                        <button class="btn-secondary" onclick="salvarModeloPadrao()" style="flex:1;padding:14px;">Salvar Receita</button>
                     </div>
+                </div>
+            </section>
+
+            <section id="sec-prevendas" class="app-section" style="display:none">
+                <div class="card-glass" style="background:linear-gradient(135deg,#f59e0b,#d97706);border-color:transparent;margin-bottom:16px;">
+                    <div style="display:flex;justify-content:space-between;align-items:center;">
+                        <div>
+                            <p style="margin:0 0 4px;font-size:12px;color:rgba(255,255,255,0.85);font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Gestão de Orçamentos</p>
+                            <h2 style="margin:0;font-size:22px;color:white;">📋 Pré-Vendas</h2>
+                            <p style="margin:4px 0 0;font-size:12px;color:rgba(255,255,255,0.9);">Consulte, finalize ou exclua orçamentos gerados na Calculadora</p>
+                        </div>
+                        <span style="font-size:36px;">📋</span>
+                    </div>
+                </div>
+
+                <div class="card-glass">
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:10px;">
+                        <h3 style="margin:0;font-size:15px;color:var(--text);">📋 Orçamentos Pendentes</h3>
+                        <button class="btn-secondary" style="padding:8px 14px;font-size:12px;" onclick="renderizarPreVendas()">🔄 Atualizar</button>
+                    </div>
+                    <p style="font-size:11px;color:var(--text-dim);margin:0 0 14px;">Pré-vendas criadas na Calculadora de Preços. Finalize para registrar a venda e dar baixa no estoque.</p>
+                    <div id="listaPreVendasDedicada" class="list-container"></div>
                 </div>
             </section>
 
@@ -433,23 +534,25 @@
                                 <div class="term-metric-pill">📈 SaaS Sales</div>
                             </div>
 
-                        <div class="terminal-subnav">
-                            <button type="button" class="term-nav-btn active" data-view="venda" onclick="subNavTerminal('venda')">Venda</button>
-                            <button type="button" class="term-nav-btn" data-view="movimentacoes" onclick="subNavTerminal('movimentacoes')">Movimentações</button>
-                        </div>
-
-                        <div id="termSaleView">
-                            <div class="input-container full">
-                                <label>Buscar Produto (SKU ou Nome)</label>
-                                <input type="text" id="termBuscaProduto" placeholder="Digite SKU ou nome do produto..." oninput="buscarProdutoTerminal()">
+                            <div class="terminal-subnav">
+                                <button type="button" class="term-nav-btn active" data-view="venda" onclick="subNavTerminal('venda')">⚡ Venda</button>
+                                <button type="button" class="term-nav-btn" data-view="pre-vendas" onclick="subNavTerminal('pre-vendas')">📋 Pré-Vendas</button>
+                                <button type="button" class="term-nav-btn" data-view="movimentacoes" onclick="subNavTerminal('movimentacoes')">📜 Movimentações</button>
                             </div>
-                            <div id="termResultadoBusca" class="term-results list-container"></div>
-                            <div class="term-product-card">
-                                <div>
-                                    <div class="term-chip">Produto selecionado</div>
-                                    <strong id="termProdNome">-</strong>
-                                    <p class="term-subtext" id="termProdSKU">SKU: -</p>
+
+                            <!-- VIEW: VENDA -->
+                            <div id="termSaleView">
+                                <div class="input-container full">
+                                    <label>Buscar Produto (SKU ou Nome)</label>
+                                    <input type="text" id="termBuscaProduto" placeholder="Digite SKU ou nome do produto..." oninput="buscarProdutoTerminal()">
                                 </div>
+                                <div id="termResultadoBusca" class="term-results list-container"></div>
+                                <div class="term-product-card">
+                                    <div>
+                                        <div class="term-chip">Produto selecionado</div>
+                                        <strong id="termProdNome">-</strong>
+                                        <p class="term-subtext" id="termProdSKU">SKU: -</p>
+                                    </div>
                                     <div class="term-product-stats">
                                         <span>Estoque <strong id="termProdEstoque">-</strong></span>
                                         <span>Preço <strong id="termProdPreco">-</strong></span>
@@ -484,16 +587,28 @@
                                     <button class="btn-secondary" onclick="limparTerminal()">Cancelar</button>
                                 </div>
                             </div>
-                        </div>
 
-                        <div id="termHistoryView" style="display:none;">
-                            <div class="input-container full">
-                                <label>Buscar movimentação</label>
-                                <input type="text" id="termMovimentoBuscaPanel" placeholder="Buscar nota, pedido, produto ou canal..." oninput="filtrarMovimentacoesTerminal()">
+                            <!-- VIEW: PRÉ-VENDAS -->
+                            <div id="termPreVendasView" style="display:none;">
+                                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px;">
+                                    <h4 style="margin:0;font-size:14px;color:var(--text);">📋 Orçamentos Pendentes</h4>
+                                    <button class="btn-secondary" style="padding:6px 12px;font-size:11px;" onclick="renderizarPreVendas()">🔄 Atualizar</button>
+                                </div>
+                                <p style="font-size:11px;color:var(--text-dim);margin:0 0 12px;">Pré-vendas criadas na Calculadora de Preços. Finalize para registrar a venda.</p>
+                                <div id="termListaPreVendas" class="list-container"></div>
                             </div>
-                            <div id="termUltimasVendasPanel" class="term-history-results list-container" style="margin-top: 10px;"></div>
-                        </div>
-                    </div>
+
+                            <!-- VIEW: MOVIMENTAÇÕES -->
+                            <div id="termHistoryView" style="display:none;">
+                                <div class="input-container full">
+                                    <label>Buscar movimentação</label>
+                                    <input type="text" id="termMovimentoBuscaPanel" placeholder="Buscar nota, pedido, produto ou canal..." oninput="filtrarMovimentacoesTerminal()">
+                                </div>
+                                <div id="termUltimasVendasPanel" class="term-history-results list-container" style="margin-top: 10px;"></div>
+                            </div>
+
+                        </div><!-- /.terminal-card -->
+                    </div><!-- /.terminal-panel -->
 
                     <div class="terminal-panel">
                         <div class="terminal-card" style="padding-bottom: 16px;">
@@ -699,12 +814,18 @@
                                 <input type="number" step="0.0001" id="cadCustoUnitarioEstoque" oninput="atualizarPreviewCustoCadastroEstoque()">
                             </div>
                             <div class="input-container cad-campo-parcela-estoque" style="display:none">
-                                <label>Valor da parcela (R$/mês)</label>
-                                <input type="number" step="0.01" id="cadValorMensalEstoque" oninput="atualizarPreviewCustoCadastroEstoque()">
+                                <label>Valor total (R$)</label>
+                                <input type="number" step="0.01" id="cadPrecoTotalParcelaEstoque" placeholder="Ex: 2400.00" oninput="autoCalcParcelaEstoque(); atualizarPreviewCustoCadastroEstoque()">
+                                <small style="font-size:9px;color:var(--text-dim);">Opcional: valor total do financiamento</small>
                             </div>
                             <div class="input-container cad-campo-parcela-estoque" style="display:none">
-                                <label>Horas de uso/mês (rateio)</label>
-                                <input type="number" id="cadHorasMesEstoque" value="160" oninput="atualizarPreviewCustoCadastroEstoque()">
+                                <label>Nº de parcelas</label>
+                                <input type="number" min="1" step="1" id="cadNumParcelasEstoque" placeholder="Ex: 12" oninput="autoCalcParcelaEstoque(); atualizarPreviewCustoCadastroEstoque()">
+                            </div>
+                            <div class="input-container cad-campo-parcela-estoque" style="display:none">
+                                <label>Valor da parcela (R$/mês)</label>
+                                <input type="number" step="0.01" id="cadValorMensalEstoque" placeholder="Calculado automaticamente" oninput="atualizarPreviewCustoCadastroEstoque()">
+                                <small style="font-size:9px;color:var(--text-dim);">Preencha valor total + nº parcelas OU edite direto</small>
                             </div>
                             <div class="input-container cad-campo-hora-estoque" style="display:none">
                                 <label>Custo por hora (R$)</label>
@@ -742,12 +863,13 @@
             </section>
         </main>
 
-        <nav class="bottom-nav nav-5">
-            <button onclick="nav('home', this)" class="nav-item active">🏠<span>Home</span></button>
-            <button onclick="nav('financeiro', this)" class="nav-item">📊<span>Financeiro</span></button>
-            <button onclick="nav('calculadora', this)" class="nav-item">💰<span>Calculadora</span></button>
-            <button onclick="nav('terminal', this)" class="nav-item">⚡<span>Terminal</span></button>
-            <button onclick="nav('estoque', this)" class="nav-item">🧵<span>Estoque</span></button>
+        <nav class="bottom-nav nav-6">
+            <button onclick="nav('home', this)" class="nav-item active" data-nav="home">🏠<span>Home</span></button>
+            <button onclick="nav('calculadora', this)" class="nav-item" data-nav="calculadora">💰<span>Preços</span></button>
+            <button onclick="nav('terminal', this)" class="nav-item" data-nav="terminal">⚡<span>Vendas</span></button>
+            <button onclick="nav('prevendas', this)" class="nav-item" data-nav="prevendas">📋<span>Pré-Vendas</span></button>
+            <button onclick="nav('estoque', this)" class="nav-item" data-nav="estoque">🧵<span>Estoque</span></button>
+            <button onclick="nav('financeiro', this)" class="nav-item" data-nav="financeiro">📊<span>Financeiro</span></button>
         </nav>
     </div>
 

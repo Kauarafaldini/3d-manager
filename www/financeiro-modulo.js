@@ -38,9 +38,15 @@ function calcularCustoUnitario(dados) {
     if (tipo === 'unitario_fixo') return parseFloat(dados.custoUnitario) || 0;
     if (tipo === 'por_hora') return parseFloat(dados.custoPorHora) || 0;
     if (tipo === 'parcela_mensal') {
-        const mensal = parseFloat(dados.valorMensal) || 0;
-        const horas = parseFloat(dados.horasUsoMes) || 160;
-        return horas > 0 ? mensal / horas : 0;
+        const valorTotal = parseFloat(dados.precoTotal) || 0;
+        const numParcelas = parseFloat(dados.numParcelas) || 0;
+        const valorMensal = parseFloat(dados.valorMensal) || 0;
+        // Se tem valor total e num parcelas, calcula o mensal
+        if (valorTotal > 0 && numParcelas > 0) {
+            return valorTotal / numParcelas;
+        }
+        // Se tem apenas valor da parcela, usa direto
+        return valorMensal;
     }
     return 0;
 }
@@ -86,7 +92,7 @@ function atualizarPreviewCustoCadastro() {
         quantidadeTotal: document.getElementById('cadQtdTotal').value,
         custoUnitario: document.getElementById('cadCustoUnitario').value,
         valorMensal: document.getElementById('cadValorMensal').value,
-        horasUsoMes: document.getElementById('cadHorasMes').value,
+        numParcelas: document.getElementById('cadNumParcelas')?.value || 0,
         custoPorHora: document.getElementById('cadCustoHora').value
     };
     const unidade = document.getElementById('cadUnidade').value || 'un';
@@ -97,8 +103,20 @@ function atualizarPreviewCustoCadastro() {
     } else if (tipo === 'unitario_fixo') {
         preview.innerHTML = `Custo fixo: <b style="color:var(--success)">${formatarMoeda(unit)}</b> / ${unidade}`;
     } else if (tipo === 'parcela_mensal') {
-        const mensal = parseFloat(dados.valorMensal) || 0;
-        preview.innerHTML = `Parcela: <b>${formatarMoeda(mensal)}/mês</b> → ~<b style="color:#fbbf24">${formatarMoeda(unit)}/h</b> (rateio ${dados.horasUsoMes || 160}h)`;
+        const valorTotal = parseFloat(dados.precoTotal) || 0;
+        const numParcelas = parseFloat(dados.numParcelas) || 0;
+        const valorMensal = parseFloat(dados.valorMensal) || 0;
+        if (valorTotal > 0 && numParcelas > 0) {
+            const calc = valorTotal / numParcelas;
+            preview.innerHTML = `<b>${numParcelas}x</b> de <b style="color:#fbbf24">${formatarMoeda(calc)}</b> = ${formatarMoeda(valorTotal)} total`;
+        } else if (valorMensal > 0 && numParcelas > 0) {
+            const total = valorMensal * numParcelas;
+            preview.innerHTML = `<b>${numParcelas}x</b> de <b style="color:#fbbf24">${formatarMoeda(valorMensal)}</b> = ${formatarMoeda(total)} total`;
+        } else if (valorMensal > 0) {
+            preview.innerHTML = `Parcela fixa: <b style="color:#fbbf24">${formatarMoeda(valorMensal)}/mês</b>`;
+        } else {
+            preview.innerHTML = 'Preencha o valor total e nº de parcelas, ou valor da parcela.';
+        }
     } else if (tipo === 'por_hora') {
         preview.innerHTML = `Custo operacional: <b style="color:var(--success)">${formatarMoeda(unit)}/hora</b>`;
     }
@@ -109,6 +127,7 @@ async function carregarCustos() {
         const Model = getCustoItemModel();
         custosCache = await Model.find({ ativo: { $ne: false } }).sort({ nome: 1 });
         renderListaCustosCadastro();
+        if (typeof renderListaCustosCadastroEstoque === 'function') renderListaCustosCadastroEstoque();
         atualizarTodosSelectsCustoExtra();
     } catch (e) {
         console.error('Erro ao carregar custos:', e);
@@ -201,7 +220,12 @@ function renderListaCustosCadastro() {
         if (c.tipoCalculo === 'lote') {
             detalhe = `${formatarMoeda(c.precoTotal)} ÷ ${c.quantidadeTotal} ${c.unidade} | Estoque: ${c.estoqueAtual ?? c.quantidadeTotal}`;
         } else if (c.tipoCalculo === 'parcela_mensal') {
-            detalhe = `${formatarMoeda(c.valorMensal)}/mês | ~${formatarMoeda(unit)}/h`;
+            const numP = c.numParcelas || 0;
+            if (numP > 0) {
+                detalhe = `${numP}x de ${formatarMoeda(unit)} = ${formatarMoeda(unit * numP)} total`;
+            } else {
+                detalhe = `${formatarMoeda(unit)}/mês`;
+            }
         } else if (c.tipoCalculo === 'por_hora') {
             detalhe = `${formatarMoeda(unit)}/hora`;
         } else {
@@ -233,12 +257,20 @@ function subNavControle(painel) {
     const el = document.getElementById(`painel-${painel}`);
     if (el) el.style.display = 'block';
 
-    // Always refresh the financial report
-    if (painel === 'relatorio' || painel === 'cadastro') {
+    if (painel === 'relatorio') {
         atualizarRelatorioFinanceiro();
+        carregarCustos();
+    } else if (painel === 'historico-vendas') {
+        if (typeof renderHistoricoVendasFinanceiro === 'function') renderHistoricoVendasFinanceiro();
+    } else if (painel === 'parcelas') {
+        // Renderizar lista de parcelas no painel separado
+        atualizarRelatorioFinanceiro();
+    } else if (painel === 'insumos') {
+        // Renderizar catálogo de insumos no painel separado
         carregarCustos();
     }
 }
+
 
 
 function filtrarVendasPorPeriodo(vendas, filtro) {
@@ -458,8 +490,10 @@ async function atualizarRelatorioFinanceiro() {
         await carregarCustos();
 
         const filtro = document.getElementById('relFiltro')?.value || 'mes_atual';
-        const vendasPeriodo = filtrarVendasPorPeriodo(todasVendas, filtro);
-        const metricasTotal = agregarMetricasVendas(todasVendas);
+        // Filtrar vendas de produção e pré-vendas
+        const vendasReais = todasVendas.filter(v => v.canal !== 'producao' && v.tipo !== 'producao' && v.status !== 'pre_venda');
+        const vendasPeriodo = filtrarVendasPorPeriodo(vendasReais, filtro);
+        const metricasTotal = agregarMetricasVendas(vendasReais);
         const m = agregarMetricasVendas(vendasPeriodo);
 
         const valorEstoqueFilamento = estoque.reduce((acc, e) => acc + (e.gramas / 1000) * e.precoKg, 0);
@@ -495,6 +529,9 @@ async function atualizarRelatorioFinanceiro() {
         document.getElementById('relEstoquePeso').textContent = pesoEstoque.toFixed(0) + ' g';
         document.getElementById('relParcelas').textContent = formatarMoeda(parcelasMensais);
         document.getElementById('relNumVendas').textContent = `${m.qtd} no período · ${todasVendas.length} total`;
+
+        const relMaoObra = document.getElementById('relMaoObra');
+        if (relMaoObra) relMaoObra.textContent = formatarMoeda(m.trabalho);
 
         const compCusto = document.getElementById('relComparativoCusto');
         const compLucro = document.getElementById('relComparativoLucro');
@@ -585,7 +622,7 @@ function atualizarFormularioCustoCadastroEstoque() {
         el.style.display = tipo === 'por_hora' ? 'block' : 'none';
     });
 
-    document.querySelectorAll('#cadPrecoTotalEstoque, #cadQtdTotalEstoque, #cadCustoUnitarioEstoque, #cadValorMensalEstoque, #cadHorasMesEstoque, #cadCustoHoraEstoque').forEach(el => {
+    document.querySelectorAll('#cadPrecoTotalEstoque, #cadPrecoTotalParcelaEstoque, #cadNumParcelasEstoque, #cadQtdTotalEstoque, #cadCustoUnitarioEstoque, #cadValorMensalEstoque, #cadCustoHoraEstoque').forEach(el => {
         el.readOnly = false;
         el.disabled = false;
         el.removeAttribute('readonly');
@@ -606,7 +643,7 @@ function atualizarPreviewCustoCadastroEstoque() {
         quantidadeTotal: document.getElementById('cadQtdTotalEstoque').value,
         custoUnitario: document.getElementById('cadCustoUnitarioEstoque').value,
         valorMensal: document.getElementById('cadValorMensalEstoque').value,
-        horasUsoMes: document.getElementById('cadHorasMesEstoque').value,
+        numParcelas: document.getElementById('cadNumParcelasEstoque')?.value || 0,
         custoPorHora: document.getElementById('cadCustoHoraEstoque').value
     };
     const unidade = document.getElementById('cadUnidadeEstoque').value || 'un';
@@ -617,8 +654,20 @@ function atualizarPreviewCustoCadastroEstoque() {
     } else if (tipo === 'unitario_fixo') {
         preview.innerHTML = `Custo fixo: <b style="color:var(--success)">${formatarMoeda(unit)}</b> / ${unidade}`;
     } else if (tipo === 'parcela_mensal') {
-        const mensal = parseFloat(dados.valorMensal) || 0;
-        preview.innerHTML = `Parcela: <b>${formatarMoeda(mensal)}/mês</b> → ~<b style="color:#fbbf24">${formatarMoeda(unit)}/h</b> (rateio ${dados.horasUsoMes || 160}h)`;
+        const valorTotal = parseFloat(dados.precoTotal) || 0;
+        const numParcelas = parseFloat(dados.numParcelas) || 0;
+        const valorMensal = parseFloat(dados.valorMensal) || 0;
+        if (valorTotal > 0 && numParcelas > 0) {
+            const calc = valorTotal / numParcelas;
+            preview.innerHTML = `<b>${numParcelas}x</b> de <b style="color:#fbbf24">${formatarMoeda(calc)}</b> = ${formatarMoeda(valorTotal)} total`;
+        } else if (valorMensal > 0 && numParcelas > 0) {
+            const total = valorMensal * numParcelas;
+            preview.innerHTML = `<b>${numParcelas}x</b> de <b style="color:#fbbf24">${formatarMoeda(valorMensal)}</b> = ${formatarMoeda(total)} total`;
+        } else if (valorMensal > 0) {
+            preview.innerHTML = `Parcela fixa: <b style="color:#fbbf24">${formatarMoeda(valorMensal)}/mês</b>`;
+        } else {
+            preview.innerHTML = 'Preencha o valor total e nº de parcelas, ou valor da parcela.';
+        }
     } else if (tipo === 'por_hora') {
         preview.innerHTML = `Custo operacional: <b style="color:var(--success)">${formatarMoeda(unit)}/hora</b>`;
     }
@@ -648,7 +697,7 @@ async function salvarCustoItemEstoque() {
         quantidadeTotal: parseFloat(document.getElementById('cadQtdTotalEstoque').value) || 0,
         custoUnitario: parseFloat(document.getElementById('cadCustoUnitarioEstoque').value) || 0,
         valorMensal: parseFloat(document.getElementById('cadValorMensalEstoque').value) || 0,
-        horasUsoMes: parseFloat(document.getElementById('cadHorasMesEstoque').value) || 160,
+        numParcelas: parseFloat(document.getElementById('cadNumParcelasEstoque')?.value) || 0,
         custoPorHora: parseFloat(document.getElementById('cadCustoHoraEstoque').value) || 0
     };
 
@@ -667,10 +716,13 @@ async function salvarCustoItemEstoque() {
         if (typeof atualizarRelatorioFinanceiro === 'function') atualizarRelatorioFinanceiro();
         alert('Custo cadastrado com sucesso!');
         
-        // Limpar formulário
         document.getElementById('cadNomeEstoque').value = '';
         document.getElementById('cadObsEstoque').value = '';
         document.getElementById('cadPrecoTotalEstoque').value = '';
+        const precoParcelaEl = document.getElementById('cadPrecoTotalParcelaEstoque');
+        if (precoParcelaEl) precoParcelaEl.value = '';
+        const numParcelaEl = document.getElementById('cadNumParcelasEstoque');
+        if (numParcelaEl) numParcelaEl.value = '';
         document.getElementById('cadQtdTotalEstoque').value = '';
         document.getElementById('cadCustoUnitarioEstoque').value = '';
         document.getElementById('cadValorMensalEstoque').value = '';

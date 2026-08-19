@@ -71,10 +71,23 @@ async function testarConexaoUrl() {
     }
 }
 
+function mostrarAuthErro(msg) {
+    const errDiv = document.getElementById('auth-error-msg');
+    if (errDiv) {
+        if (msg) {
+            errDiv.textContent = msg;
+            errDiv.style.display = 'block';
+        } else {
+            errDiv.style.display = 'none';
+        }
+    }
+}
+
 function mostrarAuthTab(tab) {
     document.querySelectorAll('.auth-tab').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
     document.getElementById('auth-form-login').style.display = tab === 'login' ? 'block' : 'none';
     document.getElementById('auth-form-register').style.display = tab === 'register' ? 'block' : 'none';
+    mostrarAuthErro('');
 }
 
 async function tentarConectarApi() {
@@ -82,70 +95,107 @@ async function tentarConectarApi() {
     const ok = await window.dbBridge.conectarBanco();
     const el = document.getElementById('auth-api-status');
     if (el) {
-        el.textContent = ok ? `Servidor online em ${apiUrl}` : `Servidor offline em ${apiUrl} — verifique a URL da API`;
+        el.textContent = ok ? `Servidor online` : `Servidor offline — tentando reconectar...`;
         el.style.color = ok ? '#10b981' : '#ef4444';
     }
     return ok;
 }
 
 async function loginApp() {
-    const email = document.getElementById('authEmail').value.trim();
-    const senha = document.getElementById('authSenha').value;
+    mostrarAuthErro('');
+    const emailEl = document.getElementById('authEmail');
+    const senhaEl = document.getElementById('authSenha');
+    const loginBtn = document.querySelector('#auth-form-login .btn-login');
+
+    const email = emailEl?.value?.trim();
+    const senha = senhaEl?.value;
     const manterConectado = document.getElementById('authManterConectado')?.checked || false;
-    if (!email || !senha) return alert('Informe e-mail e senha.');
 
-    const apiUrl = document.getElementById('authApiUrl')?.value?.trim();
-    if (apiUrl) window.APP_CONFIG.setApiUrl(apiUrl);
+    // Garantir que os inputs nunca fiquem travados
+    if (emailEl) { emailEl.disabled = false; emailEl.readOnly = false; emailEl.removeAttribute('disabled'); emailEl.removeAttribute('readonly'); }
+    if (senhaEl) { senhaEl.disabled = false; senhaEl.readOnly = false; senhaEl.removeAttribute('disabled'); senhaEl.removeAttribute('readonly'); }
 
-    if (!window.APP_CONFIG.getApiUrl()) {
-        return alert('Informe a URL completa da API antes de tentar conectar (ex: http://10.0.0.197:5657).');
-    }
-
-    if (!(await tentarConectarApi())) {
-        return alert('Não foi possível conectar ao servidor. Confira a URL da API e se o servidor está rodando.');
+    if (!email || !senha) {
+        mostrarAuthErro('Informe e-mail e senha.');
+        if (!email && emailEl) emailEl.focus();
+        else if (senhaEl) senhaEl.focus();
+        return;
     }
 
     try {
+        if (loginBtn) {
+            loginBtn.disabled = true;
+            loginBtn.textContent = '⏳ Entrando...';
+        }
+
         const data = await window.apiClient.post('/api/auth/login', { email, senha, manterConectado });
         window.apiClient.setToken(data.token);
         window.apiClient.setUser(data.user);
         sessaoUsuario = data.user;
         await entrarNoApp();
     } catch (e) {
-        alert(e.message || 'Falha no login');
+        console.error('[login] Erro:', e);
+        const msg = e.message || 'Falha no login. Verifique seu e-mail e senha.';
+        mostrarAuthErro(`❌ ${msg}`);
+        if (senhaEl) {
+            senhaEl.value = '';
+            senhaEl.focus();
+        }
+    } finally {
+        if (loginBtn) {
+            loginBtn.disabled = false;
+            loginBtn.textContent = 'Entrar';
+        }
+        if (emailEl) { emailEl.disabled = false; emailEl.readOnly = false; emailEl.removeAttribute('disabled'); emailEl.removeAttribute('readonly'); }
+        if (senhaEl) { senhaEl.disabled = false; senhaEl.readOnly = false; senhaEl.removeAttribute('disabled'); senhaEl.removeAttribute('readonly'); }
+        if (typeof reativarFormularios === 'function') reativarFormularios('#authSenha');
     }
 }
 
 
 async function registrarCliente() {
-    const nome = document.getElementById('regNome').value.trim();
-    const email = document.getElementById('regEmail').value.trim();
-    const senha = document.getElementById('regSenha').value;
-    const empresa = document.getElementById('regEmpresa')?.value?.trim() || '';
+    mostrarAuthErro('');
+    const regBtn = document.querySelector('#auth-form-register .btn-login');
+    const nomeEl = document.getElementById('regNome');
+    const emailEl = document.getElementById('regEmail');
+    const senhaEl = document.getElementById('regSenha');
+    const empresaEl = document.getElementById('regEmpresa');
 
-    if (!nome || !email || !senha) return alert('Preencha nome, e-mail e senha.');
-    if (senha.length < 6) return alert('Senha com no mínimo 6 caracteres.');
+    const nome = nomeEl?.value?.trim();
+    const email = emailEl?.value?.trim();
+    const senha = senhaEl?.value;
+    const empresa = empresaEl?.value?.trim() || '';
 
-    const apiUrl = document.getElementById('authApiUrl')?.value?.trim();
-    if (apiUrl) window.APP_CONFIG.setApiUrl(apiUrl);
-
-    if (!window.APP_CONFIG.getApiUrl()) {
-        return alert('Informe a URL completa da API antes de tentar conectar (ex: http://10.0.0.197:5657).');
+    if (!nome || !email || !senha) {
+        mostrarAuthErro('Preencha nome, e-mail e senha.');
+        return;
     }
-
-    if (!(await tentarConectarApi())) {
-        return alert('Servidor offline.');
+    if (senha.length < 6) {
+        mostrarAuthErro('Senha com no mínimo 6 caracteres.');
+        return;
     }
 
     try {
+        if (regBtn) {
+            regBtn.disabled = true;
+            regBtn.textContent = '⏳ Criando conta...';
+        }
+
         const data = await window.apiClient.post('/api/auth/register', { nome, email, senha, empresa });
         window.apiClient.setToken(data.token);
         window.apiClient.setUser(data.user);
         sessaoUsuario = data.user;
-        alert('Conta criada com sucesso!');
+        if (typeof mostrarToast === 'function') mostrarToast('Conta criada com sucesso!');
         await entrarNoApp();
     } catch (e) {
-        alert(e.message || 'Erro no cadastro');
+        console.error('[register] Erro:', e);
+        mostrarAuthErro(`❌ ${e.message || 'Erro no cadastro'}`);
+    } finally {
+        if (regBtn) {
+            regBtn.disabled = false;
+            regBtn.textContent = 'Criar conta';
+        }
+        if (typeof reativarFormularios === 'function') reativarFormularios('#regSenha');
     }
 }
 
@@ -282,8 +332,16 @@ async function restaurarSessao() {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
+    // Aplicar tema salvo imediatamente
+    const temaSalvo = localStorage.getItem('3dm_tema') || 'obsidian';
+    document.documentElement.setAttribute('data-theme', temaSalvo);
+
     const apiField = document.getElementById('authApiUrl');
-    if (apiField) apiField.value = window.APP_CONFIG.getApiUrl();
+    if (apiField) {
+        const urlAtual = window.APP_CONFIG.getApiUrl();
+        apiField.value = urlAtual || 'https://threed-manager-q1tc.onrender.com';
+    }
     tentarConectarApi();
     restaurarSessao();
 });
+

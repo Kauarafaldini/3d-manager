@@ -169,4 +169,10 @@
             fakeMongoose.connection.readyState = state ? 1 : 0;
         }
     };
+
+    window.getVendaModel = window.dbBridge.getVendaModel;
+    window.getEstoqueModel = window.dbBridge.getEstoqueModel;
+    window.getModeloModel = window.dbBridge.getModeloModel;
+    window.getCustoItemModel = window.dbBridge.getCustoItemModel;
+    window.getMongoose = window.dbBridge.getMongoose;
 })();

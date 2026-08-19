@@ -4,6 +4,11 @@
   "webDir": "www",
   "bundledWebRuntime": false,
   "server": {
-    "allowNavigation": ["192.168.15.183:3847"]
+    "allowNavigation": ["192.168.15.183:3847", "threed-manager-q1tc.onrender.com"]
+  },
+  "plugins": {
+    "Http": {
+      "enabled": false
+    }
   }
 }

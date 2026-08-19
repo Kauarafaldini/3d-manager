@@ -23,10 +23,38 @@ function formatarTempoHoras(horas) {
     return `${h}h ${m}min`;
 }
 
-function getEstoqueProdutoModel() {
+function getSafeModeloModel() {
+    if (typeof window.getModeloModel === 'function') return window.getModeloModel();
     if (typeof getModeloModel === 'function') return getModeloModel();
+    if (window.dbBridge?.getModeloModel) return window.dbBridge.getModeloModel();
     return null;
 }
+
+function getSafeVendaModel() {
+    if (typeof window.getVendaModel === 'function') return window.getVendaModel();
+    if (typeof getVendaModel === 'function') return getVendaModel();
+    if (window.dbBridge?.getVendaModel) return window.dbBridge.getVendaModel();
+    return null;
+}
+
+function getSafeEstoqueModel() {
+    if (typeof window.getEstoqueModel === 'function') return window.getEstoqueModel();
+    if (typeof getEstoqueModel === 'function') return getEstoqueModel();
+    if (window.dbBridge?.getEstoqueModel) return window.dbBridge.getEstoqueModel();
+    return null;
+}
+
+function getEstoqueProdutoModel() {
+    return getSafeModeloModel();
+}
+
+function irParaPreVendas() {
+    if (typeof nav === 'function') {
+        const btn = document.querySelector('.nav-item[data-nav=prevendas]');
+        nav('prevendas', btn);
+    }
+}
+window.irParaPreVendas = irParaPreVendas;
 
 async function carregarEstoqueProdutos() {
     try {
@@ -34,6 +62,7 @@ async function carregarEstoqueProdutos() {
         if (!ModeloModel) return;
 
         const modelos = await ModeloModel.find().lean();
+        console.log('[estoque-produtos] Modelos recebidos do banco:', modelos.length);
         estoqueProdutosCache = modelos.map(m => ({
             ...m,
             estoque: m.estoque || 0,
@@ -41,6 +70,7 @@ async function carregarEstoqueProdutos() {
             temReceita: produtoTemReceita(m)
         }));
         window.estoqueProdutosCache = estoqueProdutosCache;
+        console.log('[estoque-produtos] Cache atualizado com', estoqueProdutosCache.length, 'produtos');
 
         renderizarListaEstoqueProdutos();
         atualizarResumoEstoqueProdutos();
@@ -222,6 +252,8 @@ function abrirReceitaProduto(id) {
 function renderizarListaEstoqueProdutos(filtro = '') {
     const tbody = document.getElementById('lista-estoque-produtos');
     const emptyMsg = document.getElementById('estoqueListaVazia');
+    console.log('[renderizarListaEstoqueProdutos] tbody encontrado:', !!tbody);
+    console.log('[renderizarListaEstoqueProdutos] Cache tamanho:', estoqueProdutosCache.length);
     if (!tbody) return;
 
     const termo = filtro.toLowerCase();
@@ -230,6 +262,7 @@ function renderizarListaEstoqueProdutos(filtro = '') {
         return (p.nome && p.nome.toLowerCase().includes(termo)) ||
             (p.sku && p.sku.toLowerCase().includes(termo));
     });
+    console.log('[renderizarListaEstoqueProdutos] Produtos filtrados:', produtosFiltrados.length);
 
     if (!produtosFiltrados.length) {
         tbody.innerHTML = '';
@@ -271,6 +304,7 @@ function renderizarListaEstoqueProdutos(filtro = '') {
         `;
     }).join('');
 
+    console.log('[renderizarListaEstoqueProdutos] Renderização concluída');
     atualizarResumoEstoqueProdutos(produtosFiltrados);
 }
 
@@ -297,7 +331,7 @@ function atualizarSelectProducao() {
     const select = document.getElementById('prodSelectProducao');
     if (!select) return;
 
-    const comReceita = estoqueProdutosCache.filter(produtoTemReceita);
+    const comReceita = estoqueProdutosCache.filter(p => produtoTemReceita(p));
     select.innerHTML = '<option value="">Selecione um produto com receita</option>' +
         comReceita.map(p => `
             <option value="${p._id}">${p.nome}${p.sku ? ` (${p.sku})` : ''}</option>
@@ -356,7 +390,7 @@ async function registrarProducao() {
 
         await atualizarEstoqueProduto(modeloId, quantidadeTotal, 'entrada');
 
-        const EstoqueModel = typeof getEstoqueModel === 'function' ? getEstoqueModel() : null;
+        const EstoqueModel = getSafeEstoqueModel();
         if (EstoqueModel && produto.filamentosUsados?.length) {
             for (const f of produto.filamentosUsados) {
                 if (!f.estoqueId) continue;
@@ -373,7 +407,7 @@ async function registrarProducao() {
             if (typeof atualizarInterface === 'function') await atualizarInterface();
         }
 
-        const VendaModel = typeof getVendaModel === 'function' ? getVendaModel() : null;
+        const VendaModel = getSafeVendaModel();
         if (VendaModel) {
             const custoProducaoTotal = produto.custoProducaoTotal || 0;
             const custoTotalProducao = custoProducaoTotal * quantidadeProducoes;
@@ -516,17 +550,35 @@ async function efetuarVendaTerminal() {
     try {
         await atualizarEstoqueProduto(produtoSelecionadoTerminal._id, quantidade, 'saida');
 
-        const VendaModel = typeof getVendaModel === 'function' ? getVendaModel() : null;
+        const VendaModel = getSafeVendaModel();
         if (VendaModel) {
             const precoUnitario = produtoSelecionadoTerminal.precoVenda || 0;
             const valorTotal = quantidade * precoUnitario;
 
+            // Calcular taxas de marketplace para descontar do lucro
+            let taxaComissao = 0;
+            let taxaFixa = 0;
+            if (canal === 'shopee' && typeof resolverTaxasShopee === 'function') {
+                const cfg = typeof obterConfigShopee === 'function' ? obterConfigShopee() : {};
+                const t = resolverTaxasShopee(precoUnitario, cfg);
+                taxaComissao = t.valorComissao * quantidade;
+                taxaFixa = t.taxaFixa * quantidade;
+            } else if (canal === 'ml' && typeof resolverTaxasML === 'function') {
+                const cfg = typeof obterConfigML === 'function' ? obterConfigML() : {};
+                const t = resolverTaxasML(precoUnitario, cfg);
+                taxaComissao = t.valorComissao * quantidade;
+                taxaFixa = t.taxaFixa * quantidade;
+            }
+
+            const custoTotal = (produtoSelecionadoTerminal.custoProducao || 0) * quantidade;
+            const lucroReal = valorTotal - taxaComissao - taxaFixa;
+
             const novaVenda = new VendaModel({
                 nome: produtoSelecionadoTerminal.nome,
                 sku: produtoSelecionadoTerminal.sku,
-                lucro: valorTotal - (produtoSelecionadoTerminal.custoProducao || 0) * quantidade,
+                lucro: lucroReal,
                 bruto: valorTotal,
-                custo: (produtoSelecionadoTerminal.custoProducao || 0) * quantidade,
+                custo: custoTotal,
                 canal,
                 quantidade,
                 pedidoId,
@@ -539,7 +591,9 @@ async function efetuarVendaTerminal() {
                     embalagem: produtoSelecionadoTerminal.embalagem || 0,
                     extras: produtoSelecionadoTerminal.custoExtras || 0,
                     tempoHoras: produtoSelecionadoTerminal.tempo || 0
-                }
+                },
+                taxas: { comissao: taxaComissao, fixa: taxaFixa },
+                status: 'concluida'
             });
             await novaVenda.save();
         }
@@ -561,18 +615,20 @@ async function renderizarUltimasVendas(filtro = '') {
     if (!container) return;
 
     try {
-        const VendaModel = typeof getVendaModel === 'function' ? getVendaModel() : null;
+        const VendaModel = getSafeVendaModel();
         if (!VendaModel) return;
 
         const vendas = await VendaModel.find().sort({ data: -1 }).lean();
+        const vendasSemPre = vendas.filter(v => v.status !== 'pre_venda');
         const termo = filtro.trim().toLowerCase();
-        const vendasFiltradas = termo ? vendas.filter(v => {
+        const vendasFiltradas = termo ? vendasSemPre.filter(v => {
             const texto = `${v.nome || ''} ${v.sku || ''} ${v.canal || ''} ${v.pedidoId || ''}`.toLowerCase();
             return texto.includes(termo);
-        }) : vendas;
+        }) : vendasSemPre;
 
         const hoje = new Date();
-        const vendasHoje = vendas.filter(v => new Date(v.data).toDateString() === hoje.toDateString());
+        const vendasConcluidas = vendas.filter(v => v.status !== 'pre_venda' && v.canal !== 'producao' && v.tipo !== 'producao');
+        const vendasHoje = vendasConcluidas.filter(v => new Date(v.data).toDateString() === hoje.toDateString());
         const totalDia = vendasHoje.reduce((sum, v) => sum + (Number(v.bruto) || 0), 0);
         const qtdeVendida = vendasHoje.reduce((sum, v) => sum + (Number(v.quantidade) || 1), 0);
         const ticketMedio = vendasHoje.length ? totalDia / vendasHoje.length : 0;
@@ -610,23 +666,195 @@ async function renderizarUltimasVendas(filtro = '') {
 function subNavTerminal(view) {
     const saleView = document.getElementById('termSaleView');
     const historyView = document.getElementById('termHistoryView');
+    const preVendasView = document.getElementById('termPreVendasView');
     const buttons = document.querySelectorAll('.term-nav-btn');
     if (!saleView || !historyView) return;
 
     buttons.forEach(btn => btn.classList.toggle('active', btn.dataset.view === view));
 
+    saleView.style.display = 'none';
+    historyView.style.display = 'none';
+    if (preVendasView) preVendasView.style.display = 'none';
+
     if (view === 'movimentacoes') {
-        saleView.style.display = 'none';
         historyView.style.display = 'block';
         renderizarUltimasVendas(document.getElementById('termMovimentoBuscaPanel')?.value || '');
+    } else if (view === 'pre-vendas') {
+        if (preVendasView) preVendasView.style.display = 'block';
+        if (typeof renderizarPreVendas === 'function') renderizarPreVendas();
     } else {
         saleView.style.display = 'block';
-        historyView.style.display = 'none';
     }
 }
 
-function filtrarMovimentacoesTerminal() {
-    renderizarUltimasVendas(document.getElementById('termMovimentoBuscaPanel')?.value || '');
+async function renderizarPreVendas() {
+    const containers = [
+        document.getElementById('termListaPreVendas'),
+        document.getElementById('listaPreVendasDedicada')
+    ].filter(Boolean);
+
+    if (!containers.length) return;
+
+    try {
+        const VendaModel = getSafeVendaModel();
+        if (!VendaModel) {
+            containers.forEach(c => c.innerHTML = '<p class="empty-msg">Carregando banco de dados...</p>');
+            return;
+        }
+
+        const vendas = await VendaModel.find().sort({ data: -1 }).lean();
+        const preVendas = vendas.filter(v => v.status === 'pre_venda');
+
+        if (!preVendas.length) {
+            const emptyHtml = '<p class="empty-msg">Nenhum orçamento pendente. Crie pré-vendas na Calculadora de Preços.</p>';
+            containers.forEach(c => c.innerHTML = emptyHtml);
+            return;
+        }
+
+        const listHtml = preVendas.map(v => `
+            <div class="item-row" style="border-left-color:#f59e0b;">
+                <div class="item-info">
+                    <b>${v.nome}</b>
+                    <span>${(v.canal || 'direta').toUpperCase()} · R$ ${(v.bruto || 0).toFixed(2)}</span>
+                    <small style="color:#64748b;display:block;margin-top:4px;">
+                        Criado em ${new Date(v.data).toLocaleString('pt-BR')} · Qtd: ${v.quantidade || 1}
+                    </small>
+                </div>
+                <div style="display:flex;flex-direction:column;gap:6px;align-items:flex-end;">
+                    <span style="font-weight:700;color:var(--success);font-size:14px;">R$ ${(v.lucro || 0).toFixed(2)}</span>
+                    <div style="display:flex;gap:6px;">
+                        <button class="btn-main" style="padding:6px 12px;font-size:11px;margin:0;" onclick="finalizarPreVenda('${v._id}')">Finalizar</button>
+                        <button class="btn-delete-row" onclick="excluirPreVenda('${v._id}')" title="Excluir orçamento">🗑️</button>
+                    </div>
+                </div>
+            </div>
+        `).join('');
+
+        containers.forEach(c => c.innerHTML = listHtml);
+    } catch (err) {
+        console.error('Erro ao carregar pré-vendas:', err);
+        containers.forEach(c => c.innerHTML = '<p class="empty-msg">Erro ao carregar orçamentos.</p>');
+    }
+}
+
+async function finalizarPreVenda(id) {
+    if (!confirm('Finalizar este orçamento como venda concluída?')) return;
+
+    try {
+        const VendaModel = getSafeVendaModel();
+        if (!VendaModel) return;
+
+        await VendaModel.findByIdAndUpdate(id, { status: 'concluida' });
+
+        // Baixar estoque de filamentos se houver
+        const venda = await VendaModel.findById(id);
+        if (venda && venda.filamentosUsados && venda.filamentosUsados.length > 0) {
+            const EstoqueModel = getSafeEstoqueModel();
+            if (EstoqueModel) {
+                for (const f of venda.filamentosUsados) {
+                    if (!f.estoqueId) continue;
+                    const filamento = await EstoqueModel.findById(f.estoqueId);
+                    if (filamento) {
+                        const novaQtd = Math.max(0, (Number(filamento.gramas) || 0) - (Number(f.peso) || 0));
+                        await EstoqueModel.findByIdAndUpdate(f.estoqueId, { gramas: novaQtd });
+                    }
+                }
+            }
+        }
+
+        // Baixar custos extras se houver
+        if (venda && venda.custosExtras && venda.custosExtras.length > 0 && typeof baixarEstoqueCustosExtras === 'function') {
+            await baixarEstoqueCustosExtras(venda.custosExtras);
+        }
+
+        if (typeof mostrarToast === 'function') mostrarToast('Venda finalizada com sucesso!');
+        renderizarPreVendas();
+        if (typeof atualizarInterface === 'function') await atualizarInterface();
+        if (typeof atualizarRelatorioFinanceiro === 'function') await atualizarRelatorioFinanceiro();
+        if (typeof atualizarOverviewHome === 'function') await atualizarOverviewHome();
+        if (typeof carregarEstoqueProdutos === 'function') await carregarEstoqueProdutos();
+    } catch (err) {
+        alert('Erro ao finalizar pré-venda: ' + err.message);
+    }
+}
+
+async function excluirPreVenda(id) {
+    if (!confirm('Excluir este orçamento?')) return;
+
+    try {
+        const VendaModel = getSafeVendaModel();
+        if (!VendaModel) return;
+
+        await VendaModel.findByIdAndDelete(id);
+        if (typeof mostrarToast === 'function') mostrarToast('Orçamento excluído.');
+        renderizarPreVendas();
+    } catch (err) {
+        alert('Erro ao excluir orçamento: ' + err.message);
+    }
+}
+
+// Histórico de vendas para o Financeiro
+async function renderHistoricoVendasFinanceiro(filtro = '') {
+    const container = document.getElementById('fin-lista-historico-vendas');
+    if (!container) return;
+
+    try {
+        const VendaModel = getSafeVendaModel();
+        if (!VendaModel) return;
+
+        const vendas = await VendaModel.find().sort({ data: -1 }).lean();
+        const vendasConcluidas = vendas.filter(v => v.status !== 'pre_venda' && v.canal !== 'producao' && v.tipo !== 'producao');
+        const termo = filtro.trim().toLowerCase();
+        const vendasFiltradas = termo ? vendasConcluidas.filter(v => {
+            const texto = `${v.nome || ''} ${v.sku || ''} ${v.canal || ''} ${v.pedidoId || ''}`.toLowerCase();
+            return texto.includes(termo);
+        }) : vendasConcluidas;
+
+        if (!vendasFiltradas.length) {
+            container.innerHTML = '<p class="empty-msg">Nenhuma venda encontrada.</p>';
+            return;
+        }
+
+        container.innerHTML = vendasFiltradas.map(v => `
+            <div class="item-row">
+                <div class="item-info">
+                    <b>${v.nome}</b>
+                    <span>${(v.canal || 'direta').toUpperCase()} · Bruto: R$ ${(v.bruto || 0).toFixed(2)} · Custo: R$ ${(v.custo || 0).toFixed(2)}</span>
+                    <small style="color:#64748b;display:block;margin-top:4px;">
+                        ${new Date(v.data).toLocaleString('pt-BR')} · ${v.quantidade || 1} un.
+                        ${v.pedidoId ? ' · Pedido: ' + v.pedidoId : ''}
+                    </small>
+                </div>
+                <div style="display:flex;align-items:center;gap:10px;">
+                    <div class="item-val" style="color:var(--success);">+ R$ ${(v.lucro || 0).toFixed(2)}</div>
+                    <button class="btn-delete-row" onclick="excluirVenda('${v._id}')" title="Excluir">🗑️</button>
+                </div>
+            </div>
+        `).join('');
+    } catch (err) {
+        console.error('Erro ao carregar histórico de vendas:', err);
+        container.innerHTML = '<p class="empty-msg">Erro ao carregar histórico.</p>';
+    }
+}
+
+function filtrarHistoricoVendasFinanceiro() {
+    renderHistoricoVendasFinanceiro(document.getElementById('finHistoricoBusca')?.value || '');
+}
+
+// Auto-calcular parcela quando valor total e num parcelas preenchidos
+function autoCalcParcelaEstoque() {
+    const valorTotal = parseFloat(document.getElementById('cadPrecoTotalParcelaEstoque')?.value) || 0;
+    const numParcelas = parseFloat(document.getElementById('cadNumParcelasEstoque')?.value) || 0;
+    const valorMensalEl = document.getElementById('cadValorMensalEstoque');
+    const precoTotalEl = document.getElementById('cadPrecoTotalEstoque');
+
+    if (valorTotal > 0 && numParcelas > 0 && valorMensalEl) {
+        valorMensalEl.value = (valorTotal / numParcelas).toFixed(2);
+    }
+    // Also fill the precoTotal field used by calcularCustoUnitario
+    if (precoTotalEl) {
+        precoTotalEl.value = valorTotal;
+    }
 }
 
 let autoUpdateInterval = null;
@@ -678,6 +906,12 @@ if (typeof window !== 'undefined') {
     window.excluirProdutoEstoque = excluirProdutoEstoque;
     window.abrirReceitaProduto = abrirReceitaProduto;
     window.produtoTemReceita = produtoTemReceita;
+    window.renderizarPreVendas = renderizarPreVendas;
+    window.finalizarPreVenda = finalizarPreVenda;
+    window.excluirPreVenda = excluirPreVenda;
+    window.renderHistoricoVendasFinanceiro = renderHistoricoVendasFinanceiro;
+    window.filtrarHistoricoVendasFinanceiro = filtrarHistoricoVendasFinanceiro;
+    window.autoCalcParcelaEstoque = autoCalcParcelaEstoque;
 }
 
 document.addEventListener('DOMContentLoaded', () => {
