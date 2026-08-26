@@ -50,8 +50,11 @@ function getEstoqueProdutoModel() {
 
 function irParaPreVendas() {
     if (typeof nav === 'function') {
-        const btn = document.querySelector('.nav-item[data-nav=prevendas]');
-        nav('prevendas', btn);
+        const btn = document.querySelector('.nav-item[data-nav=terminal]');
+        nav('terminal', btn);
+        if (typeof subNavTerminal === 'function') {
+            subNavTerminal('pre-vendas');
+        }
     }
 }
 window.irParaPreVendas = irParaPreVendas;
@@ -674,6 +677,7 @@ function subNavTerminal(view) {
     const saleView = document.getElementById('termSaleView');
     const historyView = document.getElementById('termHistoryView');
     const preVendasView = document.getElementById('termPreVendasView');
+    const filaView = document.getElementById('termFilaView');
     const buttons = document.querySelectorAll('.term-nav-btn');
     if (!saleView || !historyView) return;
 
@@ -682,6 +686,7 @@ function subNavTerminal(view) {
     saleView.style.display = 'none';
     historyView.style.display = 'none';
     if (preVendasView) preVendasView.style.display = 'none';
+    if (filaView) filaView.style.display = 'none';
 
     if (view === 'movimentacoes') {
         historyView.style.display = 'block';
@@ -689,6 +694,11 @@ function subNavTerminal(view) {
     } else if (view === 'pre-vendas') {
         if (preVendasView) preVendasView.style.display = 'block';
         if (typeof renderizarPreVendas === 'function') renderizarPreVendas();
+    } else if (view === 'fila') {
+        if (filaView) filaView.style.display = 'block';
+        if (window.ImpressorasFilaModulo && typeof window.ImpressorasFilaModulo.renderizarPainelFila === 'function') {
+            window.ImpressorasFilaModulo.renderizarPainelFila();
+        }
     } else {
         saleView.style.display = 'block';
     }
@@ -729,7 +739,8 @@ async function renderizarPreVendas() {
                 </div>
                 <div style="display:flex;flex-direction:column;gap:6px;align-items:flex-end;">
                     <span style="font-weight:700;color:var(--success);font-size:14px;">R$ ${(v.lucro || 0).toFixed(2)}</span>
-                    <div style="display:flex;gap:6px;">
+                    <div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end;">
+                        <button class="btn-secondary" style="padding:6px 10px;font-size:11px;background:rgba(6,182,212,0.15);border-color:var(--primary);color:var(--primary);" onclick="ImpressorasFilaModulo.abrirModalEnfileirarPreVenda('${v._id}')" title="Enviar para a Fila de Impressão">🖨️ Fila</button>
                         <button class="btn-main" style="padding:6px 12px;font-size:11px;margin:0;" onclick="finalizarPreVenda('${v._id}')">Finalizar</button>
                         <button class="btn-delete-row" onclick="excluirPreVenda('${v._id}')" title="Excluir orçamento">🗑️</button>
                     </div>

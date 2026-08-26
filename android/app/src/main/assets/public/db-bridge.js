@@ -6,7 +6,9 @@
         Venda: '/api/data/vendas',
         Estoque: '/api/data/estoque',
         Modelo: '/api/data/modelos',
-        CustoItem: '/api/data/custos'
+        CustoItem: '/api/data/custos',
+        Impressora: '/api/data/impressoras',
+        Fila: '/api/data/fila'
     };
 
     let online = false;
@@ -162,6 +164,8 @@
         getEstoqueModel: () => createApiModel('Estoque'),
         getModeloModel: () => createApiModel('Modelo'),
         getCustoItemModel: () => createApiModel('CustoItem'),
+        getImpressoraModel: () => createApiModel('Impressora'),
+        getFilaModel: () => createApiModel('Fila'),
         getMongoose: () => fakeMongoose,
         startPing,
         setOnline(state) {
@@ -174,5 +178,7 @@
     window.getEstoqueModel = window.dbBridge.getEstoqueModel;
     window.getModeloModel = window.dbBridge.getModeloModel;
     window.getCustoItemModel = window.dbBridge.getCustoItemModel;
+    window.getImpressoraModel = window.dbBridge.getImpressoraModel;
+    window.getFilaModel = window.dbBridge.getFilaModel;
     window.getMongoose = window.dbBridge.getMongoose;
 })();

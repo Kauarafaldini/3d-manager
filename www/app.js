@@ -41,28 +41,40 @@ function bancoOnline() {
 
 // Navegação UI
 function nav(tab, btn) {
+    if (tab === 'prevendas') {
+        const terminalBtn = document.querySelector('.nav-item[data-nav=terminal]');
+        nav('terminal', terminalBtn);
+        if (typeof subNavTerminal === 'function') {
+            subNavTerminal('pre-vendas');
+        }
+        return;
+    }
+
     document.querySelectorAll('.app-section').forEach(s => s.style.display = 'none');
     document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active'));
-    document.getElementById(`sec-${tab}`).style.display = 'block';
-    if (btn) btn.classList.add('active');
+    
+    const targetSec = document.getElementById(`sec-${tab}`);
+    if (targetSec) targetSec.style.display = 'block';
+    
+    const activeBtn = btn || document.querySelector(`.nav-item[data-nav="${tab}"]`);
+    if (activeBtn) activeBtn.classList.add('active');
     
     const titles = {
         home: 'Visão Geral',
-        financeiro: 'Financeiro',
+        estoque: 'Estoque & Materiais',
         calculadora: 'Calculadora de Preços',
-        terminal: 'Terminal de Vendas',
-        prevendas: 'Pré-Vendas',
-        'estoque-produtos': 'Estoque de Produtos',
-        estoque: 'Estoque'
+        terminal: 'Vendas & Pedidos',
+        financeiro: 'Relatório Financeiro',
+        'estoque-produtos': 'Estoque de Produtos'
     };
-    document.getElementById('tab-title').innerText = titles[tab] || tab;
+    const titleEl = document.getElementById('tab-title');
+    if (titleEl) titleEl.innerText = titles[tab] || tab;
 
     if (tab === 'home' && typeof atualizarOverviewHome === 'function') {
         atualizarOverviewHome();
-    }
-
-    if (tab === 'prevendas' && typeof renderizarPreVendas === 'function') {
-        renderizarPreVendas();
+        if (window.ImpressorasFilaModulo && typeof window.ImpressorasFilaModulo.renderizarWidgetHome === 'function') {
+            window.ImpressorasFilaModulo.renderizarWidgetHome();
+        }
     }
 
     if (tab === 'financeiro' || tab === 'estoque' || tab === 'calculadora') {
@@ -93,9 +105,11 @@ function nav(tab, btn) {
             });
         }
         
-        const container = document.getElementById('container-filamentos-linhas');
         if (container && container.children.length === 0) {
             adicionarLinhaFilamento();
+        }
+        if (window.ImpressorasFilaModulo && typeof window.ImpressorasFilaModulo.preencherSeletorCalculadora === 'function') {
+            window.ImpressorasFilaModulo.preencherSeletorCalculadora();
         }
         atualizarTempoResumo();
         calcFinanceiro(false);
@@ -367,6 +381,10 @@ async function lancarPreVendaFinanceiro() {
     try {
         const VendaModel = getVendaModel();
 
+        const impSelecionada = window.ImpressorasFilaModulo && typeof window.ImpressorasFilaModulo.obterImpressoraSelecionadaCalculadora === 'function'
+            ? window.ImpressorasFilaModulo.obterImpressoraSelecionadaCalculadora()
+            : null;
+
         const novaPreVenda = new VendaModel({
             nome,
             lucro: dados.lucroReal,
@@ -384,7 +402,9 @@ async function lancarPreVendaFinanceiro() {
                 desgaste: dados.custoDesgaste,
                 embalagem: dados.embalagem,
                 extras: dados.custoExtras,
-                tempoHoras: dados.tempo
+                tempoHoras: dados.tempo,
+                impressoraId: impSelecionada ? String(impSelecionada._id) : null,
+                impressoraNome: impSelecionada ? impSelecionada.nome : null
             },
             custosExtras: dados.custosExtras,
             taxas: { comissao: dados.valorComissao, fixa: dados.taxaFixa },
@@ -395,7 +415,9 @@ async function lancarPreVendaFinanceiro() {
         await novaPreVenda.save();
         console.log('Pré-venda salva com sucesso:', novaPreVenda);
 
-        if (typeof mostrarToast === 'function') mostrarToast('Pré-venda (orçamento) salva! Finalize em Vendas.');
+        if (typeof mostrarToast === 'function') {
+            mostrarToast('Pré-venda (orçamento) salva! Finalize ou Envie para a Fila em Vendas.');
+        }
 
         // Limpar formulário
         document.getElementById('pNome').value = '';
@@ -528,6 +550,27 @@ function calcFinanceiro(foiAlteradoPelaMargem = false) {
             if (opt) {
                 nome = opt.text.split(' (')[0];
             }
+        }
+
+        // Verificação em tempo real de saldo insuficiente (Alerta de Inviabilidade)
+        let alertEl = linha.querySelector('.filamento-inviavel-alerta');
+        if (!alertEl) {
+            alertEl = document.createElement('div');
+            alertEl.className = 'filamento-inviavel-alerta';
+            linha.appendChild(alertEl);
+        }
+
+        if (estoqueId && peso > 0) {
+            const filamento = estoqueCache.find(e => idEstoque(e) === estoqueId);
+            const saldoG = Number(filamento?.gramas) || 0;
+            if (filamento && peso > saldoG) {
+                alertEl.style.display = 'block';
+                alertEl.innerHTML = `⚠️ <b>Saldo insuficiente:</b> restam ${Math.round(saldoG)}g no carretel (necessários ${peso}g)`;
+            } else {
+                alertEl.style.display = 'none';
+            }
+        } else {
+            alertEl.style.display = 'none';
         }
 
         pesoTotal += peso;
@@ -1121,16 +1164,58 @@ async function atualizarInterface() {
                 listaE.innerHTML = estoque.map(e => {
                     const gramas = Number(e.gramas) || 0;
                     const precoKg = Number(e.precoKg) || 0;
+                    const custoGram = precoKg > 0 ? (precoKg / 1000).toFixed(3) : '0.000';
+                    const cor = typeof detectarCorFilamento === 'function' ? detectarCorFilamento(e.nome) : '#06b6d4';
+                    const pct = Math.min(100, Math.max(0, Math.round((gramas / 1000) * 100)));
+
+                    let badgeClass = 'spool-badge-ok';
+                    let badgeText = '🟢 Disponível';
+                    if (gramas <= 100) {
+                        badgeClass = 'spool-badge-danger';
+                        badgeText = '🔴 Crítico (<100g)';
+                    } else if (gramas <= 250) {
+                        badgeClass = 'spool-badge-warn';
+                        badgeText = '🟡 Nível Baixo';
+                    }
+
+                    const borderSwatch = cor === '#f8fafc' ? 'border:1px solid #94a3b8;' : '';
+
                     return `
-                        <div class="item-row" style="border-left-color: #10b981">
-                            <div class="item-info">
-                                <b>${e.nome}</b>
-                                <span>${gramas.toFixed(0)}g disponíveis</span>
+                        <div class="spool-card" style="border-left: 4px solid ${cor};">
+                            <div class="spool-card-top">
+                                <div class="spool-card-main">
+                                    <div class="spool-color-circle" style="background:${cor};${borderSwatch}">
+                                        <span>🧵</span>
+                                    </div>
+                                    <div>
+                                        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+                                            <b style="font-size:14px;color:var(--text);">${e.nome}</b>
+                                            <span class="spool-badge ${badgeClass}">${badgeText}</span>
+                                        </div>
+                                        <p style="margin:2px 0 0;font-size:11px;color:var(--text-dim);">
+                                            R$ ${precoKg.toFixed(2)}/kg · R$ ${custoGram}/g
+                                        </p>
+                                    </div>
+                                </div>
+                                <div class="spool-grams-box">
+                                    <strong style="font-size:16px;color:var(--text);">${gramas.toFixed(0)}g</strong>
+                                    <small style="font-size:10px;color:var(--text-dim);">${pct}% do carretel</small>
+                                </div>
                             </div>
-                            <div style="display: flex; align-items: center; gap: 15px;">
-                                <div class="item-val" style="color: #94a3b8">R$ ${precoKg.toFixed(2)}/kg</div>
-                                <button class="btn-secondary" onclick="editarEstoque('${e._id}')" title="Editar Filamento">✏️</button>
-                                <button class="btn-delete-row" onclick="excluirEstoque('${e._id}')" title="Excluir Filamento">🗑️</button>
+
+                            <div class="spool-level-track">
+                                <div class="spool-level-bar" style="width:${pct}%;background:${cor};"></div>
+                            </div>
+
+                            <div class="spool-card-actions">
+                                <button class="btn-secondary spool-btn" onclick="abrirModalAjusteCarretel('${e._id}')" title="Ajustar saldo real após pesagem na balança">
+                                    ⚖️ Pesar / Ajustar
+                                </button>
+                                <button class="btn-secondary spool-btn" onclick="abrirModalPurgaCarretel('${e._id}')" title="Descontar gramas de purga, teste ou suporte">
+                                    🗑️ Purga / Desperdício
+                                </button>
+                                <button class="btn-secondary spool-btn-icon" onclick="editarEstoque('${e._id}')" title="Editar Filamento">✏️</button>
+                                <button class="btn-delete-row spool-btn-icon" onclick="excluirEstoque('${e._id}')" title="Excluir Filamento">🗑️</button>
                             </div>
                         </div>
                     `;
@@ -1300,4 +1385,179 @@ async function excluirModeloPadrao() {
             alert("Erro ao excluir modelo: " + err.message);
         }
     }
+}
+
+// ==========================================
+// GESTÃO VISUAL DE CARRETÉIS (SPOOLMAN)
+// ==========================================
+function detectarCorFilamento(nome) {
+    if (!nome) return '#06b6d4';
+    const n = nome.toLowerCase();
+    if (n.includes('preto') || n.includes('black') || n.includes('carbon')) return '#1e293b';
+    if (n.includes('branco') || n.includes('white')) return '#f8fafc';
+    if (n.includes('azul') || n.includes('blue') || n.includes('cyan')) return '#0284c7';
+    if (n.includes('vermelho') || n.includes('red')) return '#ef4444';
+    if (n.includes('verde') || n.includes('green') || n.includes('mint')) return '#10b981';
+    if (n.includes('amarelo') || n.includes('yellow')) return '#f59e0b';
+    if (n.includes('laranja') || n.includes('orange')) return '#ea580c';
+    if (n.includes('roxo') || n.includes('purple') || n.includes('violet')) return '#8b5cf6';
+    if (n.includes('rosa') || n.includes('pink') || n.includes('magenta')) return '#ec4899';
+    if (n.includes('cinza') || n.includes('grey') || n.includes('gray') || n.includes('prata') || n.includes('silver')) return '#64748b';
+    if (n.includes('dourado') || n.includes('gold')) return '#d97706';
+    if (n.includes('marrom') || n.includes('brown')) return '#78350f';
+    if (n.includes('madeira') || n.includes('wood')) return '#92400e';
+    if (n.includes('cobre') || n.includes('copper')) return '#b45309';
+    return '#06b6d4';
+}
+
+function abrirModalAjusteCarretel(id) {
+    const filamento = estoqueCache.find(e => idEstoque(e) === id);
+    if (!filamento) return;
+
+    document.getElementById('spoolModalId').value = id;
+    document.getElementById('spoolModalAction').value = 'ajuste';
+    document.getElementById('spoolModalTitle').innerText = `⚖️ Pesar / Ajustar Carretel`;
+    document.getElementById('spoolModalLabel').innerText = `Saldo atual: ${Math.round(filamento.gramas)}g — Novo peso (g):`;
+    document.getElementById('spoolModalValor').value = Math.round(filamento.gramas);
+    document.getElementById('spoolModalHelp').innerText = `Pese o carretel e informe o saldo líquido real de filamento restante.`;
+
+    const modal = document.getElementById('spoolModalOverlay');
+    if (modal) modal.style.display = 'flex';
+}
+
+function abrirModalPurgaCarretel(id) {
+    const filamento = estoqueCache.find(e => idEstoque(e) === id);
+    if (!filamento) return;
+
+    document.getElementById('spoolModalId').value = id;
+    document.getElementById('spoolModalAction').value = 'purga';
+    document.getElementById('spoolModalTitle').innerText = `🗑️ Registrar Purga / Desperdício`;
+    document.getElementById('spoolModalLabel').innerText = `Carretel: ${filamento.nome} (${Math.round(filamento.gramas)}g restando)`;
+    document.getElementById('spoolModalValor').value = '';
+    document.getElementById('spoolModalValor').placeholder = 'Gramas de purga/teste (ex: 15)';
+    document.getElementById('spoolModalHelp').innerText = `Informe quantos gramas foram gastos em purga de AMS, torre de limpeza ou teste.`;
+
+    const modal = document.getElementById('spoolModalOverlay');
+    if (modal) modal.style.display = 'flex';
+}
+
+function fecharModalCarretel(event) {
+    if (event && event.target !== event.currentTarget) return;
+    const modal = document.getElementById('spoolModalOverlay');
+    if (modal) modal.style.display = 'none';
+}
+
+async function confirmarAcaoCarretel() {
+    const id = document.getElementById('spoolModalId').value;
+    const action = document.getElementById('spoolModalAction').value;
+    const valor = parseFloat(document.getElementById('spoolModalValor').value);
+
+    if (isNaN(valor) || valor < 0) {
+        alert('Por favor, informe um valor válido em gramas.');
+        return;
+    }
+
+    try {
+        const EstoqueModel = getEstoqueModel();
+        const filamento = await EstoqueModel.findById(id);
+        if (!filamento) {
+            alert('Carretel não encontrado.');
+            return;
+        }
+
+        if (action === 'ajuste') {
+            filamento.gramas = valor;
+            await filamento.save();
+            if (typeof mostrarToast === 'function') {
+                mostrarToast(`Carretel "${filamento.nome}" ajustado para ${valor}g!`, 'ok');
+            }
+        } else if (action === 'purga') {
+            const novoSaldo = Math.max(0, (filamento.gramas || 0) - valor);
+            filamento.gramas = novoSaldo;
+            await filamento.save();
+            if (typeof mostrarToast === 'function') {
+                mostrarToast(`Descontados ${valor}g de purga do carretel "${filamento.nome}"! Saldo: ${novoSaldo}g`, 'ok');
+            }
+        }
+
+        fecharModalCarretel();
+        await atualizarInterface();
+    } catch (err) {
+        console.error('Erro ao atualizar carretel:', err);
+        alert('Erro ao atualizar carretel: ' + err.message);
+    }
+}
+
+// ==========================================
+// IMPORTAÇÃO DE FATIAMENTO (.3MF / .GCODE)
+// ==========================================
+async function onSlicerFileSelected(event) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    await processarArquivoFatiador(file);
+    event.target.value = '';
+}
+
+async function processarArquivoFatiador(file) {
+    if (!window.SlicerParser) {
+        alert('Módulo de fatiamento não carregado.');
+        return;
+    }
+
+    try {
+        if (typeof mostrarToast === 'function') {
+            mostrarToast(`Lendo fatiamento de ${file.name}...`, 'ok');
+        }
+        const data = await window.SlicerParser.parseFile(file);
+        window.SlicerParser.aplicarNaCalculadora(data);
+    } catch (err) {
+        console.error('[slicer] Erro ao processar fatiamento:', err);
+        alert('Erro ao processar arquivo: ' + err.message);
+    }
+}
+
+function inicializarDragAndDropSlicer() {
+    const dropzone = document.getElementById('dropzoneSlicer');
+    if (!dropzone) return;
+
+    ['dragenter', 'dragover'].forEach(eventName => {
+        dropzone.addEventListener(eventName, (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            dropzone.classList.add('dragover');
+        }, false);
+    });
+
+    ['dragleave', 'drop'].forEach(eventName => {
+        dropzone.addEventListener(eventName, (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            dropzone.classList.remove('dragover');
+        }, false);
+    });
+
+    dropzone.addEventListener('drop', async (e) => {
+        const dt = e.dataTransfer;
+        const file = dt.files?.[0];
+        if (file) {
+            await processarArquivoFatiador(file);
+        }
+    });
+}
+
+// Auto-iniciar drag & drop e módulos ao carregar
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => {
+        inicializarDragAndDropSlicer();
+        if (window.ImpressorasFilaModulo && typeof window.ImpressorasFilaModulo.init === 'function') {
+            window.ImpressorasFilaModulo.init();
+        }
+    });
+} else {
+    setTimeout(() => {
+        inicializarDragAndDropSlicer();
+        if (window.ImpressorasFilaModulo && typeof window.ImpressorasFilaModulo.init === 'function') {
+            window.ImpressorasFilaModulo.init();
+        }
+    }, 500);
 }

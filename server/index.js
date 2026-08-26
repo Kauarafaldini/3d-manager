@@ -194,6 +194,8 @@ registerCollectionRoutes('vendas', COLLECTIONS.Venda);
 registerCollectionRoutes('estoque', COLLECTIONS.Estoque);
 registerCollectionRoutes('modelos', COLLECTIONS.Modelo);
 registerCollectionRoutes('custos', COLLECTIONS.CustoItem);
+registerCollectionRoutes('impressoras', COLLECTIONS.Impressora);
+registerCollectionRoutes('fila', COLLECTIONS.Fila);
 
 app.get('/api/admin/clientes', authMiddleware, requireAdmin, async (req, res) => {
     const clients = await User().find({ role: 'client' }).sort({ criadoEm: -1 }).lean();
@@ -238,6 +240,89 @@ function serializeDoc(d) {
     if (o.tenantId) o.tenantId = o.tenantId.toString();
     return o;
 }
+
+// =============================================
+// BAMBU LAB INTEGRATION ROUTES
+// =============================================
+const bambuService = require('./bambu-service');
+
+app.get('/api/bambu/status', (req, res) => {
+    try {
+        const { serial } = req.query;
+        if (serial) {
+            const status = bambuService.getStatus(serial);
+            return res.json(status);
+        }
+        const printers = bambuService.getAllPrinters();
+        res.json({ printers });
+    } catch (err) {
+        console.error('bambu/status', err);
+        res.status(500).json({ erro: err.message });
+    }
+});
+
+app.post('/api/bambu/connect', async (req, res) => {
+    try {
+        const { ip, serial, accessCode, nome, useSimulator } = req.body || {};
+        if (!serial) {
+            return res.status(400).json({ erro: 'Serial da impressora é obrigatório' });
+        }
+        const result = await bambuService.connectPrinter({
+            ip: ip ? String(ip).trim() : '',
+            serial: String(serial).trim(),
+            accessCode: accessCode ? String(accessCode).trim() : '',
+            nome: nome ? String(nome).trim() : 'Bambu Lab',
+            useSimulator: !!useSimulator
+        });
+        res.json(result);
+    } catch (err) {
+        console.error('bambu/connect', err);
+        res.status(500).json({ ok: false, erro: err.message });
+    }
+});
+
+app.post('/api/bambu/disconnect', async (req, res) => {
+    try {
+        const { serial } = req.body || {};
+        if (!serial) {
+            return res.status(400).json({ erro: 'Serial é obrigatório' });
+        }
+        const result = await bambuService.disconnectPrinter(serial);
+        res.json(result);
+    } catch (err) {
+        console.error('bambu/disconnect', err);
+        res.status(500).json({ ok: false, erro: err.message });
+    }
+});
+
+app.post('/api/bambu/command', async (req, res) => {
+    try {
+        const { serial, command, mode } = req.body || {};
+        if (!serial) {
+            return res.status(400).json({ erro: 'Serial é obrigatório' });
+        }
+        if (command === 'chamber_light') {
+            const result = await bambuService.toggleChamberLight(serial, mode || 'on');
+            return res.json(result);
+        }
+        if (command === 'pushall') {
+            const result = await bambuService.sendCommand(serial, {
+                pushing: { sequence_id: '1', command: 'pushall' }
+            });
+            return res.json(result);
+        }
+        if (command === 'pause' || command === 'resume' || command === 'stop') {
+            const result = await bambuService.sendCommand(serial, {
+                print: { sequence_id: '0', command }
+            });
+            return res.json(result);
+        }
+        res.status(400).json({ erro: `Comando desconhecido: ${command}` });
+    } catch (err) {
+        console.error('bambu/command', err);
+        res.status(500).json({ ok: false, erro: err.message });
+    }
+});
 
 async function seedAdmin() {
     const email = (process.env.ADMIN_EMAIL || 'admin@3dmanager.local').toLowerCase();

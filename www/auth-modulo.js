@@ -244,6 +244,7 @@ async function entrarNoApp() {
     if (typeof carregarListaModelos === 'function') await carregarListaModelos();
     if (typeof carregarEstoqueProdutos === 'function') await carregarEstoqueProdutos();
     if (typeof carregarCustos === 'function') await carregarCustos();
+    if (window.ImpressorasFilaModulo && typeof window.ImpressorasFilaModulo.init === 'function') await window.ImpressorasFilaModulo.init();
     if (typeof atualizarOverviewHome === 'function') await atualizarOverviewHome();
     if (homeBtn && typeof nav === 'function') nav('home', homeBtn);
 

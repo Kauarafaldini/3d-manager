@@ -97,6 +97,43 @@ const modeloSchema = new mongoose.Schema({
     }]
 }, { collection: 'modelos' });
 
+const impressoraSchema = new mongoose.Schema({
+    nome: { type: String, required: true },
+    modelo: String,
+    potenciaWatts: { type: Number, default: 150 },
+    taxaDesgasteHora: { type: Number, default: 0.50 },
+    custoHoraTrabalho: { type: Number, default: 1.00 },
+    status: { type: String, enum: ['disponivel', 'imprimindo', 'manutencao', 'pausada'], default: 'disponivel' },
+    ip: String,
+    serial: String,
+    accessCode: String,
+    tipoConexao: { type: String, default: 'manual' },
+    observacao: String,
+    ativo: { type: Boolean, default: true },
+    criadoEm: { type: Date, default: Date.now }
+}, { collection: 'impressoras' });
+
+const filaItemSchema = new mongoose.Schema({
+    impressoraId: { type: String, required: true },
+    impressoraNome: String,
+    nomeItem: { type: String, required: true },
+    sku: String,
+    pedidoId: String,
+    vendaId: String,
+    modeloId: String,
+    tempoEstimadoHoras: { type: Number, default: 1 },
+    pesoTotalGramas: { type: Number, default: 0 },
+    filamentosUsados: [{ estoqueId: String, nome: String, peso: Number, precoKg: Number }],
+    custosExtras: [mongoose.Schema.Types.Mixed],
+    quantidade: { type: Number, default: 1 },
+    ordem: { type: Number, default: 0 },
+    status: { type: String, enum: ['pendente', 'imprimindo', 'pausado', 'concluido', 'cancelado'], default: 'pendente' },
+    iniciadoEm: Date,
+    concluidoEm: Date,
+    observacoes: String,
+    criadoEm: { type: Date, default: Date.now }
+}, { collection: 'fila_impressao' });
+
 function getVendaModel() {
     return mongoose.models.Venda || mongoose.model('Venda', vendaSchema);
 }
@@ -113,6 +150,14 @@ function getCustoItemModel() {
     return mongoose.models.CustoItem || mongoose.model('CustoItem', custoItemSchema);
 }
 
+function getImpressoraModel() {
+    return mongoose.models.Impressora || mongoose.model('Impressora', impressoraSchema);
+}
+
+function getFilaModel() {
+    return mongoose.models.Fila || mongoose.model('Fila', filaItemSchema);
+}
+
 async function conectarBanco() {
     if (mongoose.connection.readyState === 1) {
         return true;
@@ -122,6 +167,8 @@ async function conectarBanco() {
     getEstoqueModel();
     getModeloModel();
     getCustoItemModel();
+    getImpressoraModel();
+    getFilaModel();
     return true;
 }
 
@@ -165,5 +212,7 @@ module.exports = {
     getVendaModel,
     getEstoqueModel,
     getModeloModel,
-    getCustoItemModel
+    getCustoItemModel,
+    getImpressoraModel,
+    getFilaModel
 };

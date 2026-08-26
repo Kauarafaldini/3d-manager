@@ -95,6 +95,45 @@ const modeloSchema = new mongoose.Schema({
     custosExtras: [mongoose.Schema.Types.Mixed]
 }, { collection: 'modelos' });
 
+const impressoraSchema = new mongoose.Schema({
+    ...tenantField,
+    nome: { type: String, required: true },
+    modelo: String,
+    potenciaWatts: { type: Number, default: 150 },
+    taxaDesgasteHora: { type: Number, default: 0.50 },
+    custoHoraTrabalho: { type: Number, default: 1.00 },
+    status: { type: String, enum: ['disponivel', 'imprimindo', 'manutencao', 'pausada'], default: 'disponivel' },
+    ip: String,
+    serial: String,
+    accessCode: String,
+    tipoConexao: { type: String, default: 'manual' },
+    observacao: String,
+    ativo: { type: Boolean, default: true },
+    criadoEm: { type: Date, default: Date.now }
+}, { collection: 'impressoras' });
+
+const filaItemSchema = new mongoose.Schema({
+    ...tenantField,
+    impressoraId: { type: String, required: true },
+    impressoraNome: String,
+    nomeItem: { type: String, required: true },
+    sku: String,
+    pedidoId: String,
+    vendaId: String,
+    modeloId: String,
+    tempoEstimadoHoras: { type: Number, default: 1 },
+    pesoTotalGramas: { type: Number, default: 0 },
+    filamentosUsados: [{ estoqueId: String, nome: String, peso: Number, precoKg: Number }],
+    custosExtras: [mongoose.Schema.Types.Mixed],
+    quantidade: { type: Number, default: 1 },
+    ordem: { type: Number, default: 0 },
+    status: { type: String, enum: ['pendente', 'imprimindo', 'pausado', 'concluido', 'cancelado'], default: 'pendente' },
+    iniciadoEm: Date,
+    concluidoEm: Date,
+    observacoes: String,
+    criadoEm: { type: Date, default: Date.now }
+}, { collection: 'fila_impressao' });
+
 function model(name, schema) {
     return mongoose.models[name] || mongoose.model(name, schema);
 }
@@ -104,12 +143,16 @@ const Venda = () => model('Venda', vendaSchema);
 const CustoItem = () => model('CustoItem', custoItemSchema);
 const Estoque = () => model('Estoque', estoqueSchema);
 const Modelo = () => model('Modelo', modeloSchema);
+const Impressora = () => model('Impressora', impressoraSchema);
+const Fila = () => model('Fila', filaItemSchema);
 
 const COLLECTIONS = {
     Venda,
     Estoque,
     Modelo,
-    CustoItem
+    CustoItem,
+    Impressora,
+    Fila
 };
 
 async function conectar() {
@@ -117,4 +160,5 @@ async function conectar() {
     await mongoose.connect(MONGO_URI);
 }
 
-module.exports = { conectar, User, Venda, CustoItem, Estoque, Modelo, COLLECTIONS, mongoose };
+module.exports = { conectar, User, Venda, CustoItem, Estoque, Modelo, Impressora, Fila, COLLECTIONS, mongoose };
+

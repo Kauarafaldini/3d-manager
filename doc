@@ -1,1 +1,78 @@
-npx cap sync android
+# Comandos do Projeto — 3D Manager Pro
+
+Este documento contém os principais comandos para desenvolvimento, execução e build do aplicativo.
+
+## 📱 Build Mobile (Android / iOS)
+
+### Gerar APK de Depuração (Debug)
+Compila e gera o arquivo APK para testes.
+```bash
+npm run build:android
+```
+*O APK gerado ficará localizado em:* `android/app/build/outputs/apk/debug/app-debug.apk`
+
+### Gerar APK de Produção (Release)
+Compila e gera o pacote de lançamento pronto para distribuição.
+```bash
+npm run build:android:release
+```
+*O APK gerado ficará localizado em:* `android/app/build/outputs/apk/release/`
+
+### Sincronizar Capacitor
+Sincroniza o código frontend (`www/`) com as plataformas nativas (Android/iOS) após alterações de código.
+```bash
+npm run cap:sync
+```
+Ou diretamente:
+```bash
+npx cap sync
+```
+
+### Abrir nos Ambientes Nativos
+Para abrir o projeto nas IDEs nativas:
+```bash
+npx cap open android   # Abre no Android Studio
+npx cap open ios       # Abre no Xcode
+```
+
+---
+
+## 💻 Desenvolvimento Desktop (Electron)
+
+### Executar Frontend (Desktop) + Backend (API) simultaneamente
+```bash
+npm run dev
+```
+
+### Executar Apenas o Frontend (Electron)
+```bash
+npm start
+```
+
+---
+
+## 🖥️ Backend (API)
+
+### Instalar Dependências do Servidor
+```bash
+npm run server:install
+```
+
+### Iniciar Apenas a API
+```bash
+npm run server
+```
+
+---
+
+## ⚙️ Banco de Dados
+
+### Inicializar Banco de Dados
+```bash
+node init-db.js
+```
+
+### Resetar Banco de Dados
+```bash
+node reset-db.js
+```

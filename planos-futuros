@@ -1,0 +1,39 @@
+1. 🐼 Integração Nativa com Bambu Lab (Bambu Handy / MQTT Local)
+As impressoras Bambu Lab (X1, P1S, P1P, A1 e A1 mini) possuem um protocolo aberto via MQTT local (porta 8883 com TLS) na mesma rede Wi-Fi.
+
+O que é possível implementar:
+Telemetria em Tempo Real:
+Barra de progresso ao vivo (% concluída, camada atual, tempo restante).
+Temperatura do bico e da mesa aquecida.
+Status da máquina: Imprimindo, Ociosa, Pausada, Fim de filamento ou Erro de bico.
+Automação de Baixa no Estoque:
+Quando a impressora conclui um trabalho com sucesso, o sistema pode dar baixa automática nos gramas consumidos de filamento e incrementar o produto pronto no estoque.
+Auditoria de Custo Real vs. Previsto:
+Comparar o tempo estimado pela Calculadora com o tempo real cronometrado da máquina, ajustando o custo real de energia e depreciação.
+Leitura dos Slots do AMS:
+Detectar quais filamentos/cores estão carregados em cada slot (A1, A2, A3, A4) e sugerir o rolo correspondente no app.
+2. 📂 Importação Instantânea de .3MF e .GCODE (Bambu Studio / OrcaSlicer)
+Atualmente, você precisa digitar manualmente o tempo em horas/minutos e o peso em gramas na Calculadora.
+
+Como melhorar:
+Arrastar e Soltar (Drag & Drop): Arrastar o arquivo .3mf do Bambu Studio ou OrcaSlicer direto para a Calculadora.
+Leitura Automática de Metadados:
+O arquivo .3mf contém internamente o peso exato de cada cor (filament_weight), tempo estimado de fatiamento (estimated_time) e quantidade de peças por chapa.
+O sistema preenche a receita de custo em 1 segundo, sem erro humano.
+3. 🧵 Gestão Visual de Carretéis (Estilo Spoolman)
+Rastreador de Nível do Rolo:
+Barra visual de nível (ex: Rolo PLA Preto: 680g / 1000g restando).
+Alerta de Inviabilidade de Impressão:
+Se uma peça precisa de 120g e o rolo selecionado tem apenas 85g, o sistema alerta: ⚠️ Filamento insuficiente neste rolo! Troque de carretel ou use o AMS com troca automática.
+Histórico de Desperdício / Purga:
+Registro de gramas gastos com torre de purga (prime tower) e suportes.
+4. 🖨️ Multi-Impressoras & Fila de Produção (Print Farm)
+Para quem tem mais de uma máquina ou planeja escalar:
+
+Perfil por Impressora:
+Cada máquina cadastrada com seu consumo em Watts (ex: A1 mini gasta ~60W, P1S gasta ~160W) e taxa de depreciação própria.
+Fila de Orçamentos (Queue):
+Ao aprovar uma pré-venda, enviá-la para a fila da máquina disponível: [Fila] Impressora 01 (P1S): Suporte Headset (2h) ➔ Action Figure (4h).
+5. 📲 Notificações via WhatsApp / Telegram / Push
+Notificação instantânea no celular quando a peça terminar de imprimir ou se faltar filamento.
+Mensagem automática para o cliente: "Seu pedido #1234 acabou de sair da impressora e está em fase de acabamento!".

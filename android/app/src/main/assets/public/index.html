@@ -52,6 +52,206 @@
         </div>
     </div>
 
+    <!-- BAMBU LAB SETTINGS MODAL -->
+    <div class="theme-modal-overlay" id="bambuModalOverlay" onclick="BambuModulo.fecharModalConfig(event)" style="display:none;">
+        <div class="theme-modal bambu-config-modal">
+            <div class="theme-modal-header">
+                <h3>🐼 Conectar Bambu Lab</h3>
+                <button class="btn-close-modal" onclick="BambuModulo.fecharModalConfig()">✕</button>
+            </div>
+
+            <p style="font-size:12px;color:var(--text-dim);margin:0 0 16px;line-height:1.5;">
+                Conexão local via MQTT (porta 8883 TLS). Encontre estes dados na tela da sua impressora em <b>Configurações ➔ WLAN / Dispositivo</b>.
+            </p>
+
+            <div class="grid-form">
+                <div class="input-container full">
+                    <label>Nome da Impressora</label>
+                    <input type="text" id="bambuCfgNome" placeholder="Ex: Bambu Lab P1S Oficina">
+                </div>
+                <div class="input-container">
+                    <label>Endereço IP (Wi-Fi local)</label>
+                    <input type="text" id="bambuCfgIp" placeholder="Ex: 192.168.1.150">
+                </div>
+                <div class="input-container">
+                    <label>Serial Number (SN)</label>
+                    <input type="text" id="bambuCfgSerial" placeholder="Ex: 01P00A492800123">
+                </div>
+                <div class="input-container full">
+                    <label>Código de Acesso (8 dígitos)</label>
+                    <input type="password" id="bambuCfgAccessCode" placeholder="Ex: 12345678">
+                    <small style="font-size:9px;color:var(--text-dim);">Código de 8 dígitos exibido nas configurações de Wi-Fi da impressora.</small>
+                </div>
+                <div class="input-container full" style="display:flex;align-items:center;gap:8px;background:var(--bg-secondary);padding:10px;border-radius:10px;">
+                    <input type="checkbox" id="bambuCfgSimulator" style="width:auto;transform:scale(1.2);">
+                    <label for="bambuCfgSimulator" style="cursor:pointer;text-transform:none;font-size:12px;color:var(--text-muted);margin:0;">
+                        🎮 Modo Demonstração / Simulador (para testar telemetria agora)
+                    </label>
+                </div>
+            </div>
+
+            <div style="display:flex;gap:10px;margin-top:16px;">
+                <button class="btn-main" type="button" onclick="BambuModulo.salvarEConectarModal()" style="flex:1;margin:0;">Salvar e Conectar</button>
+                <button class="btn-secondary" type="button" onclick="BambuModulo.fecharModalConfig()" style="padding:12px 18px;">Cancelar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- SPOOLMAN ADJUST / PURGE MODAL -->
+    <div class="theme-modal-overlay" id="spoolModalOverlay" onclick="fecharModalCarretel(event)" style="display:none;">
+        <div class="theme-modal" style="max-width:440px;">
+            <div class="theme-modal-header">
+                <h3 id="spoolModalTitle">⚖️ Pesar / Ajustar Carretel</h3>
+                <button class="btn-close-modal" onclick="fecharModalCarretel()">✕</button>
+            </div>
+
+            <input type="hidden" id="spoolModalId" value="">
+            <input type="hidden" id="spoolModalAction" value="ajuste">
+
+            <div id="spoolModalBody">
+                <div class="input-container full">
+                    <label id="spoolModalLabel">Novo peso restante em gramas (g)</label>
+                    <input type="number" id="spoolModalValor" step="1" min="0" placeholder="Ex: 850">
+                    <small id="spoolModalHelp" style="font-size:10px;color:var(--text-dim);">Informe o peso do filamento aferido na balança.</small>
+                </div>
+            </div>
+
+            <div style="display:flex;gap:10px;margin-top:16px;">
+                <button class="btn-main" type="button" onclick="confirmarAcaoCarretel()" style="flex:1;margin:0;">Salvar</button>
+                <button class="btn-secondary" type="button" onclick="fecharModalCarretel()" style="padding:12px 18px;">Cancelar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- GERENCIAR IMPRESSORAS MODAL -->
+    <div class="theme-modal-overlay" id="impressorasModalOverlay" onclick="ImpressorasFilaModulo.fecharModalGerenciar(event)" style="display:none;">
+        <div class="theme-modal farm-modal" style="max-width:540px;">
+            <div class="theme-modal-header">
+                <h3>🖨️ Gerenciar Impressoras 3D</h3>
+                <button class="btn-close-modal" onclick="ImpressorasFilaModulo.fecharModalGerenciar()">✕</button>
+            </div>
+
+            <p style="font-size:12px;color:var(--text-dim);margin:0 0 12px;line-height:1.4;">
+                Cadastre suas máquinas com consumo (Watts) e taxa de depreciação própria para cálculo exato de custos e controle de fila.
+            </p>
+
+            <div style="background:var(--bg-secondary);padding:10px;border-radius:10px;border:1px solid var(--border-subtle);margin-bottom:14px;">
+                <label style="font-size:11px;color:var(--primary);font-weight:700;margin-bottom:6px;display:block;">⚡ Presets Rápidos de 1 Clique</label>
+                <div style="display:flex;flex-wrap:wrap;gap:6px;">
+                    <button type="button" class="btn-preset-farm" onclick="ImpressorasFilaModulo.aplicarPresetImpressora(0)">Bambu P1S (160W)</button>
+                    <button type="button" class="btn-preset-farm" onclick="ImpressorasFilaModulo.aplicarPresetImpressora(1)">A1 mini (60W)</button>
+                    <button type="button" class="btn-preset-farm" onclick="ImpressorasFilaModulo.aplicarPresetImpressora(2)">X1-Carbon (180W)</button>
+                    <button type="button" class="btn-preset-farm" onclick="ImpressorasFilaModulo.aplicarPresetImpressora(3)">Bambu A1 (95W)</button>
+                    <button type="button" class="btn-preset-farm" onclick="ImpressorasFilaModulo.aplicarPresetImpressora(4)">Ender 3 (120W)</button>
+                    <button type="button" class="btn-preset-farm" onclick="ImpressorasFilaModulo.aplicarPresetImpressora(5)">K1 Max (350W)</button>
+                </div>
+            </div>
+
+            <input type="hidden" id="impFormId" value="">
+
+            <div class="grid-form">
+                <div class="input-container full">
+                    <label>Nome / Identificador da Máquina</label>
+                    <input type="text" id="impFormNome" placeholder="Ex: Bambu Lab P1S #01, Ender Sala 2">
+                </div>
+                <div class="input-container">
+                    <label>Modelo</label>
+                    <input type="text" id="impFormModelo" placeholder="Ex: Bambu Lab P1S">
+                </div>
+                <div class="input-container">
+                    <label>Consumo Médio (Watts)</label>
+                    <input type="number" id="impFormWatts" value="150" placeholder="Ex: 160">
+                </div>
+                <div class="input-container">
+                    <label>Depreciação / Desgaste (R$/h)</label>
+                    <input type="number" step="0.01" id="impFormDesgaste" value="0.80" placeholder="Ex: 0.80">
+                </div>
+                <div class="input-container">
+                    <label>Mão de Obra / Operador (R$/h)</label>
+                    <input type="number" step="0.01" id="impFormTrabalho" value="1.00" placeholder="Ex: 1.00">
+                </div>
+            </div>
+
+            <div style="display:flex;gap:8px;margin-top:12px;">
+                <button class="btn-main" id="btnSalvarImpressora" type="button" onclick="ImpressorasFilaModulo.salvarImpressora()" style="flex:1;margin:0;">Adicionar Impressora</button>
+                <button class="btn-secondary" type="button" onclick="ImpressorasFilaModulo.fecharModalGerenciar()" style="padding:10px 14px;">Fechar</button>
+            </div>
+
+            <div style="margin-top:16px;border-top:1px solid var(--border-subtle);padding-top:12px;">
+                <h4 style="margin:0 0 8px;font-size:13px;color:var(--text-muted);">Máquinas Cadastradas</h4>
+                <div id="modalListaImpressoras" class="list-container" style="max-height:180px;overflow-y:auto;"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ENFILEIRAR PRÉ-VENDA MODAL -->
+    <div class="theme-modal-overlay" id="enfileirarModalOverlay" onclick="ImpressorasFilaModulo.fecharModalEnfileirar(event)" style="display:none;">
+        <div class="theme-modal" style="max-width:440px;">
+            <div class="theme-modal-header">
+                <h3>▶️ Enviar Orçamento para Fila</h3>
+                <button class="btn-close-modal" onclick="ImpressorasFilaModulo.fecharModalEnfileirar()">✕</button>
+            </div>
+
+            <input type="hidden" id="enfVendaId" value="">
+
+            <p style="font-size:12px;color:var(--text-dim);margin:0 0 14px;">
+                Selecione a impressora disponível ou balanceie a carga na máquina com menor tempo de fila:
+            </p>
+
+            <div class="input-container full">
+                <label>Impressora 3D de Destino</label>
+                <select id="enfImpressoraSelect" style="width:100%;"></select>
+            </div>
+
+            <div style="display:flex;gap:10px;margin-top:16px;">
+                <button class="btn-main" type="button" onclick="ImpressorasFilaModulo.confirmarEnfileiramentoPreVenda()" style="flex:1;margin:0;">Confirmar e Enfileirar</button>
+                <button class="btn-secondary" type="button" onclick="ImpressorasFilaModulo.fecharModalEnfileirar()" style="padding:12px 18px;">Cancelar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ADICIONAR TRABALHO AVULSO MODAL -->
+    <div class="theme-modal-overlay" id="trabalhoAvulsoModalOverlay" onclick="ImpressorasFilaModulo.fecharModalTrabalhoAvulso(event)" style="display:none;">
+        <div class="theme-modal" style="max-width:460px;">
+            <div class="theme-modal-header">
+                <h3>➕ Adicionar Trabalho à Fila</h3>
+                <button class="btn-close-modal" onclick="ImpressorasFilaModulo.fecharModalTrabalhoAvulso()">✕</button>
+            </div>
+
+            <div class="grid-form">
+                <div class="input-container full">
+                    <label>Impressora</label>
+                    <select id="tabAvulsoImpressora"></select>
+                </div>
+                <div class="input-container full">
+                    <label>Nome da Peça / Arquivo</label>
+                    <input type="text" id="tabAvulsoNome" placeholder="Ex: Suporte Headset Articulado">
+                </div>
+                <div class="input-container">
+                    <label>Horas Estimadas</label>
+                    <input type="number" id="tabAvulsoHoras" value="2" min="0">
+                </div>
+                <div class="input-container">
+                    <label>Minutos</label>
+                    <input type="number" id="tabAvulsoMinutos" value="0" min="0" max="59">
+                </div>
+                <div class="input-container">
+                    <label>Peso Estimado (g)</label>
+                    <input type="number" id="tabAvulsoPeso" value="50" min="0">
+                </div>
+                <div class="input-container full">
+                    <label>Observação (opcional)</label>
+                    <input type="text" id="tabAvulsoObs" placeholder="Ex: Usar bico 0.4mm, cor preta">
+                </div>
+            </div>
+
+            <div style="display:flex;gap:10px;margin-top:16px;">
+                <button class="btn-main" type="button" onclick="ImpressorasFilaModulo.salvarTrabalhoAvulso()" style="flex:1;margin:0;">Adicionar à Fila</button>
+                <button class="btn-secondary" type="button" onclick="ImpressorasFilaModulo.fecharModalTrabalhoAvulso()" style="padding:12px 18px;">Cancelar</button>
+            </div>
+        </div>
+    </div>
+
     <div id="auth-screen" class="modal-auth">
         <div class="auth-card auth-card-wide">
             <div class="logo-box">🧊</div>
@@ -195,14 +395,20 @@
                     </div>
                 </div>
 
+                <!-- MONITOR BAMBU LAB -->
+                <div id="bambuMonitorWidget" style="margin-bottom:16px;"></div>
+
+                <!-- WIDGET PRINT FARM & FILA -->
+                <div id="farmHomeWidget" style="margin-bottom:16px;"></div>
+
                 <div class="card-glass">
                     <h3 style="margin:0 0 14px;font-size:14px;color:var(--text-muted);">⚡ Acesso Rápido</h3>
                     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
                         <button class="btn-main" style="margin:0;padding:12px;" onclick="nav('terminal', document.querySelector('.nav-item[data-nav=terminal]'))">⚡ Nova Venda</button>
-                        <button class="btn-secondary" style="padding:12px;" onclick="irParaPreVendas()">📋 Pré-Vendas</button>
+                        <button class="btn-secondary" style="padding:12px;" onclick="irParaPreVendas()">📋 Orçamentos</button>
+                        <button class="btn-secondary" style="padding:12px;" onclick="nav('estoque', document.querySelector('.nav-item[data-nav=estoque]'))">📦 Estoque</button>
                         <button class="btn-secondary" style="padding:12px;" onclick="nav('calculadora', document.querySelector('.nav-item[data-nav=calculadora]'))">💰 Calculadora</button>
-                        <button class="btn-secondary" style="padding:12px;" onclick="nav('estoque', document.querySelector('.nav-item[data-nav=estoque]'))">🧵 Estoque</button>
-                        <button class="btn-secondary" style="padding:12px;" onclick="nav('financeiro', document.querySelector('.nav-item[data-nav=financeiro]'))">📊 Relatório</button>
+                        <button class="btn-secondary" style="padding:12px;grid-column:span 2;" onclick="nav('financeiro', document.querySelector('.nav-item[data-nav=financeiro]'))">📊 Relatório Financeiro</button>
                     </div>
                 </div>
             </section>
@@ -290,9 +496,35 @@
             </section>
 
             <section id="sec-calculadora" class="app-section" style="display:none">
+                <!-- DRAG & DROP SLICER IMPORT (.3MF / .GCODE) -->
+                <div class="dropzone-slicer" id="dropzoneSlicer" onclick="document.getElementById('slicerFileInput').click()">
+                    <input type="file" id="slicerFileInput" accept=".3mf,.gcode,.gco,.g" style="display:none;" onchange="onSlicerFileSelected(event)">
+                    <div class="dropzone-content">
+                        <div class="dropzone-icon">📂</div>
+                        <div>
+                            <strong style="font-size:13px;color:var(--text);display:block;">Importar Fatiamento (.3MF / .GCODE)</strong>
+                            <p style="margin:2px 0 0;font-size:11px;color:var(--text-dim);">
+                                Arraste aqui o arquivo do <b>Bambu Studio</b> ou <b>OrcaSlicer</b> para preencher peso, cores e tempo automaticamente.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
                 <div class="card-glass">
                     <h3 style="margin: 0 0 15px 0;">Calculadora de Preços</h3>
                     
+                    <!-- PERFIL DA IMPRESSORA 3D -->
+                    <div class="input-container full" style="background: var(--bg-secondary); padding: 12px 14px; border-radius: 12px; border: 1px solid var(--border-input); margin-bottom: 15px;">
+                        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+                            <label style="color: var(--primary); font-weight:700; margin:0;">🖨️ Perfil da Impressora 3D</label>
+                            <button type="button" class="btn-secondary" style="padding:4px 8px;font-size:10px;" onclick="ImpressorasFilaModulo.abrirModalGerenciar()">⚙️ Máquinas</button>
+                        </div>
+                        <select id="pImpressoraSelect" onchange="ImpressorasFilaModulo.aoMudarImpressoraCalculadora()">
+                            <option value="">-- Padrão Manual (Valores Personalizados) --</option>
+                        </select>
+                        <small id="pImpressoraInfo" style="font-size:10px;color:var(--text-dim);display:block;margin-top:4px;">Selecione para preencher potência (Watts) e taxa de desgaste automaticamente.</small>
+                    </div>
+
                     <div class="input-container full" style="margin-bottom: 15px;">
                         <label>Carregar Modelo Padrão</label>
                         <div style="display: flex; gap: 10px;">
@@ -500,44 +732,23 @@
                 </div>
             </section>
 
-            <section id="sec-prevendas" class="app-section" style="display:none">
-                <div class="card-glass" style="background:linear-gradient(135deg,#f59e0b,#d97706);border-color:transparent;margin-bottom:16px;">
-                    <div style="display:flex;justify-content:space-between;align-items:center;">
-                        <div>
-                            <p style="margin:0 0 4px;font-size:12px;color:rgba(255,255,255,0.85);font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Gestão de Orçamentos</p>
-                            <h2 style="margin:0;font-size:22px;color:white;">📋 Pré-Vendas</h2>
-                            <p style="margin:4px 0 0;font-size:12px;color:rgba(255,255,255,0.9);">Consulte, finalize ou exclua orçamentos gerados na Calculadora</p>
-                        </div>
-                        <span style="font-size:36px;">📋</span>
-                    </div>
-                </div>
-
-                <div class="card-glass">
-                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:10px;">
-                        <h3 style="margin:0;font-size:15px;color:var(--text);">📋 Orçamentos Pendentes</h3>
-                        <button class="btn-secondary" style="padding:8px 14px;font-size:12px;" onclick="renderizarPreVendas()">🔄 Atualizar</button>
-                    </div>
-                    <p style="font-size:11px;color:var(--text-dim);margin:0 0 14px;">Pré-vendas criadas na Calculadora de Preços. Finalize para registrar a venda e dar baixa no estoque.</p>
-                    <div id="listaPreVendasDedicada" class="list-container"></div>
-                </div>
-            </section>
-
             <section id="sec-terminal" class="app-section" style="display:none">
                 <div class="terminal-grid">
                     <div class="terminal-panel">
                         <div class="terminal-card">
                             <div class="term-header">
                                 <div>
-                                    <h3>Terminal de Vendas</h3>
-                                    <p>Venda rápida com sugestão de produto, status de estoque e total instantâneo.</p>
+                                    <h3>Vendas & Orçamentos</h3>
+                                    <p>Venda rápida, aprovação de orçamentos pendentes e histórico de pedidos.</p>
                                 </div>
-                                <div class="term-metric-pill">📈 SaaS Sales</div>
+                                <div class="term-metric-pill">⚡ PDV 3D</div>
                             </div>
 
                             <div class="terminal-subnav">
-                                <button type="button" class="term-nav-btn active" data-view="venda" onclick="subNavTerminal('venda')">⚡ Venda</button>
-                                <button type="button" class="term-nav-btn" data-view="pre-vendas" onclick="subNavTerminal('pre-vendas')">📋 Pré-Vendas</button>
-                                <button type="button" class="term-nav-btn" data-view="movimentacoes" onclick="subNavTerminal('movimentacoes')">📜 Movimentações</button>
+                                <button type="button" class="term-nav-btn active" data-view="venda" onclick="subNavTerminal('venda')">⚡ Nova Venda</button>
+                                <button type="button" class="term-nav-btn" data-view="pre-vendas" onclick="subNavTerminal('pre-vendas')">📋 Orçamentos</button>
+                                <button type="button" class="term-nav-btn" data-view="fila" onclick="subNavTerminal('fila')">🖨️ Fila de Produção</button>
+                                <button type="button" class="term-nav-btn" data-view="movimentacoes" onclick="subNavTerminal('movimentacoes')">📜 Histórico</button>
                             </div>
 
                             <!-- VIEW: VENDA -->
@@ -598,6 +809,9 @@
                                 <div id="termListaPreVendas" class="list-container"></div>
                             </div>
 
+                            <!-- VIEW: FILA DE PRODUÇÃO -->
+                            <div id="termFilaView" style="display:none;"></div>
+
                             <!-- VIEW: MOVIMENTAÇÕES -->
                             <div id="termHistoryView" style="display:none;">
                                 <div class="input-container full">
@@ -644,8 +858,8 @@
             <section id="sec-estoque" class="app-section" style="display:none">
                 <div class="sub-nav-tabs">
                     <button type="button" class="controle-subtab active" data-painel="produtos" onclick="subNavEstoque('produtos')">📦 Produtos</button>
-                    <button type="button" class="controle-subtab" data-painel="materiais" onclick="subNavEstoque('materiais')">🧵 Matéria-Prima</button>
-                    <button type="button" class="controle-subtab" data-painel="lancamentos" onclick="subNavEstoque('lancamentos')">🔧 Custos Extras</button>
+                    <button type="button" class="controle-subtab" data-painel="materiais" onclick="subNavEstoque('materiais')">🧵 Filamentos</button>
+                    <button type="button" class="controle-subtab" data-painel="lancamentos" onclick="subNavEstoque('lancamentos')">🧰 Insumos & Custos</button>
                 </div>
 
                 <div id="painel-produtos" class="controle-painel" style="display:block">
@@ -863,12 +1077,11 @@
             </section>
         </main>
 
-        <nav class="bottom-nav nav-6">
+        <nav class="bottom-nav nav-5">
             <button onclick="nav('home', this)" class="nav-item active" data-nav="home">🏠<span>Home</span></button>
+            <button onclick="nav('estoque', this)" class="nav-item" data-nav="estoque">📦<span>Estoque</span></button>
             <button onclick="nav('calculadora', this)" class="nav-item" data-nav="calculadora">💰<span>Preços</span></button>
             <button onclick="nav('terminal', this)" class="nav-item" data-nav="terminal">⚡<span>Vendas</span></button>
-            <button onclick="nav('prevendas', this)" class="nav-item" data-nav="prevendas">📋<span>Pré-Vendas</span></button>
-            <button onclick="nav('estoque', this)" class="nav-item" data-nav="estoque">🧵<span>Estoque</span></button>
             <button onclick="nav('financeiro', this)" class="nav-item" data-nav="financeiro">📊<span>Financeiro</span></button>
         </nav>
     </div>
@@ -880,6 +1093,9 @@
     <script src="financeiro-modulo.js"></script>
     <script src="marketplace-calculo.js"></script>
     <script src="auth-modulo.js"></script>
+    <script src="bambu-modulo.js"></script>
+    <script src="slicer-parser.js"></script>
+    <script src="impressoras-fila-modulo.js"></script>
     <script src="estoque-produtos.js"></script>
     <script src="app.js"></script>
 </body>
