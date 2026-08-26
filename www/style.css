@@ -2044,5 +2044,174 @@ select option {
     gap: 8px;
 }
 
+/* =============================================
+   PRECIFICAÇÃO POR IA (GEMINI AI PRICING)
+   ============================================= */
+.btn-ai-pricing {
+    width: 100%;
+    background: linear-gradient(135deg, #06b6d4, #8b5cf6, #ec4899);
+    background-size: 200% 200%;
+    animation: gradientShift 4s ease infinite;
+    color: white;
+    font-weight: 700;
+    font-size: 13px;
+    padding: 12px 16px;
+    border: none;
+    border-radius: 12px;
+    cursor: pointer;
+    box-shadow: 0 4px 18px rgba(139, 92, 246, 0.35);
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+}
+
+.btn-ai-pricing:hover {
+    transform: translateY(-2px) scale(1.01);
+    box-shadow: 0 6px 24px rgba(139, 92, 246, 0.5);
+}
+
+@keyframes gradientShift {
+    0% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+    100% { background-position: 0% 50%; }
+}
+
+.ai-spinner {
+    font-size: 32px;
+    animation: rotatePulse 1.5s infinite ease-in-out;
+    display: inline-block;
+}
+
+@keyframes rotatePulse {
+    0% { transform: scale(0.9) rotate(0deg); opacity: 0.7; }
+    50% { transform: scale(1.2) rotate(180deg); opacity: 1; filter: drop-shadow(0 0 12px #06b6d4); }
+    100% { transform: scale(0.9) rotate(360deg); opacity: 0.7; }
+}
+
+.ai-pricing-cards-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+}
+
+@media (max-width: 480px) {
+    .ai-pricing-cards-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+.ai-price-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: 14px;
+    padding: 14px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.ai-price-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+}
+
+.ai-price-card.competitive {
+    border-color: rgba(6, 182, 212, 0.4);
+    background: linear-gradient(180deg, rgba(6, 182, 212, 0.1), var(--bg-card));
+}
+
+.ai-price-card.premium {
+    border-color: rgba(236, 72, 153, 0.4);
+    background: linear-gradient(180deg, rgba(236, 72, 153, 0.1), var(--bg-card));
+}
+
+.ai-card-badge {
+    font-size: 9px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--text-dim);
+    margin-bottom: 6px;
+}
+
+.ai-price-value {
+    font-size: 22px;
+    font-weight: 800;
+    color: var(--text);
+    margin-bottom: 2px;
+}
+
+.competitive .ai-price-value {
+    color: var(--primary);
+}
+
+.premium .ai-price-value {
+    color: var(--accent);
+}
+
+.ai-price-sub {
+    font-size: 11px;
+    color: var(--text-dim);
+    margin-bottom: 12px;
+}
+
+.btn-apply-ai {
+    background: var(--bg-input);
+    border: 1px solid var(--border-input);
+    color: var(--text);
+    font-size: 11px;
+    font-weight: 700;
+    padding: 6px 12px;
+    border-radius: 8px;
+    cursor: pointer;
+    width: 100%;
+    transition: all 0.15s ease;
+}
+
+.competitive:hover .btn-apply-ai {
+    background: var(--primary);
+    color: white;
+    border-color: transparent;
+}
+
+.premium:hover .btn-apply-ai {
+    background: var(--accent);
+    color: white;
+    border-color: transparent;
+}
+
+/* =============================================
+   PONTO DE EQUILÍBRIO (BREAK-EVEN POINT)
+   ============================================= */
+.break-even-card {
+    border-left: 4px solid var(--primary);
+    background: linear-gradient(135deg, rgba(6, 182, 212, 0.08), var(--bg-card));
+}
+
+.break-even-progress-box {
+    margin-top: 8px;
+}
+
+.break-even-track {
+    width: 100%;
+    height: 10px;
+    background: var(--bg-input);
+    border-radius: 8px;
+    overflow: hidden;
+    border: 1px solid var(--border-subtle);
+}
+
+.break-even-bar {
+    height: 100%;
+    border-radius: 8px;
+    transition: width 0.5s ease;
+}
+
+
 
 

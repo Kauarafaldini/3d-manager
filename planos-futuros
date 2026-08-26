@@ -1,39 +1,56 @@
-1. 🐼 Integração Nativa com Bambu Lab (Bambu Handy / MQTT Local)
-As impressoras Bambu Lab (X1, P1S, P1P, A1 e A1 mini) possuem um protocolo aberto via MQTT local (porta 8883 com TLS) na mesma rede Wi-Fi.
+1. 📲 Notificações & Pós-Venda Automático (WhatsApp / Telegram)
+Impacto: ⭐⭐⭐⭐⭐ (Economiza tempo de atendimento e encanta o cliente)
 
-O que é possível implementar:
-Telemetria em Tempo Real:
-Barra de progresso ao vivo (% concluída, camada atual, tempo restante).
-Temperatura do bico e da mesa aquecida.
-Status da máquina: Imprimindo, Ociosa, Pausada, Fim de filamento ou Erro de bico.
-Automação de Baixa no Estoque:
-Quando a impressora conclui um trabalho com sucesso, o sistema pode dar baixa automática nos gramas consumidos de filamento e incrementar o produto pronto no estoque.
-Auditoria de Custo Real vs. Previsto:
-Comparar o tempo estimado pela Calculadora com o tempo real cronometrado da máquina, ajustando o custo real de energia e depreciação.
-Leitura dos Slots do AMS:
-Detectar quais filamentos/cores estão carregados em cada slot (A1, A2, A3, A4) e sugerir o rolo correspondente no app.
-2. 📂 Importação Instantânea de .3MF e .GCODE (Bambu Studio / OrcaSlicer)
-Atualmente, você precisa digitar manualmente o tempo em horas/minutos e o peso em gramas na Calculadora.
+Mensagens Automáticas no WhatsApp (via link wa.me ou API tipo Evolution / Z-API):
+Ao criar Orçamento: Enviar link ou texto formatado com os detalhes, prazo e chave PIX Copia-e-Cola.
+Ao iniciar a Impressão: "Olá [Cliente]! Seu pedido #1234 acabou de entrar na nossa Bambu Lab P1S e já começou a ser impresso."
+Ao concluir a Impressão: "Peça impressa com sucesso! Estamos na fase de pós-processamento/acabamento."
+Ao despachar: "Seu pedido saiu para entrega! Código de rastreio: [BR123...]"
+Alertas no Telegram / Push para o Operador:
+Alerta se faltar filamento ou houver pausa durante a madrugada.
+Resumo diário enviado toda noite às 22h com faturamento do dia, peças produzidas e consumo em gramas.
+2. 📄 Gerador de Orçamento em PDF & Página Pública de Rastreio
+Impacto: ⭐⭐⭐⭐⭐ (Aparência 100% profissional e redução de mensagens de suporte)
 
-Como melhorar:
-Arrastar e Soltar (Drag & Drop): Arrastar o arquivo .3mf do Bambu Studio ou OrcaSlicer direto para a Calculadora.
-Leitura Automática de Metadados:
-O arquivo .3mf contém internamente o peso exato de cada cor (filament_weight), tempo estimado de fatiamento (estimated_time) e quantidade de peças por chapa.
-O sistema preenche a receita de custo em 1 segundo, sem erro humano.
-3. 🧵 Gestão Visual de Carretéis (Estilo Spoolman)
-Rastreador de Nível do Rolo:
-Barra visual de nível (ex: Rolo PLA Preto: 680g / 1000g restando).
-Alerta de Inviabilidade de Impressão:
-Se uma peça precisa de 120g e o rolo selecionado tem apenas 85g, o sistema alerta: ⚠️ Filamento insuficiente neste rolo! Troque de carretel ou use o AMS com troca automática.
-Histórico de Desperdício / Purga:
-Registro de gramas gastos com torre de purga (prime tower) e suportes.
-4. 🖨️ Multi-Impressoras & Fila de Produção (Print Farm)
-Para quem tem mais de uma máquina ou planeja escalar:
+Exportar Proposta Comercial em PDF:
+Gerar um PDF elegante com a logo do usuário, foto do modelo 3D, especificações (material, cor, resolução, peso, tempo estimado), valor, condições de pagamento e QR Code do PIX.
+Link de Rastreamento para o Cliente Final (/status/:pedidoId):
+Uma página web pública simples onde o cliente digita o número do pedido e acompanha uma timeline visual: [Orçamento Aprovado] ➔ [Na Fila de Impressão] ➔ [Imprimindo (75%)] ➔ [Em Acabamento] ➔ [Pronto / Enviado]
+Isso elimina 90% das perguntas de "meu pedido já está pronto?".
+3. 🤖 Automação Total da Fila com Telemetria (Zero Cliques)
+Impacto: ⭐⭐⭐⭐ (Menos erro humano e operação 100% fluida)
 
-Perfil por Impressora:
-Cada máquina cadastrada com seu consumo em Watts (ex: A1 mini gasta ~60W, P1S gasta ~160W) e taxa de depreciação própria.
-Fila de Orçamentos (Queue):
-Ao aprovar uma pré-venda, enviá-la para a fila da máquina disponível: [Fila] Impressora 01 (P1S): Suporte Headset (2h) ➔ Action Figure (4h).
-5. 📲 Notificações via WhatsApp / Telegram / Push
-Notificação instantânea no celular quando a peça terminar de imprimir ou se faltar filamento.
-Mensagem automática para o cliente: "Seu pedido #1234 acabou de sair da impressora e está em fase de acabamento!".
+Conclusão Automática por MQTT:
+Quando a telemetria da Bambu Lab indicar state: FINISH e percent: 100, o app detecta e:
+Marca o trabalho na fila como concluído automaticamente.
+Dá baixa nos gramas de filamento consumidos.
+Avança a impressora para o próximo trabalho da fila.
+Suporte a Impressoras Klipper / Voron / Ender (via Moonraker / OctoPrint):
+Adicionar conectores HTTP/WebSocket para ler telemetria de impressoras rodando Klipper (Mainsail/Fluidd), tornando o app compatível com qualquer impressora do mercado.
+4. 🧮 Inteligência Financeira & Gestão de Perdas
+Impacto: ⭐⭐⭐⭐ (Precisão cirúrgica de precificação)
+
+Margem de Risco / Taxa de Falha (Failure Rate %):
+Na impressão 3D real, entre 3% e 8% das impressões falham (descolamento da mesa, falta de energia, entupimento).
+Adicionar na Calculadora um campo configurável Taxa de Risco de Falha (ex: 5%) que embute essa perda no custo real da peça.
+Ponto de Equilíbrio (Break-Even Point):
+O relatório financeiro calcular quantas horas de máquina ou peças precisam ser vendidas no mês para cobrir o custo fixo (parcelas de impressoras + assinatura de softwares + energia fixa).
+Controle de Resíduos & Sucata:
+Registro de gramas descartados em suportes, purgas e peças falhadas para monitorar o custo do desperdício no fim do mês.
+5. 🏷️ QR Code / Etiquetas para Carretéis e Prateleiras
+Impacto: ⭐⭐⭐ (Agilidade física no galpão/oficina)
+
+Etiquetagem Física com Leitor de Câmera:
+Gerar etiquetas para colar nos carretéis com QR Code.
+No app mobile, usar a câmera do celular para escanear o rolo de filamento: o app abre direto o carretel para registrar pesagem ou seleciona o material na calculadora automaticamente.
+6. 🌐 Modo Offline Resiliente com Cache Local (IndexedDB / SQLite)
+Impacto: ⭐⭐⭐ (Confiabilidade em oficinas com Wi-Fi instável)
+
+Se a internet oscilar na oficina ou no celular, o app continua registrando vendas, pesagens e movimentações localmente no IndexedDB e sincroniza tudo com o MongoDB Atlas assim que a rede voltar.
+📊 Resumo de Priorização Recomendada
+Prioridade	Funcionalidade	Por que fazer agora?
+🥇 Alta	PDF de Orçamento & Mensagem WhatsApp	Impacto direto em fechar mais vendas e profissionalizar o atendimento.
+🥈 Alta	Conclusão Automática da Fila via MQTT	Aproveita a base que já criamos de Bambu + Fila para automatizar a baixa de estoque.
+🥉 Média	Margem de Falha na Calculadora & Ponto de Equilíbrio	Refina o lucro líquido real e previne prejuízos com impressões perdidas.
+🏅 Futuro	Suporte a Klipper/OctoPrint & QR Code Scanner	Expansão para quem opera farms com múltiplas marcas de impressoras.
+Se quiser começar por alguma dessas (como o Gerador de Orçamento em PDF / WhatsApp ou a Automação MQTT de conclusão da fila), posso estruturar o plano e implementar!

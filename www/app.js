@@ -588,6 +588,7 @@ function calcFinanceiro(foiAlteradoPelaMargem = false) {
     const desgasteHora = parseFloat(document.getElementById('pDesgaste').value) || 0;
     const embalagem = parseFloat(document.getElementById('pEmbalagem').value) || 0;
     const quantidadeChapa = parseFloat(document.getElementById('pQuantidadeChapa').value) || 1;
+    const taxaFalhaPct = parseFloat(document.getElementById('pTaxaFalha')?.value) || 0;
 
     const custoTrabalho = tempo * trabalhoHora;
     const custoDesgaste = tempo * desgasteHora;
@@ -599,7 +600,10 @@ function calcFinanceiro(foiAlteradoPelaMargem = false) {
         : { total: 0, itens: [] };
     const custoExtras = extrasColetados.total;
 
-    const custoProducaoTotal = custoMat + custoEnergia + custoMaquina + embalagem + custoExtras;
+    // Custo de produção antes da margem de risco
+    const custoSemFalha = custoMat + custoEnergia + custoMaquina + embalagem + custoExtras;
+    const custoFalha = custoSemFalha * (taxaFalhaPct / 100);
+    const custoProducaoTotal = custoSemFalha + custoFalha;
     const custoProducao = quantidadeChapa > 0 ? custoProducaoTotal / quantidadeChapa : custoProducaoTotal;
 
     const canal = document.getElementById('pCanal').value;
@@ -661,6 +665,10 @@ function calcFinanceiro(foiAlteradoPelaMargem = false) {
     document.getElementById('resEmbalagem').innerText = `R$ ${embalagem.toFixed(2)}`;
     const resExtras = document.getElementById('resCustoExtras');
     if (resExtras) resExtras.innerText = `R$ ${custoExtras.toFixed(2)}`;
+    const resFalha = document.getElementById('resCustoFalha');
+    if (resFalha) resFalha.innerText = `R$ ${custoFalha.toFixed(2)}`;
+    const resTaxaFalhaEl = document.getElementById('resTaxaFalhaPct');
+    if (resTaxaFalhaEl) resTaxaFalhaEl.innerText = `${taxaFalhaPct}%`;
 
     document.getElementById('resCustoTotalProducao').innerText = `R$ ${custoProducaoTotal.toFixed(2)} (Total) / R$ ${custoProducao.toFixed(2)} (Unitário)`;
     document.getElementById('resTaxaCanal').innerText = `R$ ${valorComissao.toFixed(2)} (${(taxaComissaoPct*100).toFixed(1)}%)`;
@@ -671,6 +679,9 @@ function calcFinanceiro(foiAlteradoPelaMargem = false) {
     return {
         custoProducao,
         custoProducaoTotal,
+        custoSemFalha,
+        taxaFalha: taxaFalhaPct,
+        custoFalha,
         valorComissao,
         taxaFixa,
         lucroReal,
@@ -1471,12 +1482,27 @@ async function confirmarAcaoCarretel() {
             if (typeof mostrarToast === 'function') {
                 mostrarToast(`Carretel "${filamento.nome}" ajustado para ${valor}g!`, 'ok');
             }
-        } else if (action === 'purga') {
+        } else if (action === 'purga' || action === 'desperdicio') {
             const novoSaldo = Math.max(0, (filamento.gramas || 0) - valor);
             filamento.gramas = novoSaldo;
             await filamento.save();
+
+            // Registrar no histórico de desperdício/sucata
+            const DesperdicioModel = window.getDesperdicioModel ? window.getDesperdicioModel() : null;
+            if (DesperdicioModel) {
+                const custoEstimado = (valor / 1000) * (Number(filamento.precoKg) || 100);
+                await DesperdicioModel.create({
+                    estoqueId: id,
+                    materialNome: filamento.nome,
+                    gramas: valor,
+                    motivo: action === 'purga' ? 'purga_troca_cor' : 'peca_falhada',
+                    custoEstimado
+                });
+            }
+
             if (typeof mostrarToast === 'function') {
-                mostrarToast(`Descontados ${valor}g de purga do carretel "${filamento.nome}"! Saldo: ${novoSaldo}g`, 'ok');
+                const tipoTexto = action === 'purga' ? 'purga' : 'perda/desperdício';
+                mostrarToast(`Descontados ${valor}g de ${tipoTexto} do carretel "${filamento.nome}"! Saldo: ${novoSaldo}g`, 'ok');
             }
         }
 
@@ -1561,3 +1587,88 @@ if (document.readyState === 'loading') {
         }
     }, 500);
 }
+
+// ==========================================
+// ASSISTENTE DE PRECIFICAÇÃO POR IA (GEMINI)
+// ==========================================
+let ultimaSugestaoIA = null;
+
+async function abrirModalSugestaoPrecoIA() {
+    const modal = document.getElementById('aiPricingModalOverlay');
+    const loading = document.getElementById('aiPricingLoading');
+    const result = document.getElementById('aiPricingResult');
+    if (!modal) return;
+
+    modal.style.display = 'flex';
+    if (loading) loading.style.display = 'block';
+    if (result) result.style.display = 'none';
+
+    const dados = calcFinanceiro();
+    const nomeItem = document.getElementById('pNome')?.value?.trim() || 'Modelo 3D Personalizado';
+    const canal = document.getElementById('pCanal')?.value || 'direta';
+    const taxaFalha = parseFloat(document.getElementById('pTaxaFalha')?.value) || 5;
+    const imp = window.ImpressorasFilaModulo ? window.ImpressorasFilaModulo.obterImpressoraSelecionadaCalculadora() : null;
+
+    try {
+        const payload = {
+            nomeItem,
+            pesoGramas: dados.pesoTotal,
+            tempoHoras: dados.tempo,
+            custoTotalProducao: dados.custoProducao,
+            custoMaterial: dados.custoMat,
+            canal,
+            taxaFalha,
+            filamentos: dados.filamentosUsados,
+            impressoraNome: imp ? imp.nome : 'Impressora 3D'
+        };
+
+        const res = await window.apiClient.post('/api/ai/sugerir-preco', payload);
+        if (res && res.ok) {
+            ultimaSugestaoIA = res;
+            document.getElementById('aiPrecoComp').textContent = `R$ ${(res.precoCompetitivo || 0).toFixed(2)}`;
+            document.getElementById('aiMarkupComp').textContent = `Markup: ${res.markupRecomendado || 120}%`;
+            document.getElementById('aiPrecoPrem').textContent = `R$ ${(res.precoPremium || 0).toFixed(2)}`;
+            document.getElementById('aiMarkupPrem').textContent = `Markup: ${Math.round((res.markupRecomendado || 120) * 1.5)}%`;
+            document.getElementById('aiAnaliseMercado').textContent = res.analiseMercado || 'Análise de mercado concluída.';
+
+            const lista = document.getElementById('aiDicasLista');
+            if (lista && res.dicasEstrategicas) {
+                lista.innerHTML = res.dicasEstrategicas.map(d => `<li>${d}</li>`).join('');
+            }
+
+            if (loading) loading.style.display = 'none';
+            if (result) result.style.display = 'block';
+        } else {
+            throw new Error(res?.erro || 'Falha ao consultar IA');
+        }
+    } catch (err) {
+        console.error('Erro na precificação por IA:', err);
+        if (loading) loading.style.display = 'none';
+        if (result) {
+            result.style.display = 'block';
+            document.getElementById('aiAnaliseMercado').textContent = 'Não foi possível consultar o modelo de IA no momento. Use o cálculo padrão de markup.';
+        }
+    }
+}
+
+function fecharModalSugestaoPrecoIA(e) {
+    if (e && e.target && e.target.id !== 'aiPricingModalOverlay' && !e.target.classList.contains('btn-close-modal')) {
+        return;
+    }
+    const modal = document.getElementById('aiPricingModalOverlay');
+    if (modal) modal.style.display = 'none';
+}
+
+function aplicarPrecoSugeridoIA(tipo) {
+    if (!ultimaSugestaoIA) return;
+    const preco = tipo === 'premium' ? ultimaSugestaoIA.precoPremium : ultimaSugestaoIA.precoCompetitivo;
+    const precoInput = document.getElementById('pVenda');
+    if (precoInput) {
+        precoInput.value = Number(preco).toFixed(2);
+        calcFinanceiro(false);
+    }
+    fecharModalSugestaoPrecoIA();
+    if (typeof mostrarToast === 'function') {
+        mostrarToast(`Preço ${tipo === 'premium' ? 'Premium' : 'Competitivo'} de R$ ${Number(preco).toFixed(2)} aplicado!`, 'ok');
+    }
+}

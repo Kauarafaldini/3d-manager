@@ -503,8 +503,34 @@ async function atualizarRelatorioFinanceiro() {
             .filter(c => c.tipoCalculo === 'parcela_mensal')
             .reduce((acc, c) => acc + (c.valorMensal || 0), 0);
 
+        // Desperdício e Sucata
+        let desperdicios = [];
+        try {
+            const DesperdicioModel = window.dbBridge.getDesperdicioModel ? window.dbBridge.getDesperdicioModel() : null;
+            if (DesperdicioModel) {
+                const todosDesp = await DesperdicioModel.find({}).sort({ data: -1 });
+                desperdicios = filtrarVendasPorPeriodo(todosDesp, filtro);
+            }
+        } catch (dErr) {
+            console.warn('[relatorio] Erro ao carregar desperdícios:', dErr);
+        }
+
+        const totalDesperdicioGramas = desperdicios.reduce((acc, d) => acc + (Number(d.gramas) || 0), 0);
+        const totalDesperdicioValor = desperdicios.reduce((acc, d) => acc + (Number(d.custoEstimado) || 0), 0);
+
         const margemPeriodo = m.custo > 0 ? (m.lucro / m.custo) * 100 : 0;
         const custoOperacional = m.mat + m.energia + m.trabalho + m.desgaste + m.emb + m.extras;
+
+        // Ponto de Equilíbrio (Break-Even)
+        const custosFixosTotal = parcelasMensais;
+        const margemContribucaoPct = m.bruto > 0 ? (m.lucro / m.bruto) : 0.45;
+        const faturamentoBreakEven = custosFixosTotal > 0 && margemContribucaoPct > 0
+            ? custosFixosTotal / margemContribucaoPct
+            : 0;
+        const horasBreakEven = custosFixosTotal > 0 ? Math.ceil(custosFixosTotal / 12) : 0;
+        const percentualBreakEven = custosFixosTotal > 0
+            ? Math.round((m.lucro / custosFixosTotal) * 100)
+            : 100;
 
         const barras = [
             { label: 'Filamento / Material', valor: m.mat, cor: '#3b82f6' },
@@ -529,6 +555,57 @@ async function atualizarRelatorioFinanceiro() {
         document.getElementById('relEstoquePeso').textContent = pesoEstoque.toFixed(0) + ' g';
         document.getElementById('relParcelas').textContent = formatarMoeda(parcelasMensais);
         document.getElementById('relNumVendas').textContent = `${m.qtd} no período · ${todasVendas.length} total`;
+
+        // Métricas de Break-Even e Desperdício
+        const elBeFat = document.getElementById('relBreakEvenFaturamento');
+        if (elBeFat) elBeFat.textContent = formatarMoeda(faturamentoBreakEven);
+        const elBeHoras = document.getElementById('relBreakEvenHoras');
+        if (elBeHoras) elBeHoras.textContent = `${horasBreakEven}h mín.`;
+
+        const elDespVal = document.getElementById('relDesperdicioValor');
+        if (elDespVal) elDespVal.textContent = formatarMoeda(totalDesperdicioValor);
+        const elDespPeso = document.getElementById('relDesperdicioPeso');
+        if (elDespPeso) elDespPeso.textContent = `${totalDesperdicioGramas.toFixed(0)} g`;
+
+        // Card Break-Even Visual
+        const elBeFixos = document.getElementById('beCustosFixosTotal');
+        if (elBeFixos) elBeFixos.textContent = formatarMoeda(custosFixosTotal);
+        const elBePct = document.getElementById('bePercentualMeta');
+        if (elBePct) elBePct.textContent = `${percentualBreakEven}%`;
+        const elBeBar = document.getElementById('beProgressBar');
+        if (elBeBar) {
+            elBeBar.style.width = `${Math.min(100, Math.max(0, percentualBreakEven))}%`;
+            if (percentualBreakEven >= 100) {
+                elBeBar.style.background = 'linear-gradient(90deg, #10b981, #06b6d4)';
+            } else {
+                elBeBar.style.background = 'linear-gradient(90deg, #06b6d4, #3b82f6)';
+            }
+        }
+        const elBeStatus = document.getElementById('beStatusBadge');
+        if (elBeStatus) {
+            if (custosFixosTotal <= 0) {
+                elBeStatus.className = 'status-pill badge-disponivel';
+                elBeStatus.textContent = 'Sem custos fixos';
+            } else if (percentualBreakEven >= 100) {
+                elBeStatus.className = 'status-pill badge-disponivel';
+                elBeStatus.textContent = '✅ Meta Atingida';
+            } else {
+                elBeStatus.className = 'status-pill badge-manutencao';
+                elBeStatus.textContent = `⏳ ${percentualBreakEven}% Coberto`;
+            }
+        }
+        const elBeMsg = document.getElementById('beMensagemDestaque');
+        if (elBeMsg) {
+            if (custosFixosTotal <= 0) {
+                elBeMsg.innerHTML = `💡 Nenhum custo fixo mensal cadastrado em <b>Financeiro → Parcelas</b>. Todo o lucro gerado é lucro líquido direto.`;
+            } else if (percentualBreakEven >= 100) {
+                const lucroExtra = m.lucro - custosFixosTotal;
+                elBeMsg.innerHTML = `🎉 <b>Ponto de equilíbrio superado!</b> 100% dos custos fixos do mês foram pagos. Você já gerou <b style="color:var(--success);">${formatarMoeda(lucroExtra)}</b> de lucro livre adicional.`;
+            } else {
+                const falta = custosFixosTotal - m.lucro;
+                elBeMsg.innerHTML = `Faltam <b style="color:var(--warning);">${formatarMoeda(falta)}</b> de lucro para zerar os custos fixos deste período. Faturamento mínimo estimado: <b>${formatarMoeda(faturamentoBreakEven)}</b>.`;
+            }
+        }
 
         const relMaoObra = document.getElementById('relMaoObra');
         if (relMaoObra) relMaoObra.textContent = formatarMoeda(m.trabalho);

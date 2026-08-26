@@ -196,6 +196,135 @@ registerCollectionRoutes('modelos', COLLECTIONS.Modelo);
 registerCollectionRoutes('custos', COLLECTIONS.CustoItem);
 registerCollectionRoutes('impressoras', COLLECTIONS.Impressora);
 registerCollectionRoutes('fila', COLLECTIONS.Fila);
+registerCollectionRoutes('desperdicios', COLLECTIONS.Desperdicio);
+
+// =============================================
+// GEMINI AI PRICING ASSISTANT
+// =============================================
+app.post('/api/ai/sugerir-preco', async (req, res) => {
+    try {
+        const {
+            nomeItem = 'Item 3D Personalizado',
+            pesoGramas = 50,
+            tempoHoras = 1.5,
+            custoTotalProducao = 10,
+            custoMaterial = 5,
+            canal = 'direta',
+            taxaFalha = 5,
+            filamentos = [],
+            impressoraNome = 'Impressora 3D'
+        } = req.body || {};
+
+        const apiKey = process.env.GEMINI_API_KEY;
+        const filamentosDesc = Array.isArray(filamentos) && filamentos.length > 0
+            ? filamentos.map(f => `${f.nome || 'Filamento'} (${f.peso || 0}g)`).join(', ')
+            : `${pesoGramas}g de filamento`;
+
+        // Fallback heurístico inteligente
+        const gerarFallback = (analiseExtra = '') => {
+            const custo = Math.max(1, parseFloat(custoTotalProducao) || 10);
+            let fatorCompetitivo = 2.2; // 120% markup
+            let fatorPremium = 3.0;     // 200% markup
+
+            if (canal === 'shopee') {
+                fatorCompetitivo = 2.5;
+                fatorPremium = 3.4;
+            } else if (canal === 'ml') {
+                fatorCompetitivo = 2.7;
+                fatorPremium = 3.7;
+            }
+
+            const precoComp = Math.ceil((custo * fatorCompetitivo) * 10) / 10 - 0.10; // ex: R$ 29.90
+            const precoPrem = Math.ceil((custo * fatorPremium) * 10) / 10 - 0.10;     // ex: R$ 39.90
+            const markup = Math.round((fatorCompetitivo - 1) * 100);
+
+            return {
+                ok: true,
+                provedor: 'heuristico',
+                precoCompetitivo: Math.max(9.90, Number(precoComp.toFixed(2))),
+                precoPremium: Math.max(14.90, Number(precoPrem.toFixed(2))),
+                markupRecomendado: markup,
+                analiseMercado: analiseExtra || `Para "${nomeItem}" no canal ${canal.toUpperCase()}, o custo de produção base é de R$ ${custo.toFixed(2)}. Produtos deste segmento possuem margem saudável entre ${markup}% e ${markup + 80}%, cobrindo taxas da plataforma e tempo de pós-processamento.`,
+                dicasEstrategicas: [
+                    'Adicione fotos com boa iluminação e escala comparativa (ex: moeda ou régua) para valorizar o produto.',
+                    'Crie variações de cores e ofereça kits de 2 ou mais unidades para diluir taxas fixas de marketplace.',
+                    'Destaque na descrição a alta resolução da impressão e o acabamento premium.'
+                ]
+            };
+        };
+
+        if (!apiKey || apiKey === 'sua_chave_gemini_aqui') {
+            return res.json(gerarFallback());
+        }
+
+        // Chamada à API Google Gemini
+        const prompt = `Você é um especialista em precificação e e-commerce de impressão 3D (Print Farm).
+Analise este item e sugira uma estratégia de precificação lucrativa:
+
+Item: "${nomeItem}"
+Canal de Venda: "${canal}" (direta, shopee ou ml)
+Custo Total de Produção: R$ ${Number(custoTotalProducao).toFixed(2)}
+Peso: ${pesoGramas}g
+Tempo de Impressão: ${tempoHoras} horas
+Filamentos: ${filamentosDesc}
+Impressora: ${impressoraNome}
+Margem de Risco/Falha: ${taxaFalha}%
+
+Responda ESTRITAMENTE em formato JSON com o seguinte schema (sem markdown extra fora do json):
+{
+  "precoCompetitivo": number,
+  "precoPremium": number,
+  "markupRecomendado": number,
+  "analiseMercado": string,
+  "dicasEstrategicas": [string, string, string]
+}`;
+
+        try {
+            const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
+            const response = await fetch(geminiUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    contents: [{ parts: [{ text: prompt }] }],
+                    generationConfig: {
+                        temperature: 0.4,
+                        responseMimeType: "application/json"
+                    }
+                })
+            });
+
+            if (!response.ok) {
+                const errText = await response.text();
+                console.warn('[Gemini API] Erro na requisição:', response.status, errText);
+                return res.json(gerarFallback(`Sugestão baseada em custos reais de R$ ${custoTotalProducao.toFixed(2)}.`));
+            }
+
+            const data = await response.json();
+            const textResponse = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+
+            if (textResponse) {
+                const parsed = JSON.parse(textResponse.replace(/```json\n?|\n?```/g, '').trim());
+                return res.json({
+                    ok: true,
+                    provedor: 'gemini-2.5-flash',
+                    precoCompetitivo: Number(parsed.precoCompetitivo || (custoTotalProducao * 2.2)).toFixed(2) * 1,
+                    precoPremium: Number(parsed.precoPremium || (custoTotalProducao * 3.0)).toFixed(2) * 1,
+                    markupRecomendado: parsed.markupRecomendado || 120,
+                    analiseMercado: parsed.analiseMercado || '',
+                    dicasEstrategicas: parsed.dicasEstrategicas || []
+                });
+            } else {
+                return res.json(gerarFallback());
+            }
+        } catch (apiErr) {
+            console.error('[Gemini API] Falha na chamada:', apiErr);
+            return res.json(gerarFallback());
+        }
+    } catch (err) {
+        console.error('/api/ai/sugerir-preco', err);
+        res.status(500).json({ erro: 'Erro ao gerar sugestão de preço' });
+    }
+});
 
 app.get('/api/admin/clientes', authMiddleware, requireAdmin, async (req, res) => {
     const clients = await User().find({ role: 'client' }).sort({ criadoEm: -1 }).lean();

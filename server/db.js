@@ -92,8 +92,21 @@ const modeloSchema = new mongoose.Schema({
     custoTrabalho: Number,
     custoDesgaste: Number,
     custoExtras: Number,
-    custosExtras: [mongoose.Schema.Types.Mixed]
+    custosExtras: [mongoose.Schema.Types.Mixed],
+    taxaFalha: { type: Number, default: 5 },
+    custoFalha: Number
 }, { collection: 'modelos' });
+
+const desperdicioSchema = new mongoose.Schema({
+    ...tenantField,
+    estoqueId: String,
+    materialNome: String,
+    gramas: { type: Number, required: true },
+    motivo: { type: String, enum: ['peca_falhada', 'purga_troca_cor', 'suportes', 'outro'], default: 'peca_falhada' },
+    custoEstimado: Number,
+    observacao: String,
+    data: { type: Date, default: Date.now }
+}, { collection: 'desperdicios' });
 
 const impressoraSchema = new mongoose.Schema({
     ...tenantField,
@@ -145,6 +158,7 @@ const Estoque = () => model('Estoque', estoqueSchema);
 const Modelo = () => model('Modelo', modeloSchema);
 const Impressora = () => model('Impressora', impressoraSchema);
 const Fila = () => model('Fila', filaItemSchema);
+const Desperdicio = () => model('Desperdicio', desperdicioSchema);
 
 const COLLECTIONS = {
     Venda,
@@ -152,7 +166,8 @@ const COLLECTIONS = {
     Modelo,
     CustoItem,
     Impressora,
-    Fila
+    Fila,
+    Desperdicio
 };
 
 async function conectar() {
@@ -160,5 +175,6 @@ async function conectar() {
     await mongoose.connect(MONGO_URI);
 }
 
-module.exports = { conectar, User, Venda, CustoItem, Estoque, Modelo, Impressora, Fila, COLLECTIONS, mongoose };
+module.exports = { conectar, User, Venda, CustoItem, Estoque, Modelo, Impressora, Fila, Desperdicio, COLLECTIONS, mongoose };
+
 

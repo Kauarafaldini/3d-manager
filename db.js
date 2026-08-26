@@ -134,6 +134,16 @@ const filaItemSchema = new mongoose.Schema({
     criadoEm: { type: Date, default: Date.now }
 }, { collection: 'fila_impressao' });
 
+const desperdicioSchema = new mongoose.Schema({
+    estoqueId: String,
+    materialNome: String,
+    gramas: { type: Number, required: true },
+    motivo: { type: String, enum: ['peca_falhada', 'purga_troca_cor', 'suportes', 'outro'], default: 'peca_falhada' },
+    custoEstimado: Number,
+    observacao: String,
+    data: { type: Date, default: Date.now }
+}, { collection: 'desperdicios' });
+
 function getVendaModel() {
     return mongoose.models.Venda || mongoose.model('Venda', vendaSchema);
 }
@@ -158,6 +168,10 @@ function getFilaModel() {
     return mongoose.models.Fila || mongoose.model('Fila', filaItemSchema);
 }
 
+function getDesperdicioModel() {
+    return mongoose.models.Desperdicio || mongoose.model('Desperdicio', desperdicioSchema);
+}
+
 async function conectarBanco() {
     if (mongoose.connection.readyState === 1) {
         return true;
@@ -169,6 +183,7 @@ async function conectarBanco() {
     getCustoItemModel();
     getImpressoraModel();
     getFilaModel();
+    getDesperdicioModel();
     return true;
 }
 
@@ -214,5 +229,6 @@ module.exports = {
     getModeloModel,
     getCustoItemModel,
     getImpressoraModel,
-    getFilaModel
+    getFilaModel,
+    getDesperdicioModel
 };

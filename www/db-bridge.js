@@ -8,7 +8,8 @@
         Modelo: '/api/data/modelos',
         CustoItem: '/api/data/custos',
         Impressora: '/api/data/impressoras',
-        Fila: '/api/data/fila'
+        Fila: '/api/data/fila',
+        Desperdicio: '/api/data/desperdicios'
     };
 
     let online = false;
@@ -166,6 +167,7 @@
         getCustoItemModel: () => createApiModel('CustoItem'),
         getImpressoraModel: () => createApiModel('Impressora'),
         getFilaModel: () => createApiModel('Fila'),
+        getDesperdicioModel: () => createApiModel('Desperdicio'),
         getMongoose: () => fakeMongoose,
         startPing,
         setOnline(state) {
@@ -180,5 +182,6 @@
     window.getCustoItemModel = window.dbBridge.getCustoItemModel;
     window.getImpressoraModel = window.dbBridge.getImpressoraModel;
     window.getFilaModel = window.dbBridge.getFilaModel;
+    window.getDesperdicioModel = window.dbBridge.getDesperdicioModel;
     window.getMongoose = window.dbBridge.getMongoose;
 })();
