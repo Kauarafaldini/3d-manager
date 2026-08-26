@@ -1,6 +1,10 @@
 const { app, BrowserWindow } = require('electron');
 const path = require('path');
 
+try {
+    require('electron-reload')(path.join(__dirname, 'www'));
+} catch (_) {}
+
 let apiProcess = null;
 
 function createWindow() {

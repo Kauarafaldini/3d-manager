@@ -633,10 +633,17 @@ async function renderizarUltimasVendas(filtro = '') {
         const qtdeVendida = vendasHoje.reduce((sum, v) => sum + (Number(v.quantidade) || 1), 0);
         const ticketMedio = vendasHoje.length ? totalDia / vendasHoje.length : 0;
 
-        document.getElementById('termVendasHoje')?.textContent = vendasHoje.length;
-        document.getElementById('termTotalDia')?.textContent = `R$ ${totalDia.toFixed(2)}`;
-        document.getElementById('termTicketMedio')?.textContent = `R$ ${ticketMedio.toFixed(2)}`;
-        document.getElementById('termProdutosVendidos')?.textContent = qtdeVendida;
+        const elVendasHoje = document.getElementById('termVendasHoje');
+        if (elVendasHoje) elVendasHoje.textContent = vendasHoje.length;
+
+        const elTotalDia = document.getElementById('termTotalDia');
+        if (elTotalDia) elTotalDia.textContent = `R$ ${totalDia.toFixed(2)}`;
+
+        const elTicketMedio = document.getElementById('termTicketMedio');
+        if (elTicketMedio) elTicketMedio.textContent = `R$ ${ticketMedio.toFixed(2)}`;
+
+        const elProdutosVendidos = document.getElementById('termProdutosVendidos');
+        if (elProdutosVendidos) elProdutosVendidos.textContent = qtdeVendida;
 
         if (!vendasFiltradas.length) {
             container.innerHTML = '<p class="empty-msg">Nenhuma movimentação encontrada.</p>';
