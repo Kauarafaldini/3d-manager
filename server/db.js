@@ -18,6 +18,10 @@ const userSchema = new mongoose.Schema({
     role: { type: String, enum: ['super_admin', 'client'], default: 'client' },
     tenantId: { type: mongoose.Schema.Types.ObjectId, required: true, index: true },
     empresa: String,
+    cpfCnpj: { type: String, trim: true, index: true, sparse: true },
+    foto: String,
+    telefone: String,
+    chavePix: String,
     ativo: { type: Boolean, default: true },
     lastOnline: { type: Date },
     criadoEm: { type: Date, default: Date.now }

@@ -765,6 +765,15 @@ window.ImpressorasFilaModulo = (function () {
                 mostrarToast(`🎉 Trabalho "${trabalho.nomeItem}" concluído com sucesso! Insumos baixados.`, 'ok');
             }
 
+            if (typeof NotificacoesModulo !== 'undefined') {
+                NotificacoesModulo.adicionarNotificacao({
+                    tipo: 'impressao_concluida',
+                    icone: '✅',
+                    titulo: `Impressão Concluída: ${trabalho.nomeItem}`,
+                    mensagem: `Peça "${trabalho.nomeItem}" finalizada com sucesso. Insumos baixados no estoque.`
+                });
+            }
+
             await carregarImpressoras();
             await carregarFila();
             renderizarPainelFila();
@@ -1115,6 +1124,7 @@ window.ImpressorasFilaModulo = (function () {
         preencherSeletorCalculadora,
         aoMudarImpressoraCalculadora,
         obterImpressoraSelecionadaCalculadora,
+        obterImpressoras: () => impressorasCache,
         abrirModalGerenciar,
         fecharModalGerenciar,
         aplicarPresetImpressora,

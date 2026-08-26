@@ -52,6 +52,98 @@
         </div>
     </div>
 
+    <!-- CONFIGURAÇÕES DA CONTA & LOJA MODAL -->
+    <div class="theme-modal-overlay" id="perfilModalOverlay" onclick="PerfilLojaModulo.fecharModalPerfil(event)" style="display:none;">
+        <div class="theme-modal perfil-loja-modal" style="max-width:540px;">
+            <div class="theme-modal-header">
+                <h3>👤 Configurações da Loja & Perfil</h3>
+                <button class="btn-close-modal" onclick="PerfilLojaModulo.fecharModalPerfil()">✕</button>
+            </div>
+
+            <!-- FOTO / LOGOTIPO HEADER -->
+            <div class="perfil-foto-section" style="display:flex;align-items:center;gap:16px;background:var(--bg-secondary);padding:14px;border-radius:12px;margin-bottom:14px;border:1px solid var(--border-subtle);">
+                <div id="perfilFotoPreview" class="perfil-avatar-preview" style="width:64px;height:64px;border-radius:50%;background:linear-gradient(135deg, var(--primary), var(--accent));display:flex;align-items:center;justify-content:center;overflow:hidden;flex-shrink:0;box-shadow:0 4px 12px rgba(0,0,0,0.2);">
+                    <span style="font-size:28px;font-weight:800;color:white;">A</span>
+                </div>
+                <div style="flex:1;">
+                    <b style="font-size:13px;color:var(--text);display:block;margin-bottom:2px;">Foto / Logotipo da Loja</b>
+                    <span style="font-size:11px;color:var(--text-dim);display:block;margin-bottom:8px;">Aparece no cabeçalho e nas propostas em PDF.</span>
+                    <div style="display:flex;gap:6px;">
+                        <label class="btn-secondary" style="font-size:11px;padding:5px 10px;margin:0;cursor:pointer;">
+                            📷 Alterar Foto
+                            <input type="file" accept="image/*" style="display:none;" onchange="PerfilLojaModulo.carregarFotoLogotipo(event)">
+                        </label>
+                        <button type="button" class="btn-secondary" onclick="PerfilLojaModulo.removerFoto()" style="font-size:11px;padding:5px 10px;color:var(--danger);">Remover</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="grid-form">
+                <div class="input-container">
+                    <label>Nome do Responsável</label>
+                    <input type="text" id="perfilNome" placeholder="Seu nome completo">
+                </div>
+                <div class="input-container">
+                    <label>Nome Fantasia da Loja / Empresa</label>
+                    <input type="text" id="perfilEmpresa" placeholder="Ex: Oficina 3D Studio">
+                </div>
+                <div class="input-container">
+                    <label>CPF ou CNPJ</label>
+                    <input type="text" id="perfilCpfCnpj" placeholder="000.000.000-00 ou CNPJ" oninput="PerfilLojaModulo.mascaraCpfCnpj(this)">
+                </div>
+                <div class="input-container">
+                    <label>E-mail da Conta</label>
+                    <input type="email" id="perfilEmail" disabled style="opacity:0.7;cursor:not-allowed;">
+                </div>
+                <div class="input-container">
+                    <label>WhatsApp / Telefone Comercial</label>
+                    <input type="text" id="perfilTelefone" placeholder="(11) 99999-9999">
+                </div>
+                <div class="input-container">
+                    <label>Chave PIX da Loja (para Orçamentos)</label>
+                    <input type="text" id="perfilChavePix" placeholder="Chave PIX (e-mail, CPF, tel ou chave aleatória)">
+                </div>
+            </div>
+
+            <!-- SEÇÃO DE IMPRESSORAS 3D DA LOJA -->
+            <div style="margin-top:14px;border-top:1px solid var(--border-subtle);padding-top:12px;">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+                    <h4 style="margin:0;font-size:13px;color:var(--text);display:flex;align-items:center;gap:6px;">
+                        <span>🖨️ Suas Impressoras 3D</span>
+                    </h4>
+                </div>
+                <div id="perfilListaImpressoras" style="max-height:160px;overflow-y:auto;"></div>
+            </div>
+
+            <div style="display:flex;gap:10px;margin-top:16px;">
+                <button class="btn-main" id="btnSalvarPerfilLoja" type="button" onclick="PerfilLojaModulo.salvarPerfil()" style="flex:1;margin:0;">Salvar Configurações</button>
+                <button class="btn-secondary" type="button" onclick="PerfilLojaModulo.fecharModalPerfil()" style="padding:12px 18px;">Fechar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- CENTRAL DE NOTIFICAÇÕES MODAL -->
+    <div class="theme-modal-overlay" id="notificacoesModalOverlay" onclick="NotificacoesModulo.fecharModalNotificacoes(event)" style="display:none;">
+        <div class="theme-modal notificacoes-modal" style="max-width:460px;">
+            <div class="theme-modal-header">
+                <h3 style="display:flex;align-items:center;gap:6px;">
+                    <span>🔔 Central de Alertas & Notificações</span>
+                </h3>
+                <button class="btn-close-modal" onclick="NotificacoesModulo.fecharModalNotificacoes()">✕</button>
+            </div>
+
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+                <span style="font-size:11px;color:var(--text-dim);">Alertas da sua Print Farm</span>
+                <div style="display:flex;gap:8px;">
+                    <button type="button" class="btn-secondary" onclick="NotificacoesModulo.marcarTodasComoLidas()" style="font-size:10px;padding:4px 8px;">✓ Marcar lidas</button>
+                    <button type="button" class="btn-secondary" onclick="NotificacoesModulo.limparNotificacoes()" style="font-size:10px;padding:4px 8px;color:var(--danger);">🗑️ Limpar</button>
+                </div>
+            </div>
+
+            <div id="listaNotificacoesContainer" class="notif-list-container" style="max-height:340px;overflow-y:auto;display:flex;flex-direction:column;gap:8px;"></div>
+        </div>
+    </div>
+
     <!-- BAMBU LAB SETTINGS MODAL -->
     <div class="theme-modal-overlay" id="bambuModalOverlay" onclick="BambuModulo.fecharModalConfig(event)" style="display:none;">
         <div class="theme-modal bambu-config-modal">
@@ -487,16 +579,24 @@
 
             <div id="auth-form-register" style="display:none">
                 <div class="input-container">
-                    <label>Nome</label>
-                    <input type="text" id="regNome" placeholder="Seu nome">
+                    <label>Nome do Responsável</label>
+                    <input type="text" id="regNome" placeholder="Seu nome completo">
+                </div>
+                <div class="input-container">
+                    <label>CPF ou CNPJ (obrigatório)</label>
+                    <input type="text" id="regCpfCnpj" placeholder="000.000.000-00 ou 00.000.000/0000-00" oninput="PerfilLojaModulo.mascaraCpfCnpj(this)">
                 </div>
                 <div class="input-container">
                     <label>E-mail</label>
                     <input type="email" id="regEmail" placeholder="seu@email.com">
                 </div>
                 <div class="input-container">
-                    <label>Empresa (opcional)</label>
-                    <input type="text" id="regEmpresa" placeholder="Nome da loja / marca">
+                    <label>Nome da Loja / Empresa (opcional)</label>
+                    <input type="text" id="regEmpresa" placeholder="Ex: Oficina 3D Studio">
+                </div>
+                <div class="input-container">
+                    <label>WhatsApp / Telefone (opcional)</label>
+                    <input type="text" id="regTelefone" placeholder="(11) 99999-9999">
                 </div>
                 <div class="input-container">
                     <label>Senha (mín. 6)</label>
@@ -539,7 +639,7 @@
     <div id="app-screen" class="app-wrapper" style="display: none;">
 
         <header class="mobile-header">
-            <div class="user-info">
+            <div class="user-info" onclick="PerfilLojaModulo.abrirModalPerfil()" style="cursor:pointer;" title="Configurações da Conta & Loja (Clique para abrir)">
                 <div class="avatar" id="user-avatar-letter">A</div>
                 <div style="display:flex;flex-direction:column;gap:1px;">
                     <span id="tab-title" style="font-weight:700;font-size:14px;color:var(--text);">Visão Geral</span>
@@ -553,6 +653,9 @@
             <div class="header-actions">
                 <button class="btn-theme-switcher" onclick="QrScannerModulo.abrirScanner()" title="Escanear QR Code com Câmera">📷</button>
                 <button class="btn-theme-switcher" onclick="toggleModalTema()" title="Mudar tema">🎨</button>
+                <button class="btn-theme-switcher btn-notification-bell" onclick="NotificacoesModulo.abrirModalNotificacoes()" title="Central de Notificações">
+                    🔔<span class="notification-badge" id="notifBadge" style="display:none;">0</span>
+                </button>
                 <button class="btn-exit" type="button" onclick="sairApp()">Sair</button>
             </div>
         </header>
@@ -1344,6 +1447,8 @@
     <script src="pdf-orcamento.js"></script>
     <script src="spool-label-modulo.js"></script>
     <script src="qr-scanner-modulo.js"></script>
+    <script src="notificacoes-modulo.js"></script>
+    <script src="perfil-loja-modulo.js"></script>
     <script src="app.js"></script>
 </body>
 </html>

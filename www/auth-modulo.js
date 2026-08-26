@@ -160,14 +160,24 @@ async function registrarCliente() {
     const emailEl = document.getElementById('regEmail');
     const senhaEl = document.getElementById('regSenha');
     const empresaEl = document.getElementById('regEmpresa');
+    const cpfCnpjEl = document.getElementById('regCpfCnpj');
+    const telefoneEl = document.getElementById('regTelefone');
 
     const nome = nomeEl?.value?.trim();
     const email = emailEl?.value?.trim();
     const senha = senhaEl?.value;
     const empresa = empresaEl?.value?.trim() || '';
+    const rawCpfCnpj = cpfCnpjEl?.value?.trim() || '';
+    const cleanDoc = rawCpfCnpj.replace(/\D/g, '');
+    const telefone = telefoneEl?.value?.trim() || '';
 
     if (!nome || !email || !senha) {
         mostrarAuthErro('Preencha nome, e-mail e senha.');
+        return;
+    }
+    if (!cleanDoc || (cleanDoc.length !== 11 && cleanDoc.length !== 14)) {
+        mostrarAuthErro('Informe um CPF válido (11 dígitos) ou CNPJ (14 dígitos).');
+        if (cpfCnpjEl) cpfCnpjEl.focus();
         return;
     }
     if (senha.length < 6) {
@@ -181,7 +191,14 @@ async function registrarCliente() {
             regBtn.textContent = '⏳ Criando conta...';
         }
 
-        const data = await window.apiClient.post('/api/auth/register', { nome, email, senha, empresa });
+        const data = await window.apiClient.post('/api/auth/register', {
+            nome,
+            email,
+            senha,
+            empresa,
+            cpfCnpj: cleanDoc,
+            telefone
+        });
         window.apiClient.setToken(data.token);
         window.apiClient.setUser(data.user);
         sessaoUsuario = data.user;
@@ -225,11 +242,20 @@ async function entrarNoApp() {
     const estoqueBtn = document.querySelector("button[onclick=\"nav('estoque', this)\"]");
     if (estoqueBtn) estoqueBtn.classList.remove('active');
 
-    const avatar = document.querySelector('.mobile-header .avatar');
-    if (avatar) avatar.textContent = (sessaoUsuario.nome || 'U').charAt(0).toUpperCase();
+    // Renderizar Avatar e Nome da Empresa / Perfil
+    if (typeof PerfilLojaModulo !== 'undefined' && PerfilLojaModulo.renderizarAvatarTopo) {
+        PerfilLojaModulo.renderizarAvatarTopo(sessaoUsuario);
+    } else {
+        const avatar = document.querySelector('.mobile-header .avatar');
+        if (avatar) avatar.textContent = (sessaoUsuario.nome || 'U').charAt(0).toUpperCase();
+        const sub = document.getElementById('user-email-sub');
+        if (sub) sub.textContent = sessaoUsuario.email;
+    }
 
-    const sub = document.getElementById('user-email-sub');
-    if (sub) sub.textContent = sessaoUsuario.email;
+    // Inicializar Notificações
+    if (typeof NotificacoesModulo !== 'undefined' && NotificacoesModulo.atualizarBadge) {
+        NotificacoesModulo.atualizarBadge();
+    }
 
     await window.dbBridge.conectarBanco();
     window.dbBridge.startPing();

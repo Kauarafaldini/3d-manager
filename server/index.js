@@ -33,18 +33,32 @@ app.get('/api/health', (req, res) => {
 
 app.post('/api/auth/register', async (req, res) => {
     try {
-        const { nome, email, senha, empresa } = req.body || {};
+        const { nome, email, senha, empresa, cpfCnpj, telefone, foto, chavePix } = req.body || {};
         if (!nome || !email || !senha) {
             return res.status(400).json({ erro: 'Nome, e-mail e senha são obrigatórios' });
         }
         if (senha.length < 6) {
             return res.status(400).json({ erro: 'Senha deve ter pelo menos 6 caracteres' });
         }
-        const emailNorm = String(email).toLowerCase().trim();
-        const existe = await User().findOne({ email: emailNorm });
-        if (existe) {
-            return res.status(409).json({ erro: 'E-mail já cadastrado' });
+
+        // Validação de CPF ou CNPJ obrigatório
+        const cleanDoc = String(cpfCnpj || '').replace(/\D/g, '').trim();
+        if (!cleanDoc || (cleanDoc.length !== 11 && cleanDoc.length !== 14)) {
+            return res.status(400).json({ erro: 'Informe um CPF válido (11 dígitos) ou CNPJ válido (14 dígitos).' });
         }
+
+        const emailNorm = String(email).toLowerCase().trim();
+        const existeEmail = await User().findOne({ email: emailNorm });
+        if (existeEmail) {
+            return res.status(409).json({ erro: 'E-mail já cadastrado.' });
+        }
+
+        // Verificação se CPF ou CNPJ já existe
+        const existeCpfCnpj = await User().findOne({ cpfCnpj: cleanDoc });
+        if (existeCpfCnpj) {
+            return res.status(409).json({ erro: 'CPF ou CNPJ já cadastrado em outra conta.' });
+        }
+
         const tenantId = new mongoose.Types.ObjectId();
         const user = await User().create({
             nome: String(nome).trim(),
@@ -53,6 +67,10 @@ app.post('/api/auth/register', async (req, res) => {
             role: 'client',
             tenantId,
             empresa: empresa ? String(empresa).trim() : '',
+            cpfCnpj: cleanDoc,
+            telefone: telefone ? String(telefone).trim() : '',
+            foto: foto || '',
+            chavePix: chavePix ? String(chavePix).trim() : '',
             ativo: true,
             lastOnline: new Date()
         });
@@ -63,7 +81,7 @@ app.post('/api/auth/register', async (req, res) => {
         });
     } catch (err) {
         console.error('register', err);
-        res.status(500).json({ erro: 'Erro ao cadastrar' });
+        res.status(500).json({ erro: 'Erro ao cadastrar: ' + err.message });
     }
 });
 
@@ -97,6 +115,41 @@ app.get('/api/auth/me', authMiddleware, async (req, res) => {
     res.json({ user: sanitizeUser(user) });
 });
 
+app.put('/api/auth/profile', authMiddleware, async (req, res) => {
+    try {
+        const user = await User().findById(req.user.sub);
+        if (!user || !user.ativo) {
+            return res.status(401).json({ erro: 'Usuário inválido' });
+        }
+
+        const { nome, empresa, foto, telefone, chavePix, cpfCnpj } = req.body || {};
+
+        if (nome) user.nome = String(nome).trim();
+        if (empresa !== undefined) user.empresa = String(empresa).trim();
+        if (foto !== undefined) user.foto = String(foto);
+        if (telefone !== undefined) user.telefone = String(telefone).trim();
+        if (chavePix !== undefined) user.chavePix = String(chavePix).trim();
+
+        if (cpfCnpj) {
+            const cleanDoc = String(cpfCnpj).replace(/\D/g, '').trim();
+            if (cleanDoc.length === 11 || cleanDoc.length === 14) {
+                // Verificar se outro usuário já tem esse CPF/CNPJ
+                const duplicado = await User().findOne({ cpfCnpj: cleanDoc, _id: { $ne: user._id } });
+                if (duplicado) {
+                    return res.status(409).json({ erro: 'Este CPF/CNPJ já está cadastrado em outra conta.' });
+                }
+                user.cpfCnpj = cleanDoc;
+            }
+        }
+
+        await user.save();
+        res.json({ ok: true, user: sanitizeUser(user) });
+    } catch (err) {
+        console.error('put /api/auth/profile', err);
+        res.status(500).json({ erro: 'Erro ao atualizar perfil: ' + err.message });
+    }
+});
+
 app.post('/api/auth/ping', authMiddleware, async (req, res) => {
     await User().findByIdAndUpdate(req.user.sub, { lastOnline: new Date() });
     res.json({ ok: true });
@@ -110,6 +163,10 @@ function sanitizeUser(u) {
         role: u.role,
         tenantId: u.tenantId.toString(),
         empresa: u.empresa || '',
+        cpfCnpj: u.cpfCnpj || '',
+        foto: u.foto || '',
+        telefone: u.telefone || '',
+        chavePix: u.chavePix || '',
         ativo: u.ativo,
         lastOnline: u.lastOnline
     };
@@ -201,7 +258,7 @@ registerCollectionRoutes('desperdicios', COLLECTIONS.Desperdicio);
 // =============================================
 // GEMINI AI PRICING ASSISTANT
 // =============================================
-app.post('/api/ai/sugerir-preco', async (req, res) => {
+app.post('/api/ai/sugerir-preco', authMiddleware, async (req, res) => {
     try {
         const {
             nomeItem = 'Item 3D Personalizado',
@@ -522,7 +579,7 @@ printerConnector.setFinishCallback(async (protocol, identifier, telemetry) => {
 });
 
 // Rotas de Conexão Multi-Impressoras (Bambu, Klipper, OctoPrint)
-app.post('/api/printers/connect', async (req, res) => {
+app.post('/api/printers/connect', authMiddleware, async (req, res) => {
     try {
         const { protocol = 'bambu', ip, port, serial, accessCode, apiKey, nome, useSimulator, id } = req.body || {};
 
@@ -551,7 +608,7 @@ app.post('/api/printers/connect', async (req, res) => {
     }
 });
 
-app.post('/api/printers/disconnect', async (req, res) => {
+app.post('/api/printers/disconnect', authMiddleware, async (req, res) => {
     try {
         const { id, serial, protocol = 'bambu' } = req.body || {};
         const ident = serial || id;
@@ -571,7 +628,7 @@ app.post('/api/printers/disconnect', async (req, res) => {
     }
 });
 
-app.get('/api/printers/status', (req, res) => {
+app.get('/api/printers/status', authMiddleware, (req, res) => {
     try {
         const { serial, id } = req.query;
         const ident = serial || id;
@@ -588,7 +645,7 @@ app.get('/api/printers/status', (req, res) => {
 });
 
 // Rotas Bambu Lab legadas / compatibilidade
-app.get('/api/bambu/status', (req, res) => {
+app.get('/api/bambu/status', authMiddleware, (req, res) => {
     try {
         const { serial } = req.query;
         if (serial) {
@@ -603,7 +660,7 @@ app.get('/api/bambu/status', (req, res) => {
     }
 });
 
-app.post('/api/bambu/connect', async (req, res) => {
+app.post('/api/bambu/connect', authMiddleware, async (req, res) => {
     try {
         const { ip, serial, accessCode, nome, useSimulator } = req.body || {};
         if (!serial) {
@@ -623,7 +680,7 @@ app.post('/api/bambu/connect', async (req, res) => {
     }
 });
 
-app.post('/api/bambu/disconnect', async (req, res) => {
+app.post('/api/bambu/disconnect', authMiddleware, async (req, res) => {
     try {
         const { serial } = req.body || {};
         if (!serial) {
@@ -637,7 +694,7 @@ app.post('/api/bambu/disconnect', async (req, res) => {
     }
 });
 
-app.post('/api/bambu/command', async (req, res) => {
+app.post('/api/bambu/command', authMiddleware, async (req, res) => {
     try {
         const { serial, command, mode } = req.body || {};
         if (!serial) {
