@@ -371,10 +371,223 @@ function serializeDoc(d) {
 }
 
 // =============================================
-// BAMBU LAB INTEGRATION ROUTES
+// PÁGINA PÚBLICA DE RASTREIO DE PEDIDOS
+// =============================================
+const { renderTrackingPage } = require('./tracking-template');
+
+app.get('/status/:pedidoId', async (req, res) => {
+    try {
+        const { pedidoId } = req.params;
+        const Venda = COLLECTIONS.Venda();
+        const Fila = COLLECTIONS.Fila();
+        const Impressora = COLLECTIONS.Impressora();
+
+        // Busca por pedidoId ou _id
+        let venda = await Venda.findOne({ pedidoId }).lean();
+        if (!venda && mongoose.isValidObjectId(pedidoId)) {
+            venda = await Venda.findById(pedidoId).lean();
+        }
+
+        // Busca trabalho na fila correspondente
+        let filaItem = await Fila.findOne({
+            $or: [{ pedidoId }, { vendaId: venda?._id ? String(venda._id) : null }]
+        }).lean();
+
+        // Telemetria da impressora se estiver ativa
+        let liveTelemetry = null;
+        if (filaItem?.impressoraId) {
+            const imp = await Impressora.findById(filaItem.impressoraId).lean();
+            if (imp?.serial) {
+                liveTelemetry = printerConnector.getPrinterStatus(imp.serial);
+            }
+        }
+
+        const dataHtml = {
+            pedidoId: venda?.pedidoId || filaItem?.pedidoId || pedidoId,
+            nomeCliente: venda?.nome || filaItem?.nomeItem || 'Cliente',
+            nomeItem: filaItem?.nomeItem || venda?.nome || 'Impressão 3D Sob Medida',
+            quantidade: venda?.quantidade || filaItem?.quantidade || 1,
+            statusFila: filaItem?.status || (venda?.status === 'concluida' ? 'concluido' : 'pendente'),
+            statusVenda: venda?.status || 'concluida',
+            percentual: liveTelemetry?.percent || (filaItem?.status === 'concluido' ? 100 : 0),
+            tempoRestante: liveTelemetry?.remainingFormatted || (filaItem?.tempoEstimadoHoras ? `${filaItem.tempoEstimadoHoras}h` : ''),
+            impressoraNome: filaItem?.impressoraNome || 'Print Farm 3D',
+            dataCriacao: venda?.data ? new Date(venda.data).toLocaleDateString('pt-BR') : new Date().toLocaleDateString('pt-BR'),
+            filamentos: venda?.filamentosUsados || filaItem?.filamentosUsados || [],
+            codigoRastreio: venda?.sku || '',
+            observacoes: filaItem?.observacoes || '',
+            nomeEmpresa: '3D Manager Studio'
+        };
+
+        const html = renderTrackingPage(dataHtml);
+        res.setHeader('Content-Type', 'text/html; charset=utf-8');
+        res.send(html);
+    } catch (err) {
+        console.error('/status/:pedidoId', err);
+        res.status(500).send('<h1>Erro ao carregar rastreio de pedido</h1><p>' + err.message + '</p>');
+    }
+});
+
+app.get('/api/rastreio/:pedidoId', async (req, res) => {
+    try {
+        const { pedidoId } = req.params;
+        const Venda = COLLECTIONS.Venda();
+        const Fila = COLLECTIONS.Fila();
+
+        let venda = await Venda.findOne({ pedidoId }).lean();
+        if (!venda && mongoose.isValidObjectId(pedidoId)) {
+            venda = await Venda.findById(pedidoId).lean();
+        }
+
+        let filaItem = await Fila.findOne({
+            $or: [{ pedidoId }, { vendaId: venda?._id ? String(venda._id) : null }]
+        }).lean();
+
+        res.json({
+            ok: true,
+            pedidoId,
+            venda: venda ? serializeDoc(venda) : null,
+            fila: filaItem ? serializeDoc(filaItem) : null
+        });
+    } catch (err) {
+        console.error('/api/rastreio/:pedidoId', err);
+        res.status(500).json({ ok: false, erro: err.message });
+    }
+});
+
+// =============================================
+// UNIFIED PRINTERS & TELEMETRY HUB
 // =============================================
 const bambuService = require('./bambu-service');
+const printerConnector = require('./printer-connector');
 
+// Configuração da Automação de Conclusão da Fila via Telemetria (Zero Cliques)
+printerConnector.setFinishCallback(async (protocol, identifier, telemetry) => {
+    try {
+        console.log(`[AUTOMAÇÃO FILA] Processando conclusão da impressora ${identifier} (${protocol})...`);
+        const Fila = COLLECTIONS.Fila();
+        const Estoque = COLLECTIONS.Estoque();
+        const Impressora = COLLECTIONS.Impressora();
+
+        // Encontra a impressora no banco
+        const imp = await Impressora.findOne({
+            $or: [{ serial: identifier }, { ip: identifier }, { _id: mongoose.isValidObjectId(identifier) ? identifier : null }]
+        });
+
+        const impId = imp ? String(imp._id) : identifier;
+
+        // Encontra o trabalho atualmente em impressão nesta impressora
+        const jobAtivo = await Fila.findOne({
+            impressoraId: impId,
+            status: 'imprimindo'
+        });
+
+        if (jobAtivo) {
+            console.log(`[AUTOMAÇÃO FILA] Finalizando trabalho ativo: "${jobAtivo.nomeItem}" (ID: ${jobAtivo._id})`);
+            jobAtivo.status = 'concluido';
+            jobAtivo.concluidoEm = new Date();
+            await jobAtivo.save();
+
+            // 1. Dá baixa automática no filamento consumido
+            if (Array.isArray(jobAtivo.filamentosUsados) && jobAtivo.filamentosUsados.length > 0) {
+                for (const f of jobAtivo.filamentosUsados) {
+                    if (f.estoqueId && f.peso > 0) {
+                        const spool = await Estoque.findById(f.estoqueId);
+                        if (spool) {
+                            const novoPeso = Math.max(0, (spool.gramas || 0) - f.peso);
+                            console.log(`[AUTOMAÇÃO FILA] Baixa no carretel "${spool.nome}": ${spool.gramas}g -> ${novoPeso}g (-${f.peso}g)`);
+                            spool.gramas = novoPeso;
+                            await spool.save();
+                        }
+                    }
+                }
+            } else if (jobAtivo.pesoTotalGramas > 0) {
+                console.log(`[AUTOMAÇÃO FILA] Trabalho concluído com peso total de ${jobAtivo.pesoTotalGramas}g.`);
+            }
+
+            // 2. Avança para o próximo trabalho pendente na fila desta impressora
+            const proximoJob = await Fila.findOne({
+                impressoraId: impId,
+                status: 'pendente'
+            }).sort({ ordem: 1, criadoEm: 1 });
+
+            if (proximoJob) {
+                console.log(`[AUTOMAÇÃO FILA] Avançando fila: Próximo trabalho "${proximoJob.nomeItem}" marcado como pronto para impressão!`);
+                // Mantém como pendente ou avança para imprimindo conforme a fila
+            }
+        }
+    } catch (autoErr) {
+        console.error('[AUTOMAÇÃO FILA] Erro ao processar conclusão automática:', autoErr);
+    }
+});
+
+// Rotas de Conexão Multi-Impressoras (Bambu, Klipper, OctoPrint)
+app.post('/api/printers/connect', async (req, res) => {
+    try {
+        const { protocol = 'bambu', ip, port, serial, accessCode, apiKey, nome, useSimulator, id } = req.body || {};
+
+        if (protocol === 'klipper') {
+            const result = await printerConnector.connectKlipper({ id, nome, ip, port: port || 7125 });
+            return res.json(result);
+        }
+
+        if (protocol === 'octoprint') {
+            const result = await printerConnector.connectOctoPrint({ id, nome, ip, port: port || 5000, apiKey });
+            return res.json(result);
+        }
+
+        // Padrão: Bambu Lab
+        const result = await bambuService.connectPrinter({
+            ip: ip ? String(ip).trim() : '',
+            serial: String(serial || id || 'BAMBU_PRINTER').trim(),
+            accessCode: accessCode ? String(accessCode).trim() : '',
+            nome: nome ? String(nome).trim() : 'Bambu Lab',
+            useSimulator: !!useSimulator
+        });
+        res.json(result);
+    } catch (err) {
+        console.error('printers/connect', err);
+        res.status(500).json({ ok: false, erro: err.message });
+    }
+});
+
+app.post('/api/printers/disconnect', async (req, res) => {
+    try {
+        const { id, serial, protocol = 'bambu' } = req.body || {};
+        const ident = serial || id;
+        if (protocol === 'klipper') {
+            printerConnector.disconnectKlipper(ident);
+            return res.json({ ok: true });
+        }
+        if (protocol === 'octoprint') {
+            printerConnector.disconnectOctoPrint(ident);
+            return res.json({ ok: true });
+        }
+        const result = await bambuService.disconnectPrinter(ident);
+        res.json(result);
+    } catch (err) {
+        console.error('printers/disconnect', err);
+        res.status(500).json({ ok: false, erro: err.message });
+    }
+});
+
+app.get('/api/printers/status', (req, res) => {
+    try {
+        const { serial, id } = req.query;
+        const ident = serial || id;
+        if (ident) {
+            const status = printerConnector.getPrinterStatus(ident);
+            return res.json(status);
+        }
+        const bambuList = bambuService.getAllPrinters();
+        res.json({ printers: bambuList });
+    } catch (err) {
+        console.error('printers/status', err);
+        res.status(500).json({ erro: err.message });
+    }
+});
+
+// Rotas Bambu Lab legadas / compatibilidade
 app.get('/api/bambu/status', (req, res) => {
     try {
         const { serial } = req.query;
