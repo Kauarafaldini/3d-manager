@@ -461,14 +461,22 @@ app.get('/status/:pedidoId', async (req, res) => {
 
         // Busca dados do proprietário/loja para contato via WhatsApp e branding
         let lojaUser = null;
+        const UserModel = typeof User === 'function' ? User() : User;
         if (venda?.tenantId) {
-            lojaUser = await User.findOne({ tenantId: venda.tenantId }).lean();
+            lojaUser = await UserModel.findOne({ tenantId: venda.tenantId }).lean();
             if (!lojaUser && mongoose.isValidObjectId(venda.tenantId)) {
-                lojaUser = await User.findById(venda.tenantId).lean();
+                lojaUser = await UserModel.findById(venda.tenantId).lean();
             }
         }
         if (!lojaUser && filaItem?.tenantId) {
-            lojaUser = await User.findOne({ tenantId: filaItem.tenantId }).lean();
+            lojaUser = await UserModel.findOne({ tenantId: filaItem.tenantId }).lean();
+            if (!lojaUser && mongoose.isValidObjectId(filaItem.tenantId)) {
+                lojaUser = await UserModel.findById(filaItem.tenantId).lean();
+            }
+        }
+        // Se ainda não encontrou e houver usuário cadastrado, pega o usuário principal/primeiro
+        if (!lojaUser) {
+            lojaUser = await UserModel.findOne({ role: 'client' }).lean() || await UserModel.findOne().lean();
         }
 
         const nomeEmpresa = lojaUser?.empresa || lojaUser?.nome || '3D Manager Studio';

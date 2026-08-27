@@ -88,76 +88,176 @@ window.PdfOrcamentoModulo = (function () {
     /**
      * Controle do Slider de Prazo de Produção
      */
-    function aoMudarSliderPrazo(val) {
-        const slider = document.getElementById('pdfPrazoSlider');
-        const unidadeSelect = document.getElementById('pdfPrazoTipoUnidade');
+    /**
+     * Controle Lapidado de Prazo de Produção (Presets + Stepper + Customizado)
+     */
+    function selecionarPresetPrazo(dias, unidade, btnEl) {
+        document.querySelectorAll('.prazo-presets-wrap .btn-prazo-preset').forEach(b => b.classList.remove('active'));
+        if (btnEl) btnEl.classList.add('active');
+
+        const boxCustom = document.getElementById('pdfPrazoCustomBox');
+        const boxStepper = document.getElementById('pdfPrazoControleRapido');
+
+        if (dias === 'custom') {
+            if (boxCustom) boxCustom.style.display = 'block';
+            if (boxStepper) boxStepper.style.opacity = '0.5';
+            const inputCustom = document.getElementById('pdfPrazoCustomInput');
+            if (inputCustom) {
+                inputCustom.focus();
+                aoDigitarPrazoCustom(inputCustom.value);
+            }
+        } else {
+            if (boxCustom) boxCustom.style.display = 'none';
+            if (boxStepper) boxStepper.style.opacity = '1';
+            const inputDias = document.getElementById('pdfPrazoDiasInput');
+            if (inputDias) inputDias.value = dias;
+            atualizarPrazoTexto();
+        }
+    }
+
+    function ajustarPrazoDias(delta) {
+        const inputDias = document.getElementById('pdfPrazoDiasInput');
+        if (!inputDias) return;
+        let v = parseInt(inputDias.value, 10) || 1;
+        v = Math.max(1, Math.min(90, v + delta));
+        inputDias.value = v;
+
+        // Desmarca presets
+        document.querySelectorAll('.prazo-presets-wrap .btn-prazo-preset').forEach(b => {
+            const bDias = b.getAttribute('data-prazo');
+            if (bDias === String(v)) b.classList.add('active');
+            else b.classList.remove('active');
+        });
+
+        const boxCustom = document.getElementById('pdfPrazoCustomBox');
+        if (boxCustom) boxCustom.style.display = 'none';
+
+        atualizarPrazoTexto();
+    }
+
+    function aoDigitarPrazoDias(val) {
+        const v = parseInt(val, 10) || 1;
+        document.querySelectorAll('.prazo-presets-wrap .btn-prazo-preset').forEach(b => {
+            const bDias = b.getAttribute('data-prazo');
+            if (bDias === String(v)) b.classList.add('active');
+            else b.classList.remove('active');
+        });
+        atualizarPrazoTexto();
+    }
+
+    function atualizarPrazoTexto() {
+        const inputDias = document.getElementById('pdfPrazoDiasInput');
+        const selectUnidade = document.getElementById('pdfPrazoTipoUnidade');
         const badge = document.getElementById('pdfPrazoBadge');
         const hiddenPrazo = document.getElementById('pdfPrazo');
 
-        const dias = val !== undefined ? parseInt(val, 10) : (parseInt(slider?.value, 10) || 3);
-        const unidade = unidadeSelect?.value || 'úteis';
+        const dias = parseInt(inputDias?.value, 10) || 3;
+        const unidade = selectUnidade?.value || 'úteis';
 
-        let textoPrazo = '';
+        let texto = '';
         if (unidade === 'horas') {
             const horas = dias * 4;
-            textoPrazo = `${horas} horas`;
+            texto = `${horas} horas`;
         } else if (unidade === 'corridos') {
-            textoPrazo = `${dias} ${dias === 1 ? 'dia corrido' : 'dias corridos'}`;
+            texto = `${dias} ${dias === 1 ? 'dia corrido' : 'dias corridos'}`;
         } else {
-            textoPrazo = `${dias} ${dias === 1 ? 'dia útil' : 'dias úteis'}`;
+            texto = `${dias} ${dias === 1 ? 'dia útil' : 'dias úteis'}`;
         }
 
-        if (badge) badge.textContent = textoPrazo;
-        if (hiddenPrazo) hiddenPrazo.value = textoPrazo;
+        if (badge) badge.textContent = texto;
+        if (hiddenPrazo) hiddenPrazo.value = texto;
 
         atualizarPreviewProposta();
     }
 
-    function togglePrazoPersonalizado(ativo) {
-        const inputCustom = document.getElementById('pdfPrazoCustomInput');
-        const slider = document.getElementById('pdfPrazoSlider');
-        const unidadeSelect = document.getElementById('pdfPrazoTipoUnidade');
+    function aoDigitarPrazoCustom(val) {
+        const badge = document.getElementById('pdfPrazoBadge');
+        const hiddenPrazo = document.getElementById('pdfPrazo');
+        const texto = val?.trim() || 'A combinar';
 
-        if (inputCustom) {
-            inputCustom.style.display = ativo ? 'block' : 'none';
-            if (ativo) {
-                inputCustom.focus();
-            }
-        }
-        if (slider) slider.disabled = ativo;
-        if (unidadeSelect) unidadeSelect.disabled = ativo;
+        if (badge) badge.textContent = texto;
+        if (hiddenPrazo) hiddenPrazo.value = texto;
 
         atualizarPreviewProposta();
     }
 
     /**
-     * Controle do Slider de Validade da Proposta
+     * Controle Lapidado de Validade da Proposta (Presets + Stepper + Customizado)
      */
-    function aoMudarSliderValidade(val) {
-        const slider = document.getElementById('pdfValidadeSlider');
+    function selecionarPresetValidade(dias, btnEl) {
+        document.querySelectorAll('.validade-presets-wrap .btn-validade-preset').forEach(b => b.classList.remove('active'));
+        if (btnEl) btnEl.classList.add('active');
+
+        const boxCustom = document.getElementById('pdfValidadeCustomBox');
+        const boxStepper = document.getElementById('pdfValidadeControleRapido');
+
+        if (dias === 'custom') {
+            if (boxCustom) boxCustom.style.display = 'block';
+            if (boxStepper) boxStepper.style.opacity = '0.5';
+            const inputCustom = document.getElementById('pdfValidadeCustomInput');
+            if (inputCustom) {
+                inputCustom.focus();
+                aoDigitarValidadeCustom(inputCustom.value);
+            }
+        } else {
+            if (boxCustom) boxCustom.style.display = 'none';
+            if (boxStepper) boxStepper.style.opacity = '1';
+            const inputDias = document.getElementById('pdfValidadeDiasInput');
+            if (inputDias) inputDias.value = dias;
+            atualizarValidadeTexto();
+        }
+    }
+
+    function ajustarValidadeDias(delta) {
+        const inputDias = document.getElementById('pdfValidadeDiasInput');
+        if (!inputDias) return;
+        let v = parseInt(inputDias.value, 10) || 7;
+        v = Math.max(1, Math.min(90, v + delta));
+        inputDias.value = v;
+
+        document.querySelectorAll('.validade-presets-wrap .btn-validade-preset').forEach(b => {
+            const bDias = b.getAttribute('data-dias');
+            if (bDias === String(v)) b.classList.add('active');
+            else b.classList.remove('active');
+        });
+
+        const boxCustom = document.getElementById('pdfValidadeCustomBox');
+        if (boxCustom) boxCustom.style.display = 'none';
+
+        atualizarValidadeTexto();
+    }
+
+    function aoDigitarValidadeDias(val) {
+        const v = parseInt(val, 10) || 7;
+        document.querySelectorAll('.validade-presets-wrap .btn-validade-preset').forEach(b => {
+            const bDias = b.getAttribute('data-dias');
+            if (bDias === String(v)) b.classList.add('active');
+            else b.classList.remove('active');
+        });
+        atualizarValidadeTexto();
+    }
+
+    function atualizarValidadeTexto() {
+        const inputDias = document.getElementById('pdfValidadeDiasInput');
         const badge = document.getElementById('pdfValidadeBadge');
         const hiddenValidade = document.getElementById('pdfValidade');
 
-        const dias = val !== undefined ? parseInt(val, 10) : (parseInt(slider?.value, 10) || 7);
-        const textoValidade = `${dias} ${dias === 1 ? 'dia' : 'dias'}`;
+        const dias = parseInt(inputDias?.value, 10) || 7;
+        const texto = `${dias} ${dias === 1 ? 'dia' : 'dias'}`;
 
-        if (badge) badge.textContent = textoValidade;
+        if (badge) badge.textContent = texto;
         if (hiddenValidade) hiddenValidade.value = String(dias);
 
         atualizarPreviewProposta();
     }
 
-    function toggleValidadePersonalizada(ativo) {
-        const inputCustom = document.getElementById('pdfValidadeCustomInput');
-        const slider = document.getElementById('pdfValidadeSlider');
+    function aoDigitarValidadeCustom(val) {
+        const badge = document.getElementById('pdfValidadeBadge');
+        const hiddenValidade = document.getElementById('pdfValidade');
+        const texto = val?.trim() || 'A combinar';
 
-        if (inputCustom) {
-            inputCustom.style.display = ativo ? 'block' : 'none';
-            if (ativo) {
-                inputCustom.focus();
-            }
-        }
-        if (slider) slider.disabled = ativo;
+        if (badge) badge.textContent = texto;
+        if (hiddenValidade) hiddenValidade.value = texto;
 
         atualizarPreviewProposta();
     }
@@ -181,13 +281,14 @@ window.PdfOrcamentoModulo = (function () {
         if (!dados) {
             const calc = typeof window.calcFinanceiro === 'function' ? window.calcFinanceiro(false) : {};
             const nomeItem = document.getElementById('pNome')?.value || 'Projeto 3D Personalizado';
+            const nomeCliente = document.getElementById('pClienteNome')?.value || '';
             const qtd = parseInt(document.getElementById('pQuantidadeChapa')?.value, 10) || 1;
             const pedidoId = 'ORC-' + Math.random().toString(36).substring(2, 7).toUpperCase();
 
             dados = {
                 pedidoId,
                 empresaNome,
-                clienteNome: '',
+                clienteNome: nomeCliente,
                 clienteTelefone: '',
                 nomeItem,
                 quantidade: qtd,
@@ -237,20 +338,28 @@ window.PdfOrcamentoModulo = (function () {
         const fObs = document.getElementById('pdfObservacoes');
         if (fObs) fObs.value = dados.observacoes || '';
 
-        // Reset e configuração dos sliders
-        const sliderPrazo = document.getElementById('pdfPrazoSlider');
-        if (sliderPrazo) sliderPrazo.value = '3';
-        const checkPrazo = document.getElementById('pdfPrazoCustomCheck');
-        if (checkPrazo) checkPrazo.checked = false;
-        togglePrazoPersonalizado(false);
-        aoMudarSliderPrazo(3);
+        // Reset e configuração dos Presets de Prazo
+        const inputDiasPrazo = document.getElementById('pdfPrazoDiasInput');
+        if (inputDiasPrazo) inputDiasPrazo.value = '3';
+        const boxCustomPrazo = document.getElementById('pdfPrazoCustomBox');
+        if (boxCustomPrazo) boxCustomPrazo.style.display = 'none';
+        document.querySelectorAll('.prazo-presets-wrap .btn-prazo-preset').forEach(b => {
+            if (b.getAttribute('data-prazo') === '3') b.classList.add('active');
+            else b.classList.remove('active');
+        });
+        atualizarPrazoTexto();
 
-        const sliderValidade = document.getElementById('pdfValidadeSlider');
-        if (sliderValidade) sliderValidade.value = String(dados.validadeDias || 7);
-        const checkValidade = document.getElementById('pdfValidadeCustomCheck');
-        if (checkValidade) checkValidade.checked = false;
-        toggleValidadePersonalizada(false);
-        aoMudarSliderValidade(dados.validadeDias || 7);
+        // Reset e configuração dos Presets de Validade
+        const valDias = parseInt(dados.validadeDias, 10) || 7;
+        const inputDiasVal = document.getElementById('pdfValidadeDiasInput');
+        if (inputDiasVal) inputDiasVal.value = String(valDias);
+        const boxCustomVal = document.getElementById('pdfValidadeCustomBox');
+        if (boxCustomVal) boxCustomVal.style.display = 'none';
+        document.querySelectorAll('.validade-presets-wrap .btn-validade-preset').forEach(b => {
+            if (b.getAttribute('data-dias') === String(valDias)) b.classList.add('active');
+            else b.classList.remove('active');
+        });
+        atualizarValidadeTexto();
 
         atualizarPreviewProposta();
         modal.style.display = 'flex';
@@ -277,14 +386,18 @@ window.PdfOrcamentoModulo = (function () {
         const observacoes = document.getElementById('pdfObservacoes')?.value?.trim() || '';
 
         // Determina prazo
-        const isPrazoCustom = document.getElementById('pdfPrazoCustomCheck')?.checked;
-        const prazoCustomText = document.getElementById('pdfPrazoCustomInput')?.value?.trim();
-        const prazo = (isPrazoCustom && prazoCustomText) ? prazoCustomText : (document.getElementById('pdfPrazo')?.value || '3 dias úteis');
+        const customPrazoInput = document.getElementById('pdfPrazoCustomInput');
+        const isPrazoCustom = document.getElementById('pdfPrazoCustomBox')?.style.display === 'block';
+        const prazo = (isPrazoCustom && customPrazoInput?.value?.trim())
+            ? customPrazoInput.value.trim()
+            : (document.getElementById('pdfPrazo')?.value || '3 dias úteis');
 
         // Determina validade
-        const isValidadeCustom = document.getElementById('pdfValidadeCustomCheck')?.checked;
-        const validadeCustomText = document.getElementById('pdfValidadeCustomInput')?.value?.trim();
-        const validade = (isValidadeCustom && validadeCustomText) ? validadeCustomText : (document.getElementById('pdfValidade')?.value || '7');
+        const customValidadeInput = document.getElementById('pdfValidadeCustomInput');
+        const isValidadeCustom = document.getElementById('pdfValidadeCustomBox')?.style.display === 'block';
+        const validade = (isValidadeCustom && customValidadeInput?.value?.trim())
+            ? customValidadeInput.value.trim()
+            : (document.getElementById('pdfValidade')?.value || '7');
 
         if (chavePix) {
             localStorage.setItem('3dm_chave_pix', chavePix);
@@ -453,9 +566,11 @@ window.PdfOrcamentoModulo = (function () {
         const condicoes = document.getElementById('pdfCondicoes')?.value || '50% de entrada e restante na entrega.';
         const observacoes = document.getElementById('pdfObservacoes')?.value?.trim() || '';
 
-        const isPrazoCustom = document.getElementById('pdfPrazoCustomCheck')?.checked;
-        const prazoCustomText = document.getElementById('pdfPrazoCustomInput')?.value?.trim();
-        const prazo = (isPrazoCustom && prazoCustomText) ? prazoCustomText : (document.getElementById('pdfPrazo')?.value || '3 dias úteis');
+        const customPrazoInput = document.getElementById('pdfPrazoCustomInput');
+        const isPrazoCustom = document.getElementById('pdfPrazoCustomBox')?.style.display === 'block';
+        const prazo = (isPrazoCustom && customPrazoInput?.value?.trim())
+            ? customPrazoInput.value.trim()
+            : (document.getElementById('pdfPrazo')?.value || '3 dias úteis');
 
         const valorTotal = (valorUnit * qtd).toFixed(2);
         const pedidoId = dadosAtuaisProposta?.pedidoId || 'ORC-2026';
@@ -513,10 +628,16 @@ window.PdfOrcamentoModulo = (function () {
         abrirModalProposta,
         fecharModalProposta,
         atualizarPreviewProposta,
-        aoMudarSliderPrazo,
-        togglePrazoPersonalizado,
-        aoMudarSliderValidade,
-        toggleValidadePersonalizada,
+        selecionarPresetPrazo,
+        ajustarPrazoDias,
+        aoDigitarPrazoDias,
+        aoDigitarPrazoCustom,
+        atualizarPrazoTexto,
+        selecionarPresetValidade,
+        ajustarValidadeDias,
+        aoDigitarValidadeDias,
+        aoDigitarValidadeCustom,
+        atualizarValidadeTexto,
         imprimirProposta,
         copiarMensagemWhatsApp,
         copiarLinkRastreio,

@@ -168,49 +168,79 @@
                     <label>Quantidade</label>
                     <input type="number" min="1" id="pdfItemQtd" value="1" oninput="PdfOrcamentoModulo.atualizarPreviewProposta()">
                 </div>
-                <div class="input-container full" style="background:var(--bg-input);padding:12px;border-radius:10px;border:1px solid var(--border-subtle);">
-                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
-                        <label style="margin:0;font-weight:700;">⏱️ Prazo de Produção</label>
-                        <span id="pdfPrazoBadge" style="font-size:11px;font-weight:700;color:var(--primary);background:rgba(6,182,212,0.15);padding:2px 8px;border-radius:6px;">3 dias úteis</span>
+                <div class="input-container full" style="background:var(--bg-input);padding:14px;border-radius:12px;border:1px solid var(--border-subtle);">
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+                        <label style="margin:0;font-weight:700;font-size:13px;display:flex;align-items:center;gap:6px;">
+                            <span>⏱️ Prazo de Produção</span>
+                        </label>
+                        <span id="pdfPrazoBadge" style="font-size:12px;font-weight:700;color:var(--primary);background:rgba(6,182,212,0.15);padding:3px 10px;border-radius:8px;border:1px solid rgba(6,182,212,0.3);">3 dias úteis</span>
                     </div>
-                    <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
-                        <span style="font-size:11px;color:var(--text-dim);">1d</span>
-                        <input type="range" id="pdfPrazoSlider" min="1" max="30" value="3" style="flex:1;cursor:pointer;" oninput="PdfOrcamentoModulo.aoMudarSliderPrazo(this.value)">
-                        <span style="font-size:11px;color:var(--text-dim);">30d</span>
-                        <select id="pdfPrazoTipoUnidade" onchange="PdfOrcamentoModulo.aoMudarSliderPrazo()" style="width:auto;padding:4px 8px;font-size:11px;">
+
+                    <!-- Presets rápidos -->
+                    <div class="prazo-presets-wrap" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;">
+                        <button type="button" class="btn-prazo-preset" data-prazo="1" onclick="PdfOrcamentoModulo.selecionarPresetPrazo(1, 'dia útil', this)">⚡ 24h (1 dia)</button>
+                        <button type="button" class="btn-prazo-preset active" data-prazo="3" onclick="PdfOrcamentoModulo.selecionarPresetPrazo(3, 'dias úteis', this)">📦 2 a 3 dias</button>
+                        <button type="button" class="btn-prazo-preset" data-prazo="5" onclick="PdfOrcamentoModulo.selecionarPresetPrazo(5, 'dias úteis', this)">🚀 5 dias</button>
+                        <button type="button" class="btn-prazo-preset" data-prazo="7" onclick="PdfOrcamentoModulo.selecionarPresetPrazo(7, 'dias úteis', this)">📅 7 dias</button>
+                        <button type="button" class="btn-prazo-preset" data-prazo="15" onclick="PdfOrcamentoModulo.selecionarPresetPrazo(15, 'dias úteis', this)">⏳ 15 dias</button>
+                        <button type="button" class="btn-prazo-preset" data-prazo="custom" onclick="PdfOrcamentoModulo.selecionarPresetPrazo('custom', '', this)">✏️ Outro</button>
+                    </div>
+
+                    <!-- Stepper & Unidade -->
+                    <div id="pdfPrazoControleRapido" style="display:flex;align-items:center;gap:8px;">
+                        <button type="button" class="btn-stepper" onclick="PdfOrcamentoModulo.ajustarPrazoDias(-1)" style="width:36px;height:36px;border-radius:8px;font-size:16px;font-weight:700;background:var(--bg-primary);border:1px solid var(--border-subtle);color:var(--text);cursor:pointer;display:flex;align-items:center;justify-content:center;">-</button>
+                        <input type="number" id="pdfPrazoDiasInput" value="3" min="1" max="90" style="width:64px;text-align:center;font-weight:700;font-size:14px;padding:8px 4px;" oninput="PdfOrcamentoModulo.aoDigitarPrazoDias(this.value)">
+                        <button type="button" class="btn-stepper" onclick="PdfOrcamentoModulo.ajustarPrazoDias(1)" style="width:36px;height:36px;border-radius:8px;font-size:16px;font-weight:700;background:var(--bg-primary);border:1px solid var(--border-subtle);color:var(--text);cursor:pointer;display:flex;align-items:center;justify-content:center;">+</button>
+                        <select id="pdfPrazoTipoUnidade" onchange="PdfOrcamentoModulo.atualizarPrazoTexto()" style="flex:1;padding:8px 10px;font-size:12px;border-radius:8px;">
                             <option value="úteis" selected>dias úteis</option>
                             <option value="corridos">dias corridos</option>
                             <option value="horas">horas</option>
                         </select>
                     </div>
-                    <div style="display:flex;align-items:center;gap:6px;">
-                        <input type="checkbox" id="pdfPrazoCustomCheck" onchange="PdfOrcamentoModulo.togglePrazoPersonalizado(this.checked)" style="width:auto;">
-                        <label for="pdfPrazoCustomCheck" style="font-size:11px;color:var(--text-muted);cursor:pointer;margin:0;">Definir prazo personalizado / maior que 30 dias</label>
+
+                    <!-- Campo Personalizado -->
+                    <div id="pdfPrazoCustomBox" style="display:none;margin-top:8px;">
+                        <input type="text" id="pdfPrazoCustomInput" placeholder="Ex: 45 dias úteis, A combinar com o cliente..." oninput="PdfOrcamentoModulo.aoDigitarPrazoCustom(this.value)" style="width:100%;">
                     </div>
-                    <input type="text" id="pdfPrazoCustomInput" placeholder="Ex: 45 dias úteis, A combinar com o cliente..." style="display:none;margin-top:8px;" oninput="PdfOrcamentoModulo.atualizarPreviewProposta()">
                     <input type="hidden" id="pdfPrazo" value="3 dias úteis">
                 </div>
+
                 <div class="input-container full">
                     <label>Condições de Pagamento</label>
                     <input type="text" id="pdfCondicoes" value="50% de sinal no pedido + 50% na entrega." oninput="PdfOrcamentoModulo.atualizarPreviewProposta()">
                 </div>
-                <div class="input-container full" style="background:var(--bg-input);padding:12px;border-radius:10px;border:1px solid var(--border-subtle);">
-                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
-                        <label style="margin:0;font-weight:700;">📅 Validade da Proposta</label>
-                        <span id="pdfValidadeBadge" style="font-size:11px;font-weight:700;color:var(--accent);background:rgba(124,58,237,0.15);padding:2px 8px;border-radius:6px;">7 dias</span>
+
+                <div class="input-container full" style="background:var(--bg-input);padding:14px;border-radius:12px;border:1px solid var(--border-subtle);">
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+                        <label style="margin:0;font-weight:700;font-size:13px;display:flex;align-items:center;gap:6px;">
+                            <span>📅 Validade da Proposta</span>
+                        </label>
+                        <span id="pdfValidadeBadge" style="font-size:12px;font-weight:700;color:var(--accent);background:rgba(124,58,237,0.15);padding:3px 10px;border-radius:8px;border:1px solid rgba(124,58,237,0.3);">7 dias</span>
                     </div>
-                    <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
-                        <span style="font-size:11px;color:var(--text-dim);">1d</span>
-                        <input type="range" id="pdfValidadeSlider" min="1" max="30" value="7" style="flex:1;cursor:pointer;" oninput="PdfOrcamentoModulo.aoMudarSliderValidade(this.value)">
-                        <span style="font-size:11px;color:var(--text-dim);">30d</span>
+
+                    <!-- Presets de Validade -->
+                    <div class="validade-presets-wrap" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;">
+                        <button type="button" class="btn-validade-preset" data-dias="3" onclick="PdfOrcamentoModulo.selecionarPresetValidade(3, this)">3 dias</button>
+                        <button type="button" class="btn-validade-preset active" data-dias="7" onclick="PdfOrcamentoModulo.selecionarPresetValidade(7, this)">7 dias (padrão)</button>
+                        <button type="button" class="btn-validade-preset" data-dias="15" onclick="PdfOrcamentoModulo.selecionarPresetValidade(15, this)">15 dias</button>
+                        <button type="button" class="btn-validade-preset" data-dias="30" onclick="PdfOrcamentoModulo.selecionarPresetValidade(30, this)">30 dias</button>
+                        <button type="button" class="btn-validade-preset" data-dias="custom" onclick="PdfOrcamentoModulo.selecionarPresetValidade('custom', this)">✏️ Outro</button>
                     </div>
-                    <div style="display:flex;align-items:center;gap:6px;">
-                        <input type="checkbox" id="pdfValidadeCustomCheck" onchange="PdfOrcamentoModulo.toggleValidadePersonalizada(this.checked)" style="width:auto;">
-                        <label for="pdfValidadeCustomCheck" style="font-size:11px;color:var(--text-muted);cursor:pointer;margin:0;">Definir validade personalizada</label>
+
+                    <!-- Stepper Control -->
+                    <div id="pdfValidadeControleRapido" style="display:flex;align-items:center;gap:8px;">
+                        <button type="button" class="btn-stepper" onclick="PdfOrcamentoModulo.ajustarValidadeDias(-1)" style="width:36px;height:36px;border-radius:8px;font-size:16px;font-weight:700;background:var(--bg-primary);border:1px solid var(--border-subtle);color:var(--text);cursor:pointer;display:flex;align-items:center;justify-content:center;">-</button>
+                        <input type="number" id="pdfValidadeDiasInput" value="7" min="1" max="90" style="flex:1;text-align:center;font-weight:700;font-size:14px;padding:8px 4px;" oninput="PdfOrcamentoModulo.aoDigitarValidadeDias(this.value)">
+                        <button type="button" class="btn-stepper" onclick="PdfOrcamentoModulo.ajustarValidadeDias(1)" style="width:36px;height:36px;border-radius:8px;font-size:16px;font-weight:700;background:var(--bg-primary);border:1px solid var(--border-subtle);color:var(--text);cursor:pointer;display:flex;align-items:center;justify-content:center;">+</button>
                     </div>
-                    <input type="text" id="pdfValidadeCustomInput" placeholder="Ex: 60 dias, Válido até 30/11..." style="display:none;margin-top:8px;" oninput="PdfOrcamentoModulo.atualizarPreviewProposta()">
+
+                    <!-- Campo Personalizado -->
+                    <div id="pdfValidadeCustomBox" style="display:none;margin-top:8px;">
+                        <input type="text" id="pdfValidadeCustomInput" placeholder="Ex: Válido até 30/11, 60 dias..." oninput="PdfOrcamentoModulo.aoDigitarValidadeCustom(this.value)" style="width:100%;">
+                    </div>
                     <input type="hidden" id="pdfValidade" value="7">
                 </div>
+
                 <div class="input-container full">
                     <label>📝 Observações & Requisitos Especiais (opcional)</label>
                     <textarea id="pdfObservacoes" rows="2" placeholder="Ex: Peça com 20% de preenchimento gyroid, cor preta com acabamento fosco. Frete por conta do comprador." oninput="PdfOrcamentoModulo.atualizarPreviewProposta()" style="resize:vertical;min-height:54px;"></textarea>
@@ -226,6 +256,26 @@
                 <button class="btn-secondary" type="button" onclick="PdfOrcamentoModulo.copiarMensagemWhatsApp()" style="flex:1;background:rgba(16,185,129,0.15);border-color:var(--success);color:var(--success);">💬 Copiar WhatsApp</button>
                 <button class="btn-secondary" type="button" onclick="PdfOrcamentoModulo.copiarLinkRastreio()" style="flex:1;">🔗 Link Rastreio</button>
                 <button class="btn-secondary" type="button" onclick="PdfOrcamentoModulo.fecharModalProposta()" style="padding:10px 14px;">Fechar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL DE GESTÃO DO PEDIDO & ORÇAMENTO -->
+    <div class="theme-modal-overlay" id="gerenciarPedidoModalOverlay" onclick="fecharModalGerenciarPedido(event)" style="display:none;">
+        <div class="theme-modal" style="max-width:540px;">
+            <div class="theme-modal-header" style="border-bottom:1px solid var(--border-subtle);padding-bottom:12px;">
+                <div style="display:flex;align-items:center;gap:8px;">
+                    <span style="font-size:22px;">📦</span>
+                    <div>
+                        <h3 id="gestaoPedidoTitulo" style="margin:0;font-size:15px;color:var(--text);">Gerenciar Pedido</h3>
+                        <span id="gestaoPedidoSubtitulo" style="font-size:11px;color:var(--text-dim);">#PED-000</span>
+                    </div>
+                </div>
+                <button class="btn-close-modal" onclick="fecharModalGerenciarPedido()">✕</button>
+            </div>
+
+            <div id="gestaoPedidoCorpo" style="margin:14px 0;">
+                <!-- Preenchido dinamicamente com informações do pedido, status e botões de ação -->
             </div>
         </div>
     </div>
@@ -625,7 +675,6 @@
             </div>
             <div class="header-actions">
                 <button class="btn-theme-switcher" onclick="QrScannerModulo.abrirScanner()" title="Escanear QR Code com Câmera">📷</button>
-                <button class="btn-theme-switcher" onclick="toggleModalTema()" title="Mudar tema">🎨</button>
                 <button class="btn-theme-switcher btn-notification-bell" onclick="NotificacoesModulo.abrirModalNotificacoes()" title="Central de Notificações">
                     🔔<span class="notification-badge" id="notifBadge" style="display:none;">0</span>
                 </button>
@@ -637,19 +686,16 @@
             
             <!-- SEÇÃO DE CONFIGURAÇÕES DA LOJA & PERFIL (TELA COMPLETA) -->
             <section id="sec-configuracoes" class="app-section" style="display:none">
-                <div class="card-glass" style="display:flex;justify-content:space-between;align-items:center;padding:12px 16px;margin-bottom:16px;">
+                <div class="card-glass" style="display:flex;align-items:center;justify-content:space-between;padding:12px 18px;margin-bottom:16px;">
                     <button type="button" class="btn-secondary" onclick="nav('home')" style="display:flex;align-items:center;gap:6px;padding:8px 14px;font-size:12px;font-weight:700;">
                         ⬅️ Voltar
                     </button>
-                    <div style="text-align:center;">
-                        <h3 style="margin:0;font-size:15px;color:var(--text);display:flex;align-items:center;gap:6px;justify-content:center;">
-                            <span>⚙️ Configurações & Perfil da Loja</span>
+                    <div style="text-align:right;">
+                        <h3 style="margin:0;font-size:15px;color:var(--text);font-weight:700;">
+                            ⚙️ Configurações e Perfil
                         </h3>
-                        <span style="font-size:11px;color:var(--text-dim);">Identidade visual, PIX, contatos e print farm</span>
+                        <span style="font-size:11px;color:var(--text-dim);">Identidade da loja, contatos e oficina</span>
                     </div>
-                    <button type="button" class="btn-main" id="btnSalvarPerfilLojaTopo" onclick="PerfilLojaModulo.salvarPerfil()" style="margin:0;padding:8px 16px;font-size:12px;">
-                        💾 Salvar
-                    </button>
                 </div>
 
                 <!-- CARD 1: DADOS DA LOJA & RESPONSÁVEL -->
@@ -699,7 +745,7 @@
                         </div>
                         <div class="input-container">
                             <label>WhatsApp / Telefone Comercial</label>
-                            <input type="text" id="perfilTelefone" placeholder="(11) 99999-9999">
+                            <input type="text" id="perfilTelefone" placeholder="(11) 99999-9999" oninput="PerfilLojaModulo.mascaraTelefone(this)">
                             <small style="font-size:10px;color:var(--text-dim);">Usado no botão "Fale Conosco" do rastreio de pedidos.</small>
                         </div>
                         <div class="input-container">
@@ -1003,6 +1049,10 @@
                     </div>
 
                     <div class="grid-form">
+                        <div class="input-container full">
+                            <label>Nome do Cliente (opcional para propostas)</label>
+                            <input type="text" id="pClienteNome" placeholder="Ex: João da Silva">
+                        </div>
                         <div class="input-container full">
                             <label>Nome do Item</label>
                             <input type="text" id="pNome" placeholder="Ex: Action Figure Customizado">
@@ -1548,12 +1598,13 @@
             </section>
         </main>
 
-        <nav class="bottom-nav nav-5">
+        <nav class="bottom-nav">
             <button onclick="nav('home', this)" class="nav-item active" data-nav="home">🏠<span>Home</span></button>
-            <button onclick="nav('estoque', this)" class="nav-item" data-nav="estoque">📦<span>Estoque</span></button>
-            <button onclick="nav('calculadora', this)" class="nav-item" data-nav="calculadora">💰<span>Preços</span></button>
             <button onclick="nav('terminal', this)" class="nav-item" data-nav="terminal">⚡<span>Vendas</span></button>
+            <button onclick="nav('calculadora', this)" class="nav-item" data-nav="calculadora">💰<span>Preços</span></button>
+            <button onclick="nav('estoque', this)" class="nav-item" data-nav="estoque">📦<span>Estoque</span></button>
             <button onclick="nav('financeiro', this)" class="nav-item" data-nav="financeiro">📊<span>Financeiro</span></button>
+            <button onclick="nav('configuracoes', this)" class="nav-item" data-nav="configuracoes">⚙️<span>Perfil</span></button>
         </nav>
     </div>
 

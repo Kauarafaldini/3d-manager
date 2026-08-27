@@ -622,7 +622,7 @@ async function renderizarUltimasVendas(filtro = '') {
         if (!VendaModel) return;
 
         const vendas = await VendaModel.find().sort({ data: -1 }).lean();
-        const vendasSemPre = vendas.filter(v => v.status !== 'pre_venda');
+        const vendasSemPre = vendas.filter(v => (!v.status || v.status === 'concluida' || v.status === 'entregue') && v.canal !== 'producao' && v.tipo !== 'producao');
         const termo = filtro.trim().toLowerCase();
         const vendasFiltradas = termo ? vendasSemPre.filter(v => {
             const texto = `${v.nome || ''} ${v.sku || ''} ${v.canal || ''} ${v.pedidoId || ''}`.toLowerCase();
@@ -630,7 +630,7 @@ async function renderizarUltimasVendas(filtro = '') {
         }) : vendasSemPre;
 
         const hoje = new Date();
-        const vendasConcluidas = vendas.filter(v => v.status !== 'pre_venda' && v.canal !== 'producao' && v.tipo !== 'producao');
+        const vendasConcluidas = vendasSemPre;
         const vendasHoje = vendasConcluidas.filter(v => new Date(v.data).toDateString() === hoje.toDateString());
         const totalDia = vendasHoje.reduce((sum, v) => sum + (Number(v.bruto) || 0), 0);
         const qtdeVendida = vendasHoje.reduce((sum, v) => sum + (Number(v.quantidade) || 1), 0);
@@ -719,45 +719,54 @@ async function renderizarPreVendas() {
             return;
         }
 
+        const STATUS_PEDIDO_CONFIG = {
+            'orcamento': { label: '📝 Orçamento', cor: '#f59e0b', bg: 'rgba(245,158,11,0.15)' },
+            'pre_venda': { label: '📝 Orçamento', cor: '#f59e0b', bg: 'rgba(245,158,11,0.15)' },
+            'aguardando_aprovacao': { label: '⏳ Aguardando Aprovação', cor: '#f59e0b', bg: 'rgba(245,158,11,0.15)' },
+            'aprovado': { label: '✅ Aprovado', cor: '#06b6d4', bg: 'rgba(6,182,212,0.15)' },
+            'em_producao': { label: '⚡ Em Produção', cor: '#3b82f6', bg: 'rgba(59,130,246,0.15)' },
+            'acabamento': { label: '✨ Acabamento', cor: '#8b5cf6', bg: 'rgba(139,92,246,0.15)' },
+            'pronto': { label: '📦 Pronto', cor: '#10b981', bg: 'rgba(16,185,129,0.15)' },
+            'enviado': { label: '🚚 Enviado', cor: '#6366f1', bg: 'rgba(99,102,241,0.15)' },
+            'cancelado': { label: '❌ Cancelado', cor: '#ef4444', bg: 'rgba(239,68,68,0.15)' }
+        };
+
         const vendas = await VendaModel.find().sort({ data: -1 }).lean();
-        const preVendas = vendas.filter(v => v.status === 'pre_venda');
+        const preVendas = vendas.filter(v => v.status !== 'concluida' && v.status !== 'entregue' && v.canal !== 'producao' && v.tipo !== 'producao');
 
         if (!preVendas.length) {
-            const emptyHtml = '<p class="empty-msg">Nenhum orçamento pendente. Crie pré-vendas na Calculadora de Preços.</p>';
+            const emptyHtml = '<p class="empty-msg">Nenhum pedido ou orçamento em andamento. Crie orçamentos na Calculadora de Preços.</p>';
             containers.forEach(c => c.innerHTML = emptyHtml);
             return;
         }
 
         const listHtml = preVendas.map(v => {
             const pedidoIdSafe = v.pedidoId || String(v._id);
-            const dadosJson = JSON.stringify({
-                pedidoId: pedidoIdSafe,
-                nomeItem: v.nome,
-                valorUnitario: v.bruto,
-                quantidade: v.quantidade || 1,
-                filamentos: v.filamentosUsados || [],
-                tempoHoras: v.detalheCustos?.tempoHoras || 1,
-                pesoTotalGramas: v.filamentosUsados?.reduce((a, b) => a + (b.peso || 0), 0) || 0
-            }).replace(/"/g, '&quot;');
+            const statusAtual = v.status || 'orcamento';
+            const statusCfg = STATUS_PEDIDO_CONFIG[statusAtual] || STATUS_PEDIDO_CONFIG['orcamento'];
 
             return `
-                <div class="item-row" style="border-left-color:#f59e0b;">
+                <div class="item-row pedido-card-item" onclick="abrirModalGerenciarPedido('${v._id}')" style="border-left-color:${statusCfg.cor};">
                     <div class="item-info">
-                        <b>${v.nome}</b>
-                        <span>${(v.canal || 'direta').toUpperCase()} · R$ ${(v.bruto || 0).toFixed(2)}</span>
-                        <small style="color:#64748b;display:block;margin-top:4px;">
-                            Pedido #${pedidoIdSafe} · ${new Date(v.data).toLocaleString('pt-BR')} · Qtd: ${v.quantidade || 1}
-                        </small>
-                    </div>
-                    <div style="display:flex;flex-direction:column;gap:6px;align-items:flex-end;">
-                        <span style="font-weight:700;color:var(--success);font-size:14px;">R$ ${(v.lucro || 0).toFixed(2)}</span>
-                        <div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end;">
-                            <button class="btn-secondary" style="padding:6px 10px;font-size:11px;background:rgba(124,58,237,0.15);border-color:var(--accent);color:var(--accent);" onclick="PdfOrcamentoModulo.abrirModalProposta(${dadosJson})" title="Gerar Proposta Comercial em PDF e WhatsApp">📄 PDF</button>
-                            <button class="btn-secondary" style="padding:6px 10px;font-size:11px;" onclick="PdfOrcamentoModulo.copiarLinkRastreio('${pedidoIdSafe}')" title="Copiar link público de rastreio">🔗 Rastreio</button>
-                            <button class="btn-secondary" style="padding:6px 10px;font-size:11px;background:rgba(6,182,212,0.15);border-color:var(--primary);color:var(--primary);" onclick="ImpressorasFilaModulo.abrirModalEnfileirarPreVenda('${v._id}')" title="Enviar para a Fila de Impressão">🖨️ Fila</button>
-                            <button class="btn-main" style="padding:6px 12px;font-size:11px;margin:0;" onclick="finalizarPreVenda('${v._id}')">Finalizar</button>
-                            <button class="btn-delete-row" onclick="excluirPreVenda('${v._id}')" title="Excluir orçamento">🗑️</button>
+                        <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;flex-wrap:wrap;">
+                            <b style="font-size:14px;color:var(--text);">${v.nome}</b>
+                            <span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:6px;background:${statusCfg.bg};color:${statusCfg.cor};">
+                                ${statusCfg.label}
+                            </span>
                         </div>
+                        <div style="font-size:11px;color:var(--text-dim);display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
+                            ${v.clienteNome ? `<span style="color:var(--text);font-weight:600;">👤 ${v.clienteNome}</span> · ` : ''}
+                            <span>#${pedidoIdSafe}</span> ·
+                            <span>${new Date(v.data).toLocaleDateString('pt-BR')}</span> ·
+                            <span>Qtd: <b>${v.quantidade || 1} un.</b></span>
+                        </div>
+                    </div>
+                    <div style="display:flex;align-items:center;gap:10px;">
+                        <div style="text-align:right;">
+                            <span style="font-weight:700;color:var(--success);font-size:14px;display:block;">R$ ${(v.lucro || 0).toFixed(2)}</span>
+                            <small style="color:var(--text-dim);font-size:10px;">Total: R$ ${(v.bruto || 0).toFixed(2)}</small>
+                        </div>
+                        <button class="btn-secondary" style="padding:6px 12px;font-size:11px;border-radius:8px;" onclick="event.stopPropagation(); abrirModalGerenciarPedido('${v._id}')">⚙️ Gerenciar</button>
                     </div>
                 </div>
             `;
@@ -765,8 +774,191 @@ async function renderizarPreVendas() {
 
         containers.forEach(c => c.innerHTML = listHtml);
     } catch (err) {
-        console.error('Erro ao carregar pré-vendas:', err);
-        containers.forEach(c => c.innerHTML = '<p class="empty-msg">Erro ao carregar orçamentos.</p>');
+        console.error('Erro ao carregar pedidos em andamento:', err);
+        containers.forEach(c => c.innerHTML = '<p class="empty-msg">Erro ao carregar pedidos.</p>');
+    }
+}
+
+/**
+ * Abre o Modal de Gestão Completa de um Pedido específico
+ */
+async function abrirModalGerenciarPedido(idOuPedidoId) {
+    const modal = document.getElementById('gerenciarPedidoModalOverlay');
+    if (!modal) return;
+
+    try {
+        const VendaModel = getSafeVendaModel();
+        if (!VendaModel) return;
+
+        let venda = await VendaModel.findById(idOuPedidoId).lean();
+        if (!venda) {
+            venda = await VendaModel.findOne({ pedidoId: idOuPedidoId }).lean();
+        }
+        if (!venda) {
+            alert('Pedido não encontrado.');
+            return;
+        }
+
+        const pedidoIdSafe = venda.pedidoId || String(venda._id);
+        const statusAtual = venda.status || 'orcamento';
+
+        const STATUS_OPTIONS = [
+            { value: 'orcamento', label: '📝 Orçamento / Aguardando Aprovação', cor: '#f59e0b', bg: 'rgba(245,158,11,0.15)' },
+            { value: 'aprovado', label: '✅ Pedido Aprovado', cor: '#06b6d4', bg: 'rgba(6,182,212,0.15)' },
+            { value: 'em_producao', label: '⚡ Em Produção / Fila 3D', cor: '#3b82f6', bg: 'rgba(59,130,246,0.15)' },
+            { value: 'acabamento', label: '✨ Em Acabamento', cor: '#8b5cf6', bg: 'rgba(139,92,246,0.15)' },
+            { value: 'pronto', label: '📦 Pronto para Retirada', cor: '#10b981', bg: 'rgba(16,185,129,0.15)' },
+            { value: 'enviado', label: '🚚 Enviado / A Caminho', cor: '#6366f1', bg: 'rgba(99,102,241,0.15)' },
+            { value: 'cancelado', label: '❌ Cancelado', cor: '#ef4444', bg: 'rgba(239,68,68,0.15)' }
+        ];
+
+        const statusCfg = STATUS_OPTIONS.find(s => s.value === statusAtual) || STATUS_OPTIONS[0];
+
+        // Título e subtítulo
+        const tituloEl = document.getElementById('gestaoPedidoTitulo');
+        if (tituloEl) tituloEl.textContent = venda.nome || 'Gestão do Pedido';
+
+        const subEl = document.getElementById('gestaoPedidoSubtitulo');
+        if (subEl) subEl.textContent = `Pedido #${pedidoIdSafe} · ${new Date(venda.data).toLocaleString('pt-BR')}`;
+
+        // Prepara dados para PDF
+        const dadosJson = JSON.stringify({
+            pedidoId: pedidoIdSafe,
+            clienteNome: venda.clienteNome || '',
+            nomeItem: venda.nome,
+            valorUnitario: (venda.bruto || 0) / (venda.quantidade || 1),
+            quantidade: venda.quantidade || 1,
+            filamentos: venda.filamentosUsados || [],
+            tempoHoras: venda.detalheCustos?.tempoHoras || 1,
+            pesoTotalGramas: venda.filamentosUsados?.reduce((a, b) => a + (b.peso || 0), 0) || 0
+        }).replace(/"/g, '&quot;');
+
+        // Materiais
+        const filamentosTexto = (venda.filamentosUsados && venda.filamentosUsados.length > 0)
+            ? venda.filamentosUsados.map(f => `${f.nome || f.cor || 'Filamento'} (${f.peso || 0}g)`).join(', ')
+            : 'Configuração manual';
+
+        const corpo = document.getElementById('gestaoPedidoCorpo');
+        if (corpo) {
+            corpo.innerHTML = `
+                <!-- RESUMO DO PEDIDO -->
+                <div class="card-glass" style="padding:14px;background:var(--bg-secondary);border-radius:12px;margin-bottom:14px;border:1px solid var(--border-subtle);">
+                    <div style="display:grid;grid-template-columns:repeat(2, 1fr);gap:10px;font-size:12px;">
+                        <div>
+                            <span style="color:var(--text-dim);display:block;font-size:10px;text-transform:uppercase;font-weight:700;">Cliente</span>
+                            <strong style="font-size:13px;color:var(--text);">${venda.clienteNome ? `👤 ${venda.clienteNome}` : 'Não informado'}</strong>
+                        </div>
+                        <div>
+                            <span style="color:var(--text-dim);display:block;font-size:10px;text-transform:uppercase;font-weight:700;">Canal de Venda</span>
+                            <strong style="font-size:13px;color:var(--text);">${(venda.canal || 'Direta').toUpperCase()}</strong>
+                        </div>
+                        <div>
+                            <span style="color:var(--text-dim);display:block;font-size:10px;text-transform:uppercase;font-weight:700;">Valor Total</span>
+                            <strong style="font-size:14px;color:var(--primary);">R$ ${(venda.bruto || 0).toFixed(2)}</strong>
+                            <small style="color:var(--text-dim);font-size:10px;"> (${venda.quantidade || 1} un.)</small>
+                        </div>
+                        <div>
+                            <span style="color:var(--text-dim);display:block;font-size:10px;text-transform:uppercase;font-weight:700;">Lucro Estimado</span>
+                            <strong style="font-size:14px;color:var(--success);">R$ ${(venda.lucro || 0).toFixed(2)}</strong>
+                        </div>
+                        <div style="grid-column: span 2;">
+                            <span style="color:var(--text-dim);display:block;font-size:10px;text-transform:uppercase;font-weight:700;">Materiais & Tempo</span>
+                            <span style="color:var(--text-muted);font-size:11px;">🧵 ${filamentosTexto} · ⏱️ ~${venda.detalheCustos?.tempoHoras || 1}h</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- CONTROLE DE STATUS DO PEDIDO -->
+                <div class="card-glass" style="padding:14px;border-radius:12px;margin-bottom:14px;border:1px solid var(--border-subtle);">
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+                        <label style="margin:0;font-size:12px;font-weight:700;color:var(--text);">Status do Pedido & Rastreio</label>
+                        <span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:6px;background:${statusCfg.bg};color:${statusCfg.cor};">${statusCfg.label}</span>
+                    </div>
+                    <select id="modalStatusPedidoSelect" onchange="alterarStatusPedidoModal('${venda._id}', this.value)" style="width:100%;padding:10px;font-size:13px;font-weight:600;border-radius:10px;background:var(--bg-primary);border:1px solid var(--border-subtle);color:var(--text);cursor:pointer;">
+                        ${STATUS_OPTIONS.map(opt => `
+                            <option value="${opt.value}" ${statusAtual === opt.value ? 'selected' : ''}>${opt.label}</option>
+                        `).join('')}
+                    </select>
+                    <small style="font-size:10px;color:var(--text-dim);display:block;margin-top:6px;">
+                        A alteração de status atualiza a linha do tempo do link de rastreamento do cliente em tempo real.
+                    </small>
+                </div>
+
+                <!-- AÇÕES GERENCIAIS -->
+                <label style="font-size:12px;font-weight:700;color:var(--text);margin-bottom:6px;display:block;">Ações do Pedido</label>
+                <div class="grid-acoes-pedido">
+                    <button type="button" class="btn-acao-pedido" onclick="fecharModalGerenciarPedido(); PdfOrcamentoModulo.abrirModalProposta(${dadosJson})" style="border-color:var(--accent);color:var(--accent);" title="Gerar proposta comercial e PDF">
+                        📄 Orçamento PDF
+                    </button>
+                    <button type="button" class="btn-acao-pedido" onclick="PdfOrcamentoModulo.copiarLinkRastreio('${pedidoIdSafe}')" title="Copiar link de rastreio para o cliente">
+                        🔗 Copiar Rastreio
+                    </button>
+                    <button type="button" class="btn-acao-pedido" onclick="fecharModalGerenciarPedido(); ImpressorasFilaModulo.abrirModalEnfileirarPreVenda('${venda._id}')" style="border-color:var(--primary);color:var(--primary);" title="Enviar peça para a fila de impressão 3D">
+                        🖨️ Enviar p/ Fila
+                    </button>
+                    <button type="button" class="btn-acao-pedido" onclick="fecharModalGerenciarPedido(); finalizarPreVenda('${venda._id}')" style="background:rgba(16,185,129,0.15);border-color:var(--success);color:var(--success);" title="Finalizar venda e dar baixa no estoque">
+                        🏁 Finalizar Venda
+                    </button>
+                    <button type="button" class="btn-acao-pedido" onclick="fecharModalGerenciarPedido(); excluirPreVenda('${venda._id}')" style="border-color:var(--danger);color:var(--danger);" title="Excluir este pedido">
+                        🗑️ Excluir
+                    </button>
+                </div>
+            `;
+        }
+
+        modal.style.display = 'flex';
+    } catch (err) {
+        console.error('Erro ao abrir modal de gestão do pedido:', err);
+        alert('Erro ao carregar dados do pedido: ' + err.message);
+    }
+}
+
+function fecharModalGerenciarPedido(e) {
+    if (e && e.target && e.target.id !== 'gerenciarPedidoModalOverlay') return;
+    const modal = document.getElementById('gerenciarPedidoModalOverlay');
+    if (modal) modal.style.display = 'none';
+}
+
+async function alterarStatusPedidoModal(id, novoStatus) {
+    await alterarStatusPedido(id, novoStatus);
+    await abrirModalGerenciarPedido(id);
+}
+
+async function alterarStatusPedido(id, novoStatus) {
+    if (novoStatus === 'concluida') {
+        return finalizarPreVenda(id);
+    }
+
+    if (novoStatus === 'cancelado') {
+        if (!confirm('Deseja marcar este pedido como Cancelado?')) {
+            renderizarPreVendas();
+            return;
+        }
+    }
+
+    try {
+        const VendaModel = getSafeVendaModel();
+        if (!VendaModel) return;
+
+        await VendaModel.findByIdAndUpdate(id, { status: novoStatus });
+
+        const labels = {
+            orcamento: 'Orçamento / Aguardando Aprovação',
+            aprovado: 'Pedido Aprovado',
+            em_producao: 'Em Produção',
+            acabamento: 'Em Acabamento',
+            pronto: 'Pronto para Retirada',
+            enviado: 'Enviado',
+            cancelado: 'Cancelado'
+        };
+
+        if (typeof mostrarToast === 'function') {
+            mostrarToast(`Status alterado: ${labels[novoStatus] || novoStatus}! O link de rastreio foi atualizado.`, 'ok');
+        }
+        renderizarPreVendas();
+    } catch (err) {
+        console.error('Erro ao atualizar status do pedido:', err);
+        alert('Erro ao atualizar status: ' + err.message);
     }
 }
 
@@ -836,7 +1028,7 @@ async function renderHistoricoVendasFinanceiro(filtro = '') {
         if (!VendaModel) return;
 
         const vendas = await VendaModel.find().sort({ data: -1 }).lean();
-        const vendasConcluidas = vendas.filter(v => v.status !== 'pre_venda' && v.canal !== 'producao' && v.tipo !== 'producao');
+        const vendasConcluidas = vendas.filter(v => (!v.status || v.status === 'concluida' || v.status === 'entregue') && v.canal !== 'producao' && v.tipo !== 'producao');
         const termo = filtro.trim().toLowerCase();
         const vendasFiltradas = termo ? vendasConcluidas.filter(v => {
             const texto = `${v.nome || ''} ${v.sku || ''} ${v.canal || ''} ${v.pedidoId || ''}`.toLowerCase();
@@ -940,6 +1132,10 @@ if (typeof window !== 'undefined') {
     window.abrirReceitaProduto = abrirReceitaProduto;
     window.produtoTemReceita = produtoTemReceita;
     window.renderizarPreVendas = renderizarPreVendas;
+    window.abrirModalGerenciarPedido = abrirModalGerenciarPedido;
+    window.fecharModalGerenciarPedido = fecharModalGerenciarPedido;
+    window.alterarStatusPedidoModal = alterarStatusPedidoModal;
+    window.alterarStatusPedido = alterarStatusPedido;
     window.finalizarPreVenda = finalizarPreVenda;
     window.excluirPreVenda = excluirPreVenda;
     window.renderHistoricoVendasFinanceiro = renderHistoricoVendasFinanceiro;

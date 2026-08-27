@@ -2715,6 +2715,201 @@ select option {
     object-fit: cover;
 }
 
+    box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.5);
+    pointer-events: none;
+}
+
+.qr-laser-line {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: linear-gradient(90deg, transparent, #06b6d4, #10b981, transparent);
+    box-shadow: 0 0 10px #06b6d4;
+    animation: qrScanLaser 2.2s infinite ease-in-out;
+}
+
+@keyframes qrScanLaser {
+    0%, 100% { top: 10%; opacity: 0.8; }
+    50% { top: 90%; opacity: 1; }
+}
+
+/* =============================================
+   PRINT MEDIA STYLESHEET (@media print)
+   ============================================= */
+@media print {
+    body * {
+        visibility: hidden !important;
+    }
+    
+    /* Quando imprimindo a proposta */
+    #orcamentoPdfModalOverlay,
+    #orcamentoPdfModalOverlay *,
+    #pdfOrcamentoDocumento,
+    #pdfOrcamentoDocumento * {
+        visibility: visible !important;
+    }
+
+    #pdfOrcamentoDocumento {
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 100%;
+        margin: 0;
+        padding: 0;
+    }
+
+    .orcamento-doc-paper {
+        box-shadow: none !important;
+        border: none !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        padding: 0 !important;
+    }
+
+    .theme-modal-header,
+    .theme-modal-header *,
+    .btn-main,
+    .btn-secondary,
+    .grid-form,
+    .btn-close-modal {
+        display: none !important;
+    }
+
+    /* Quando imprimindo etiqueta */
+    #spoolLabelModalOverlay,
+    #spoolLabelModalOverlay *,
+    #spoolThermalLabelPrint,
+    #spoolThermalLabelPrint * {
+        visibility: visible !important;
+    }
+
+    #spoolThermalLabelPrint {
+        position: absolute;
+        left: 0;
+        top: 0;
+        border: 1px solid #000 !important;
+        box-shadow: none !important;
+    }
+}
+
+/* =============================================
+   NOTIFICAÇÕES & SINO NO CABEÇALHO
+   ============================================= */
+.btn-notification-bell {
+    position: relative;
+}
+
+.notification-badge {
+    position: absolute;
+    top: -4px;
+    right: -4px;
+    background: #ef4444;
+    color: white;
+    font-size: 10px;
+    font-weight: 800;
+    min-width: 18px;
+    height: 18px;
+    border-radius: 9px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 4px;
+    border: 2px solid var(--bg-card);
+    box-shadow: 0 2px 6px rgba(239, 68, 68, 0.5);
+}
+
+.notification-badge.pulse {
+    animation: notifPulse 2s infinite ease-in-out;
+}
+
+@keyframes notifPulse {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.18); }
+}
+
+.notif-item {
+    display: flex;
+    gap: 12px;
+    padding: 12px;
+    border-radius: 10px;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-subtle);
+    cursor: pointer;
+    transition: all 0.15s ease;
+    position: relative;
+}
+
+.notif-item:hover {
+    background: var(--bg-card);
+    border-color: var(--primary);
+    transform: translateY(-1px);
+}
+
+.notif-nova {
+    border-left: 4px solid var(--primary);
+    background: rgba(6, 182, 212, 0.05);
+}
+
+.notif-lida {
+    opacity: 0.75;
+}
+
+.notif-icon-col {
+    font-size: 20px;
+    display: flex;
+    align-items: flex-start;
+    padding-top: 2px;
+}
+
+.notif-content-col {
+    flex: 1;
+}
+
+.notif-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-bottom: 2px;
+}
+
+.notif-title {
+    font-size: 13px;
+    color: var(--text);
+}
+
+.notif-time {
+    font-size: 10px;
+    color: var(--text-dim);
+}
+
+.notif-desc {
+    margin: 0;
+    font-size: 11px;
+    color: var(--text-muted);
+    line-height: 1.4;
+}
+
+.notif-unread-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--primary);
+    position: absolute;
+    top: 14px;
+    right: 12px;
+}
+
+/* =============================================
+   PERFIL & LOGOTIPO DA LOJA
+   ============================================= */
+.perfil-avatar-preview img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
 .mobile-header .avatar {
     cursor: pointer;
     transition: transform 0.15s ease, box-shadow 0.15s ease;
@@ -2723,4 +2918,95 @@ select option {
 .mobile-header .avatar:hover {
     transform: scale(1.08);
     box-shadow: 0 0 12px var(--primary);
+}
+
+/* =============================================
+   PRESETS DE PRAZO & VALIDADE (PROPOSTAS)
+   ============================================= */
+.btn-prazo-preset, .btn-validade-preset {
+    padding: 6px 12px;
+    font-size: 11px;
+    font-weight: 600;
+    border-radius: 8px;
+    background: var(--bg-primary);
+    border: 1px solid var(--border-subtle);
+    color: var(--text-muted);
+    cursor: pointer;
+    transition: all 0.2s ease;
+    user-select: none;
+    -webkit-user-select: none;
+}
+
+.btn-prazo-preset:hover, .btn-validade-preset:hover {
+    border-color: var(--primary);
+    color: var(--text);
+    background: var(--bg-secondary);
+}
+
+.btn-prazo-preset.active {
+    background: rgba(6, 182, 212, 0.18) !important;
+    border-color: var(--primary) !important;
+    color: var(--primary) !important;
+    font-weight: 700;
+}
+
+.btn-validade-preset.active {
+    background: rgba(124, 58, 237, 0.18) !important;
+    border-color: var(--accent) !important;
+    color: var(--accent) !important;
+    font-weight: 700;
+}
+
+.btn-stepper {
+    transition: all 0.15s ease;
+    user-select: none;
+}
+
+.btn-stepper:active {
+    transform: scale(0.92);
+    background: var(--primary) !important;
+    color: white !important;
+}
+
+/* =============================================
+   CARD DE PEDIDO MINIMALISTA & MODAL GESTÃO
+   ============================================= */
+.pedido-card-item {
+    transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+    cursor: pointer;
+}
+
+.pedido-card-item:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(0,0,0,0.18);
+    background: var(--bg-secondary);
+}
+
+.grid-acoes-pedido {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: 8px;
+    margin-top: 14px;
+}
+
+.btn-acao-pedido {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 10px 12px;
+    font-size: 12px;
+    font-weight: 600;
+    border-radius: 10px;
+    border: 1px solid var(--border-subtle);
+    background: var(--bg-primary);
+    color: var(--text);
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.btn-acao-pedido:hover {
+    border-color: var(--primary);
+    background: var(--bg-secondary);
+    transform: translateY(-1px);
 }

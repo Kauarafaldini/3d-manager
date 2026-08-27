@@ -490,8 +490,8 @@ async function atualizarRelatorioFinanceiro() {
         await carregarCustos();
 
         const filtro = document.getElementById('relFiltro')?.value || 'mes_atual';
-        // Filtrar vendas de produção e pré-vendas
-        const vendasReais = todasVendas.filter(v => v.canal !== 'producao' && v.tipo !== 'producao' && v.status !== 'pre_venda');
+        // Filtrar vendas de produção e pedidos em andamento/orçamentos
+        const vendasReais = todasVendas.filter(v => v.canal !== 'producao' && v.tipo !== 'producao' && (!v.status || v.status === 'concluida' || v.status === 'entregue'));
         const vendasPeriodo = filtrarVendasPorPeriodo(vendasReais, filtro);
         const metricasTotal = agregarMetricasVendas(vendasReais);
         const m = agregarMetricasVendas(vendasPeriodo);

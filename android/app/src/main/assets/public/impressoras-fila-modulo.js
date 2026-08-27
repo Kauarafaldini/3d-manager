@@ -50,9 +50,11 @@ window.ImpressorasFilaModulo = (function () {
 
             impressorasCache = await ImpressoraModel.find({ ativo: { $ne: false } }).sort({ nome: 1 }).lean();
 
-            // Se for a primeira vez e não houver nenhuma impressora, cria presets iniciais padrão
-            if (!impressorasCache || impressorasCache.length === 0) {
-                console.log('[PrintFarm] Nenhuma impressora encontrada. Criando impressoras padrão...');
+            const isSeeded = localStorage.getItem('3dm_printers_seeded');
+            // Apenas na primeira execução absoluta do app cria presets padrão se estiver vazio
+            if (!isSeeded && (!impressorasCache || impressorasCache.length === 0)) {
+                console.log('[PrintFarm] Primeira inicialização. Criando impressoras padrão...');
+                localStorage.setItem('3dm_printers_seeded', '1');
                 const default1 = await ImpressoraModel.create({
                     nome: 'Bambu Lab P1S #01',
                     modelo: 'Bambu Lab P1S',
@@ -72,6 +74,8 @@ window.ImpressorasFilaModulo = (function () {
                     ativo: true
                 });
                 impressorasCache = [default1, default2];
+            } else if (!isSeeded && impressorasCache.length > 0) {
+                localStorage.setItem('3dm_printers_seeded', '1');
             }
 
             preencherSeletorCalculadora();
@@ -427,7 +431,8 @@ window.ImpressorasFilaModulo = (function () {
     }
 
     async function excluirImpressora(id) {
-        const imp = impressorasCache.find(i => String(i._id) === String(id));
+        const strId = String(id);
+        const imp = impressorasCache.find(i => String(i._id) === strId);
         const nome = imp ? imp.nome : 'esta impressora';
 
         if (!confirm(`Deseja realmente excluir ${nome}?`)) return;
@@ -436,13 +441,24 @@ window.ImpressorasFilaModulo = (function () {
             const ImpressoraModel = getSafeImpressoraModel();
             if (!ImpressoraModel) return;
 
-            await ImpressoraModel.findByIdAndDelete(id);
+            // Remove imediatamente da memória para feedback instantâneo
+            impressorasCache = impressorasCache.filter(i => String(i._id) !== strId);
+
+            if (localStorage.getItem(STORAGE_SELECTED_PRINTER) === strId) {
+                localStorage.removeItem(STORAGE_SELECTED_PRINTER);
+            }
+
+            await ImpressoraModel.findByIdAndDelete(strId);
             if (typeof mostrarToast === 'function') mostrarToast(`Impressora "${nome}" excluída`, 'ok');
 
-            await carregarImpressoras();
             renderizarListaModalImpressoras();
             renderizarPainelFila();
             renderizarWidgetHome();
+            preencherSeletorCalculadora();
+
+            if (window.PerfilLojaModulo && typeof window.PerfilLojaModulo.renderizarImpressorasPerfil === 'function') {
+                window.PerfilLojaModulo.renderizarImpressorasPerfil();
+            }
         } catch (err) {
             console.error('Erro ao excluir impressora:', err);
             if (typeof mostrarToast === 'function') mostrarToast('Erro ao excluir: ' + err.message, 'erro');

@@ -390,7 +390,12 @@ async function lancarPreVendaFinanceiro() {
             ? window.ImpressorasFilaModulo.obterImpressoraSelecionadaCalculadora()
             : null;
 
+        const clienteNome = document.getElementById('pClienteNome')?.value?.trim() || '';
+        const pedidoId = 'PED-' + Math.random().toString(36).substring(2, 8).toUpperCase();
+
         const novaPreVenda = new VendaModel({
+            pedidoId,
+            clienteNome,
             nome,
             lucro: dados.lucroReal,
             bruto: dados.venda,
@@ -413,7 +418,7 @@ async function lancarPreVendaFinanceiro() {
             },
             custosExtras: dados.custosExtras,
             taxas: { comissao: dados.valorComissao, fixa: dados.taxaFixa },
-            status: 'pre_venda',
+            status: 'orcamento',
             quantidade: dados.quantidadeChapa
         });
         console.log('Salvando pré-venda no banco...');
@@ -421,10 +426,11 @@ async function lancarPreVendaFinanceiro() {
         console.log('Pré-venda salva com sucesso:', novaPreVenda);
 
         if (typeof mostrarToast === 'function') {
-            mostrarToast('Pré-venda (orçamento) salva! Finalize ou Envie para a Fila em Vendas.');
+            mostrarToast(`Orçamento #${pedidoId} salvo com sucesso!`);
         }
 
         // Limpar formulário
+        if (document.getElementById('pClienteNome')) document.getElementById('pClienteNome').value = '';
         document.getElementById('pNome').value = '';
         document.getElementById('pSKU').value = '';
         document.getElementById('pModeloSelect').value = '';

@@ -65,10 +65,15 @@ function nav(tab, btn) {
         calculadora: 'Calculadora de Preços',
         terminal: 'Vendas & Pedidos',
         financeiro: 'Relatório Financeiro',
-        'estoque-produtos': 'Estoque de Produtos'
+        'estoque-produtos': 'Estoque de Produtos',
+        configuracoes: 'Configurações da Loja & Perfil'
     };
     const titleEl = document.getElementById('tab-title');
     if (titleEl) titleEl.innerText = titles[tab] || tab;
+
+    if (tab === 'configuracoes' && window.PerfilLojaModulo && typeof window.PerfilLojaModulo.carregarDadosTelaConfiguracoes === 'function') {
+        window.PerfilLojaModulo.carregarDadosTelaConfiguracoes();
+    }
 
     if (tab === 'home' && typeof atualizarOverviewHome === 'function') {
         atualizarOverviewHome();
@@ -234,8 +239,8 @@ async function atualizarOverviewHome() {
             EstoqueModel ? EstoqueModel.find().lean() : []
         ]);
 
-        // Filtrar apenas vendas reais (excluir produção) para receita bruta e lucro
-        const vendasReais = vendasAll.filter(v => v.canal !== 'producao' && v.tipo !== 'producao' && v.status !== 'pre_venda');
+        // Filtrar apenas vendas reais e concluídas para receita bruta e lucro
+        const vendasReais = vendasAll.filter(v => v.canal !== 'producao' && v.tipo !== 'producao' && (!v.status || v.status === 'concluida' || v.status === 'entregue'));
         const totalLucro = vendasReais.reduce((sum, item) => sum + (Number(item.lucro) || 0), 0);
         const totalBruto = vendasReais.reduce((sum, item) => sum + (Number(item.bruto) || 0), 0);
         const totalFilamento = estoqueItems.reduce((sum, item) => sum + (Number(item.gramas) || 0), 0);
@@ -385,7 +390,12 @@ async function lancarPreVendaFinanceiro() {
             ? window.ImpressorasFilaModulo.obterImpressoraSelecionadaCalculadora()
             : null;
 
+        const clienteNome = document.getElementById('pClienteNome')?.value?.trim() || '';
+        const pedidoId = 'PED-' + Math.random().toString(36).substring(2, 8).toUpperCase();
+
         const novaPreVenda = new VendaModel({
+            pedidoId,
+            clienteNome,
             nome,
             lucro: dados.lucroReal,
             bruto: dados.venda,
@@ -408,7 +418,7 @@ async function lancarPreVendaFinanceiro() {
             },
             custosExtras: dados.custosExtras,
             taxas: { comissao: dados.valorComissao, fixa: dados.taxaFixa },
-            status: 'pre_venda',
+            status: 'orcamento',
             quantidade: dados.quantidadeChapa
         });
         console.log('Salvando pré-venda no banco...');
@@ -416,10 +426,11 @@ async function lancarPreVendaFinanceiro() {
         console.log('Pré-venda salva com sucesso:', novaPreVenda);
 
         if (typeof mostrarToast === 'function') {
-            mostrarToast('Pré-venda (orçamento) salva! Finalize ou Envie para a Fila em Vendas.');
+            mostrarToast(`Orçamento #${pedidoId} salvo com sucesso!`);
         }
 
         // Limpar formulário
+        if (document.getElementById('pClienteNome')) document.getElementById('pClienteNome').value = '';
         document.getElementById('pNome').value = '';
         document.getElementById('pSKU').value = '';
         document.getElementById('pModeloSelect').value = '';
@@ -1135,8 +1146,8 @@ async function atualizarInterface() {
         
         estoqueCache = estoque;
 
-        // Filtrar apenas vendas concluídas (excluir produção e pré-vendas)
-        const vendasReais = vendas.filter(v => v.canal !== 'producao' && v.tipo !== 'producao' && v.status !== 'pre_venda');
+        // Filtrar apenas vendas concluídas (excluir produção e pedidos em andamento)
+        const vendasReais = vendas.filter(v => v.canal !== 'producao' && v.tipo !== 'producao' && (!v.status || v.status === 'concluida' || v.status === 'entregue'));
 
         const brutoTotal = vendasReais.reduce((acc, v) => acc + (v.bruto || 0), 0);
         const lucroTotal = vendasReais.reduce((acc, v) => acc + (v.lucro || 0), 0);
