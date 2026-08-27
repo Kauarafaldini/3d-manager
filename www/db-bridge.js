@@ -228,9 +228,16 @@
         };
 
         ModelConstructor.findByIdAndDelete = async function (id) {
+            if (window.OfflineSyncModulo && typeof window.OfflineSyncModulo.removerItemCache === 'function') {
+                await window.OfflineSyncModulo.removerItemCache(storeName, id);
+            }
             try {
                 await window.apiClient.delete(`${path}/${id}`);
             } catch (err) {
+                // Se o status for 404, o item já foi removido no servidor
+                if (err && (err.status === 404 || err.message?.includes('404') || err.message?.includes('Não encontrado'))) {
+                    return;
+                }
                 if (window.OfflineSyncModulo) {
                     await window.OfflineSyncModulo.enfileirarAcaoOffline({
                         tipo: 'DELETE',

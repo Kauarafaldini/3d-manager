@@ -459,13 +459,28 @@ app.get('/status/:pedidoId', async (req, res) => {
             }
         }
 
+        // Busca dados do proprietário/loja para contato via WhatsApp e branding
+        let lojaUser = null;
+        if (venda?.tenantId) {
+            lojaUser = await User.findOne({ tenantId: venda.tenantId }).lean();
+            if (!lojaUser && mongoose.isValidObjectId(venda.tenantId)) {
+                lojaUser = await User.findById(venda.tenantId).lean();
+            }
+        }
+        if (!lojaUser && filaItem?.tenantId) {
+            lojaUser = await User.findOne({ tenantId: filaItem.tenantId }).lean();
+        }
+
+        const nomeEmpresa = lojaUser?.empresa || lojaUser?.nome || '3D Manager Studio';
+        const whatsappEmpresa = lojaUser?.telefone || '';
+
         const dataHtml = {
             pedidoId: venda?.pedidoId || filaItem?.pedidoId || pedidoId,
             nomeCliente: venda?.nome || filaItem?.nomeItem || 'Cliente',
             nomeItem: filaItem?.nomeItem || venda?.nome || 'Impressão 3D Sob Medida',
             quantidade: venda?.quantidade || filaItem?.quantidade || 1,
-            statusFila: filaItem?.status || (venda?.status === 'concluida' ? 'concluido' : 'pendente'),
-            statusVenda: venda?.status || 'concluida',
+            statusFila: filaItem?.status || (venda?.status === 'concluida' ? 'concluido' : ''),
+            statusVenda: venda?.status || 'pre_venda',
             percentual: liveTelemetry?.percent || (filaItem?.status === 'concluido' ? 100 : 0),
             tempoRestante: liveTelemetry?.remainingFormatted || (filaItem?.tempoEstimadoHoras ? `${filaItem.tempoEstimadoHoras}h` : ''),
             impressoraNome: filaItem?.impressoraNome || 'Print Farm 3D',
@@ -473,7 +488,8 @@ app.get('/status/:pedidoId', async (req, res) => {
             filamentos: venda?.filamentosUsados || filaItem?.filamentosUsados || [],
             codigoRastreio: venda?.sku || '',
             observacoes: filaItem?.observacoes || '',
-            nomeEmpresa: '3D Manager Studio'
+            nomeEmpresa: nomeEmpresa,
+            whatsappEmpresa: whatsappEmpresa
         };
 
         const html = renderTrackingPage(dataHtml);

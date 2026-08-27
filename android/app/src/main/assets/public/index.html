@@ -52,6 +52,98 @@
         </div>
     </div>
 
+    <!-- CONFIGURAÇÕES DA CONTA & LOJA MODAL -->
+    <div class="theme-modal-overlay" id="perfilModalOverlay" onclick="PerfilLojaModulo.fecharModalPerfil(event)" style="display:none;">
+        <div class="theme-modal perfil-loja-modal" style="max-width:540px;">
+            <div class="theme-modal-header">
+                <h3>👤 Configurações da Loja & Perfil</h3>
+                <button class="btn-close-modal" onclick="PerfilLojaModulo.fecharModalPerfil()">✕</button>
+            </div>
+
+            <!-- FOTO / LOGOTIPO HEADER -->
+            <div class="perfil-foto-section" style="display:flex;align-items:center;gap:16px;background:var(--bg-secondary);padding:14px;border-radius:12px;margin-bottom:14px;border:1px solid var(--border-subtle);">
+                <div id="perfilFotoPreview" class="perfil-avatar-preview" style="width:64px;height:64px;border-radius:50%;background:linear-gradient(135deg, var(--primary), var(--accent));display:flex;align-items:center;justify-content:center;overflow:hidden;flex-shrink:0;box-shadow:0 4px 12px rgba(0,0,0,0.2);">
+                    <span style="font-size:28px;font-weight:800;color:white;">A</span>
+                </div>
+                <div style="flex:1;">
+                    <b style="font-size:13px;color:var(--text);display:block;margin-bottom:2px;">Foto / Logotipo da Loja</b>
+                    <span style="font-size:11px;color:var(--text-dim);display:block;margin-bottom:8px;">Aparece no cabeçalho e nas propostas em PDF.</span>
+                    <div style="display:flex;gap:6px;">
+                        <label class="btn-secondary" style="font-size:11px;padding:5px 10px;margin:0;cursor:pointer;">
+                            📷 Alterar Foto
+                            <input type="file" accept="image/*" style="display:none;" onchange="PerfilLojaModulo.carregarFotoLogotipo(event)">
+                        </label>
+                        <button type="button" class="btn-secondary" onclick="PerfilLojaModulo.removerFoto()" style="font-size:11px;padding:5px 10px;color:var(--danger);">Remover</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="grid-form">
+                <div class="input-container">
+                    <label>Nome do Responsável</label>
+                    <input type="text" id="perfilNome" placeholder="Seu nome completo">
+                </div>
+                <div class="input-container">
+                    <label>Nome Fantasia da Loja / Empresa</label>
+                    <input type="text" id="perfilEmpresa" placeholder="Ex: Oficina 3D Studio">
+                </div>
+                <div class="input-container">
+                    <label>CPF ou CNPJ</label>
+                    <input type="text" id="perfilCpfCnpj" placeholder="000.000.000-00 ou CNPJ" oninput="PerfilLojaModulo.mascaraCpfCnpj(this)">
+                </div>
+                <div class="input-container">
+                    <label>E-mail da Conta</label>
+                    <input type="email" id="perfilEmail" disabled style="opacity:0.7;cursor:not-allowed;">
+                </div>
+                <div class="input-container">
+                    <label>WhatsApp / Telefone Comercial</label>
+                    <input type="text" id="perfilTelefone" placeholder="(11) 99999-9999">
+                </div>
+                <div class="input-container">
+                    <label>Chave PIX da Loja (para Orçamentos)</label>
+                    <input type="text" id="perfilChavePix" placeholder="Chave PIX (e-mail, CPF, tel ou chave aleatória)">
+                </div>
+            </div>
+
+            <!-- SEÇÃO DE IMPRESSORAS 3D DA LOJA -->
+            <div style="margin-top:14px;border-top:1px solid var(--border-subtle);padding-top:12px;">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+                    <h4 style="margin:0;font-size:13px;color:var(--text);display:flex;align-items:center;gap:6px;">
+                        <span>🖨️ Suas Impressoras 3D</span>
+                    </h4>
+                </div>
+                <div id="perfilListaImpressoras" style="max-height:160px;overflow-y:auto;"></div>
+            </div>
+
+            <div style="display:flex;gap:10px;margin-top:16px;">
+                <button class="btn-main" id="btnSalvarPerfilLoja" type="button" onclick="PerfilLojaModulo.salvarPerfil()" style="flex:1;margin:0;">Salvar Configurações</button>
+                <button class="btn-secondary" type="button" onclick="PerfilLojaModulo.fecharModalPerfil()" style="padding:12px 18px;">Fechar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- CENTRAL DE NOTIFICAÇÕES MODAL -->
+    <div class="theme-modal-overlay" id="notificacoesModalOverlay" onclick="NotificacoesModulo.fecharModalNotificacoes(event)" style="display:none;">
+        <div class="theme-modal notificacoes-modal" style="max-width:460px;">
+            <div class="theme-modal-header">
+                <h3 style="display:flex;align-items:center;gap:6px;">
+                    <span>🔔 Central de Alertas & Notificações</span>
+                </h3>
+                <button class="btn-close-modal" onclick="NotificacoesModulo.fecharModalNotificacoes()">✕</button>
+            </div>
+
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+                <span style="font-size:11px;color:var(--text-dim);">Alertas da sua Print Farm</span>
+                <div style="display:flex;gap:8px;">
+                    <button type="button" class="btn-secondary" onclick="NotificacoesModulo.marcarTodasComoLidas()" style="font-size:10px;padding:4px 8px;">✓ Marcar lidas</button>
+                    <button type="button" class="btn-secondary" onclick="NotificacoesModulo.limparNotificacoes()" style="font-size:10px;padding:4px 8px;color:var(--danger);">🗑️ Limpar</button>
+                </div>
+            </div>
+
+            <div id="listaNotificacoesContainer" class="notif-list-container" style="max-height:340px;overflow-y:auto;display:flex;flex-direction:column;gap:8px;"></div>
+        </div>
+    </div>
+
     <!-- BAMBU LAB SETTINGS MODAL -->
     <div class="theme-modal-overlay" id="bambuModalOverlay" onclick="BambuModulo.fecharModalConfig(event)" style="display:none;">
         <div class="theme-modal bambu-config-modal">
@@ -97,6 +189,125 @@
         </div>
     </div>
 
+    <!-- ORÇAMENTO / PROPOSTA COMERCIAL EM PDF MODAL -->
+    <div class="theme-modal-overlay" id="orcamentoPdfModalOverlay" onclick="PdfOrcamentoModulo.fecharModalProposta(event)" style="display:none;">
+        <div class="theme-modal orcamento-pdf-modal">
+            <div class="theme-modal-header">
+                <h3>📄 Gerador de Orçamento & Proposta Comercial</h3>
+                <button class="btn-close-modal" onclick="PdfOrcamentoModulo.fecharModalProposta()">✕</button>
+            </div>
+
+            <p style="font-size:12px;color:var(--text-dim);margin:0 0 14px;line-height:1.4;">
+                Gere uma proposta comercial profissional com especificações técnicas 3D, condições de pagamento, QR Code PIX e link de rastreamento em tempo real.
+            </p>
+
+            <div class="grid-form" style="background:var(--bg-secondary);padding:14px;border-radius:12px;border:1px solid var(--border-subtle);margin-bottom:14px;">
+                <div class="input-container">
+                    <label>Sua Loja / Marca</label>
+                    <input type="text" id="pdfEmpresaNome" placeholder="Ex: 3D Manager Studio" oninput="PdfOrcamentoModulo.atualizarPreviewProposta()">
+                </div>
+                <div class="input-container">
+                    <label>Nome do Cliente</label>
+                    <input type="text" id="pdfClienteNome" placeholder="Ex: João da Silva" oninput="PdfOrcamentoModulo.atualizarPreviewProposta()">
+                </div>
+                <div class="input-container">
+                    <label>WhatsApp do Cliente</label>
+                    <input type="text" id="pdfClienteTelefone" placeholder="Ex: (11) 99999-9999" oninput="PdfOrcamentoModulo.atualizarPreviewProposta()">
+                </div>
+                <div class="input-container">
+                    <label>Chave PIX da Loja</label>
+                    <input type="text" id="pdfChavePix" placeholder="Ex: seu-pix@email.com" oninput="PdfOrcamentoModulo.atualizarPreviewProposta()">
+                </div>
+                <div class="input-container">
+                    <label>Nome da Peça</label>
+                    <input type="text" id="pdfItemNome" oninput="PdfOrcamentoModulo.atualizarPreviewProposta()">
+                </div>
+                <div class="input-container">
+                    <label>Valor Unitário (R$)</label>
+                    <input type="number" step="0.01" id="pdfItemValor" oninput="PdfOrcamentoModulo.atualizarPreviewProposta()">
+                </div>
+                <div class="input-container">
+                    <label>Quantidade</label>
+                    <input type="number" min="1" id="pdfItemQtd" value="1" oninput="PdfOrcamentoModulo.atualizarPreviewProposta()">
+                </div>
+                <div class="input-container">
+                    <label>Prazo de Produção</label>
+                    <input type="text" id="pdfPrazo" value="2 a 4 dias úteis" oninput="PdfOrcamentoModulo.atualizarPreviewProposta()">
+                </div>
+                <div class="input-container full">
+                    <label>Condições de Pagamento</label>
+                    <input type="text" id="pdfCondicoes" value="50% de sinal no pedido + 50% na entrega." oninput="PdfOrcamentoModulo.atualizarPreviewProposta()">
+                </div>
+                <div class="input-container">
+                    <label>Validade da Proposta (dias)</label>
+                    <input type="number" id="pdfValidade" value="7" oninput="PdfOrcamentoModulo.atualizarPreviewProposta()">
+                </div>
+            </div>
+
+            <div class="pdf-preview-scroll">
+                <div id="pdfOrcamentoDocumento"></div>
+            </div>
+
+            <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:14px;">
+                <button class="btn-main" type="button" onclick="PdfOrcamentoModulo.imprimirProposta()" style="flex:1.2;margin:0;">🖨️ Imprimir / Salvar PDF</button>
+                <button class="btn-secondary" type="button" onclick="PdfOrcamentoModulo.copiarMensagemWhatsApp()" style="flex:1;background:rgba(16,185,129,0.15);border-color:var(--success);color:var(--success);">💬 Copiar WhatsApp</button>
+                <button class="btn-secondary" type="button" onclick="PdfOrcamentoModulo.copiarLinkRastreio()" style="flex:1;">🔗 Link Rastreio</button>
+                <button class="btn-secondary" type="button" onclick="PdfOrcamentoModulo.fecharModalProposta()" style="padding:10px 14px;">Fechar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ETIQUETA QR DE CARRETEL MODAL -->
+    <div class="theme-modal-overlay" id="spoolLabelModalOverlay" onclick="SpoolLabelModulo.fecharModalEtiqueta(event)" style="display:none;">
+        <div class="theme-modal" style="max-width:440px;">
+            <div class="theme-modal-header">
+                <h3>🏷️ Etiqueta QR para Carretel</h3>
+                <button class="btn-close-modal" onclick="SpoolLabelModulo.fecharModalEtiqueta()">✕</button>
+            </div>
+
+            <p style="font-size:12px;color:var(--text-dim);margin:0 0 14px;line-height:1.4;">
+                Cole esta etiqueta física no carretel. Você poderá escanear com a câmera do celular para pesagem instantânea ou seleção na Calculadora.
+            </p>
+
+            <div id="spoolLabelPreviewContainer" style="margin:16px 0;"></div>
+
+            <div style="display:flex;gap:10px;margin-top:16px;">
+                <button class="btn-main" type="button" onclick="SpoolLabelModulo.imprimirEtiqueta()" style="flex:1;margin:0;">🖨️ Imprimir Etiqueta</button>
+                <button class="btn-secondary" type="button" onclick="SpoolLabelModulo.fecharModalEtiqueta()" style="padding:12px 18px;">Fechar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- SCANNER QR POR CÂMERA MODAL -->
+    <div class="theme-modal-overlay" id="qrScannerModalOverlay" onclick="QrScannerModulo.fecharScanner(event)" style="display:none;">
+        <div class="theme-modal" style="max-width:440px;">
+            <div class="theme-modal-header">
+                <h3>📷 Scanner de QR Code 3D</h3>
+                <button class="btn-close-modal" onclick="QrScannerModulo.fecharScanner()">✕</button>
+            </div>
+
+            <div class="qr-scanner-wrapper">
+                <video id="qrScannerVideo" class="qr-scanner-video" autoplay playsinline muted></video>
+                <canvas id="qrScannerCanvas" style="display:none;"></canvas>
+                <div class="qr-viewfinder">
+                    <div class="qr-laser-line"></div>
+                </div>
+            </div>
+
+            <p id="qrScannerStatus" style="font-size:12px;text-align:center;color:var(--primary);margin:0 0 14px;font-weight:600;">
+                Aponte a câmera para a etiqueta do carretel
+            </p>
+
+            <div style="display:flex;gap:10px;justify-content:center;">
+                <label class="btn-secondary" style="margin:0;padding:10px 14px;cursor:pointer;font-size:12px;display:flex;align-items:center;gap:6px;">
+                    📁 Ler de Foto / Galeria
+                    <input type="file" accept="image/*" style="display:none;" onchange="QrScannerModulo.escanearArquivoImagem(event)">
+                </label>
+                <button class="btn-secondary" type="button" onclick="QrScannerModulo.fecharScanner()" style="padding:10px 16px;">Cancelar</button>
+            </div>
+        </div>
+    </div>
+
     <!-- SPOOLMAN ADJUST / PURGE MODAL -->
     <div class="theme-modal-overlay" id="spoolModalOverlay" onclick="fecharModalCarretel(event)" style="display:none;">
         <div class="theme-modal" style="max-width:440px;">
@@ -109,6 +320,9 @@
             <input type="hidden" id="spoolModalAction" value="ajuste">
 
             <div id="spoolModalBody">
+                <div style="display:flex;justify-content:flex-end;margin-bottom:8px;">
+                    <button type="button" class="btn-secondary" onclick="fecharModalCarretel(); QrScannerModulo.abrirScanner('pesar');" style="font-size:11px;padding:4px 8px;display:flex;align-items:center;gap:4px;">📷 Ler Outro Carretel por QR Code</button>
+                </div>
                 <div class="input-container full">
                     <label id="spoolModalLabel">Novo peso restante em gramas (g)</label>
                     <input type="number" id="spoolModalValor" step="1" min="0" placeholder="Ex: 850">
@@ -204,6 +418,41 @@
                     <input type="text" id="impFormModelo" placeholder="Ex: Bambu Lab P1S">
                 </div>
                 <div class="input-container">
+                    <label>Tipo de Conexão / Telemetria</label>
+                    <select id="impFormTipoConexao" onchange="ImpressorasFilaModulo.aoMudarTipoConexao()">
+                        <option value="manual">Manual (Sem Telemetria)</option>
+                        <option value="bambu">Bambu Lab (MQTT TLS 8883)</option>
+                        <option value="klipper">Klipper / Moonraker (HTTP 7125)</option>
+                        <option value="octoprint">OctoPrint (API REST 5000)</option>
+                    </select>
+                </div>
+
+                <!-- CAMPOS DE TELEMETRIA DINÂMICOS -->
+                <div id="impBlocoTelemetria" class="input-container full" style="display:none;background:var(--bg-input);padding:12px;border-radius:10px;border:1px solid var(--border-subtle);">
+                    <div class="grid-form">
+                        <div class="input-container">
+                            <label>Endereço IP (Rede Local)</label>
+                            <input type="text" id="impFormIp" placeholder="Ex: 192.168.1.150">
+                        </div>
+                        <div class="input-container">
+                            <label>Porta</label>
+                            <input type="number" id="impFormPorta" placeholder="Ex: 7125 ou 8883">
+                        </div>
+                        <div class="input-container">
+                            <label>Serial / Identificador</label>
+                            <input type="text" id="impFormSerial" placeholder="Ex: 01P00A492800123">
+                        </div>
+                        <div class="input-container">
+                            <label>Código de Acesso / API Key</label>
+                            <input type="password" id="impFormAccessCode" placeholder="Código de 8 dígitos ou Token">
+                        </div>
+                        <div class="input-container full">
+                            <button type="button" class="btn-secondary" onclick="ImpressorasFilaModulo.testarConexaoFormulario()" style="width:100%;">🔗 Testar Conexão com a Impressora</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="input-container">
                     <label>Consumo Médio (Watts)</label>
                     <input type="number" id="impFormWatts" value="150" placeholder="Ex: 160">
                 </div>
@@ -211,7 +460,7 @@
                     <label>Depreciação / Desgaste (R$/h)</label>
                     <input type="number" step="0.01" id="impFormDesgaste" value="0.80" placeholder="Ex: 0.80">
                 </div>
-                <div class="input-container">
+                <div class="input-container full">
                     <label>Mão de Obra / Operador (R$/h)</label>
                     <input type="number" step="0.01" id="impFormTrabalho" value="1.00" placeholder="Ex: 1.00">
                 </div>
@@ -330,16 +579,24 @@
 
             <div id="auth-form-register" style="display:none">
                 <div class="input-container">
-                    <label>Nome</label>
-                    <input type="text" id="regNome" placeholder="Seu nome">
+                    <label>Nome do Responsável</label>
+                    <input type="text" id="regNome" placeholder="Seu nome completo">
+                </div>
+                <div class="input-container">
+                    <label>CPF ou CNPJ (obrigatório)</label>
+                    <input type="text" id="regCpfCnpj" placeholder="000.000.000-00 ou 00.000.000/0000-00" oninput="PerfilLojaModulo.mascaraCpfCnpj(this)">
                 </div>
                 <div class="input-container">
                     <label>E-mail</label>
                     <input type="email" id="regEmail" placeholder="seu@email.com">
                 </div>
                 <div class="input-container">
-                    <label>Empresa (opcional)</label>
-                    <input type="text" id="regEmpresa" placeholder="Nome da loja / marca">
+                    <label>Nome da Loja / Empresa (opcional)</label>
+                    <input type="text" id="regEmpresa" placeholder="Ex: Oficina 3D Studio">
+                </div>
+                <div class="input-container">
+                    <label>WhatsApp / Telefone (opcional)</label>
+                    <input type="text" id="regTelefone" placeholder="(11) 99999-9999">
                 </div>
                 <div class="input-container">
                     <label>Senha (mín. 6)</label>
@@ -382,7 +639,7 @@
     <div id="app-screen" class="app-wrapper" style="display: none;">
 
         <header class="mobile-header">
-            <div class="user-info">
+            <div class="user-info" onclick="PerfilLojaModulo.abrirModalPerfil()" style="cursor:pointer;" title="Configurações da Conta & Loja (Clique para abrir)">
                 <div class="avatar" id="user-avatar-letter">A</div>
                 <div style="display:flex;flex-direction:column;gap:1px;">
                     <span id="tab-title" style="font-weight:700;font-size:14px;color:var(--text);">Visão Geral</span>
@@ -394,7 +651,11 @@
                 </div>
             </div>
             <div class="header-actions">
+                <button class="btn-theme-switcher" onclick="QrScannerModulo.abrirScanner()" title="Escanear QR Code com Câmera">📷</button>
                 <button class="btn-theme-switcher" onclick="toggleModalTema()" title="Mudar tema">🎨</button>
+                <button class="btn-theme-switcher btn-notification-bell" onclick="NotificacoesModulo.abrirModalNotificacoes()" title="Central de Notificações">
+                    🔔<span class="notification-badge" id="notifBadge" style="display:none;">0</span>
+                </button>
                 <button class="btn-exit" type="button" onclick="sairApp()">Sair</button>
             </div>
         </header>
@@ -631,7 +892,10 @@
                             <label style="color: var(--primary); margin-bottom: 8px;">🧵 Filamentos Utilizados</label>
                             <div id="container-filamentos-linhas" style="display: flex; flex-direction: column; gap: 10px;">
                             </div>
-                            <button type="button" class="btn-secondary" onclick="adicionarLinhaFilamento()" style="margin-top: 10px; width: 100%; display: flex; align-items: center; justify-content: center; gap: 5px;">➕ Adicionar Filamento</button>
+                            <div style="display:flex;gap:8px;margin-top:10px;">
+                                <button type="button" class="btn-secondary" onclick="adicionarLinhaFilamento()" style="flex:1; display: flex; align-items: center; justify-content: center; gap: 5px;">➕ Adicionar Filamento</button>
+                                <button type="button" class="btn-secondary" onclick="QrScannerModulo.abrirScanner('calculadora')" style="flex:1; display: flex; align-items: center; justify-content: center; gap: 5px;" title="Escanear QR Code da etiqueta do carretel">📷 Escanear Rolo</button>
+                            </div>
                         </div>
 
                         <div class="input-container full">
@@ -806,8 +1070,9 @@
                         <div class="line" style="color:var(--text-dim);font-size:10px;margin-top:8px;">Peso Total: <b id="resPesoTotal">0 g</b></div>
                     </div>
 
-                    <div style="display:flex;gap:10px;margin-top:14px;">
+                    <div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap;">
                         <button class="btn-main" onclick="lancarPreVendaFinanceiro()" style="flex:1;margin-top:0;">📋 Lançar Pré-Venda</button>
+                        <button class="btn-secondary" onclick="PdfOrcamentoModulo.abrirModalProposta()" style="flex:1;background:rgba(124,58,237,0.15);border-color:var(--accent);color:var(--accent);" title="Gerar Proposta Comercial com QR Code PIX">📄 Proposta PDF</button>
                         <button class="btn-secondary" onclick="salvarModeloPadrao()" style="flex:1;padding:14px;">Salvar Receita</button>
                     </div>
                 </div>
@@ -1169,6 +1434,7 @@
 
     <script src="config.js"></script>
     <script src="api-client.js"></script>
+    <script src="offline-sync.js"></script>
     <script src="db-bridge.js"></script>
     <script src="ui-helpers.js"></script>
     <script src="financeiro-modulo.js"></script>
@@ -1178,6 +1444,11 @@
     <script src="slicer-parser.js"></script>
     <script src="impressoras-fila-modulo.js"></script>
     <script src="estoque-produtos.js"></script>
+    <script src="pdf-orcamento.js"></script>
+    <script src="spool-label-modulo.js"></script>
+    <script src="qr-scanner-modulo.js"></script>
+    <script src="notificacoes-modulo.js"></script>
+    <script src="perfil-loja-modulo.js"></script>
     <script src="app.js"></script>
 </body>
 </html>

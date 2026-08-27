@@ -65,10 +65,15 @@ function nav(tab, btn) {
         calculadora: 'Calculadora de Preços',
         terminal: 'Vendas & Pedidos',
         financeiro: 'Relatório Financeiro',
-        'estoque-produtos': 'Estoque de Produtos'
+        'estoque-produtos': 'Estoque de Produtos',
+        configuracoes: 'Configurações da Loja & Perfil'
     };
     const titleEl = document.getElementById('tab-title');
     if (titleEl) titleEl.innerText = titles[tab] || tab;
+
+    if (tab === 'configuracoes' && window.PerfilLojaModulo && typeof window.PerfilLojaModulo.carregarDadosTelaConfiguracoes === 'function') {
+        window.PerfilLojaModulo.carregarDadosTelaConfiguracoes();
+    }
 
     if (tab === 'home' && typeof atualizarOverviewHome === 'function') {
         atualizarOverviewHome();
@@ -234,8 +239,8 @@ async function atualizarOverviewHome() {
             EstoqueModel ? EstoqueModel.find().lean() : []
         ]);
 
-        // Filtrar apenas vendas reais (excluir produção) para receita bruta e lucro
-        const vendasReais = vendasAll.filter(v => v.canal !== 'producao' && v.tipo !== 'producao' && v.status !== 'pre_venda');
+        // Filtrar apenas vendas reais e concluídas para receita bruta e lucro
+        const vendasReais = vendasAll.filter(v => v.canal !== 'producao' && v.tipo !== 'producao' && (!v.status || v.status === 'concluida' || v.status === 'entregue'));
         const totalLucro = vendasReais.reduce((sum, item) => sum + (Number(item.lucro) || 0), 0);
         const totalBruto = vendasReais.reduce((sum, item) => sum + (Number(item.bruto) || 0), 0);
         const totalFilamento = estoqueItems.reduce((sum, item) => sum + (Number(item.gramas) || 0), 0);
@@ -1135,8 +1140,8 @@ async function atualizarInterface() {
         
         estoqueCache = estoque;
 
-        // Filtrar apenas vendas concluídas (excluir produção e pré-vendas)
-        const vendasReais = vendas.filter(v => v.canal !== 'producao' && v.tipo !== 'producao' && v.status !== 'pre_venda');
+        // Filtrar apenas vendas concluídas (excluir produção e pedidos em andamento)
+        const vendasReais = vendas.filter(v => v.canal !== 'producao' && v.tipo !== 'producao' && (!v.status || v.status === 'concluida' || v.status === 'entregue'));
 
         const brutoTotal = vendasReais.reduce((acc, v) => acc + (v.bruto || 0), 0);
         const lucroTotal = vendasReais.reduce((acc, v) => acc + (v.lucro || 0), 0);

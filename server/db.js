@@ -34,7 +34,11 @@ const vendaSchema = new mongoose.Schema({
     bruto: Number,
     custo: Number,
     canal: String,
-    status: { type: String, enum: ['pre_venda', 'concluida'], default: 'concluida' },
+    status: { 
+        type: String, 
+        enum: ['pre_venda', 'orcamento', 'aguardando_aprovacao', 'aprovado', 'em_producao', 'acabamento', 'pronto', 'enviado', 'concluida', 'entregue', 'cancelado'], 
+        default: 'concluida' 
+    },
     quantidade: { type: Number, default: 1 },
     pedidoId: String,
     tipo: String,

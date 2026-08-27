@@ -728,25 +728,40 @@ async function renderizarPreVendas() {
             return;
         }
 
-        const listHtml = preVendas.map(v => `
-            <div class="item-row" style="border-left-color:#f59e0b;">
-                <div class="item-info">
-                    <b>${v.nome}</b>
-                    <span>${(v.canal || 'direta').toUpperCase()} · R$ ${(v.bruto || 0).toFixed(2)}</span>
-                    <small style="color:#64748b;display:block;margin-top:4px;">
-                        Criado em ${new Date(v.data).toLocaleString('pt-BR')} · Qtd: ${v.quantidade || 1}
-                    </small>
-                </div>
-                <div style="display:flex;flex-direction:column;gap:6px;align-items:flex-end;">
-                    <span style="font-weight:700;color:var(--success);font-size:14px;">R$ ${(v.lucro || 0).toFixed(2)}</span>
-                    <div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end;">
-                        <button class="btn-secondary" style="padding:6px 10px;font-size:11px;background:rgba(6,182,212,0.15);border-color:var(--primary);color:var(--primary);" onclick="ImpressorasFilaModulo.abrirModalEnfileirarPreVenda('${v._id}')" title="Enviar para a Fila de Impressão">🖨️ Fila</button>
-                        <button class="btn-main" style="padding:6px 12px;font-size:11px;margin:0;" onclick="finalizarPreVenda('${v._id}')">Finalizar</button>
-                        <button class="btn-delete-row" onclick="excluirPreVenda('${v._id}')" title="Excluir orçamento">🗑️</button>
+        const listHtml = preVendas.map(v => {
+            const pedidoIdSafe = v.pedidoId || String(v._id);
+            const dadosJson = JSON.stringify({
+                pedidoId: pedidoIdSafe,
+                nomeItem: v.nome,
+                valorUnitario: v.bruto,
+                quantidade: v.quantidade || 1,
+                filamentos: v.filamentosUsados || [],
+                tempoHoras: v.detalheCustos?.tempoHoras || 1,
+                pesoTotalGramas: v.filamentosUsados?.reduce((a, b) => a + (b.peso || 0), 0) || 0
+            }).replace(/"/g, '&quot;');
+
+            return `
+                <div class="item-row" style="border-left-color:#f59e0b;">
+                    <div class="item-info">
+                        <b>${v.nome}</b>
+                        <span>${(v.canal || 'direta').toUpperCase()} · R$ ${(v.bruto || 0).toFixed(2)}</span>
+                        <small style="color:#64748b;display:block;margin-top:4px;">
+                            Pedido #${pedidoIdSafe} · ${new Date(v.data).toLocaleString('pt-BR')} · Qtd: ${v.quantidade || 1}
+                        </small>
+                    </div>
+                    <div style="display:flex;flex-direction:column;gap:6px;align-items:flex-end;">
+                        <span style="font-weight:700;color:var(--success);font-size:14px;">R$ ${(v.lucro || 0).toFixed(2)}</span>
+                        <div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end;">
+                            <button class="btn-secondary" style="padding:6px 10px;font-size:11px;background:rgba(124,58,237,0.15);border-color:var(--accent);color:var(--accent);" onclick="PdfOrcamentoModulo.abrirModalProposta(${dadosJson})" title="Gerar Proposta Comercial em PDF e WhatsApp">📄 PDF</button>
+                            <button class="btn-secondary" style="padding:6px 10px;font-size:11px;" onclick="PdfOrcamentoModulo.copiarLinkRastreio('${pedidoIdSafe}')" title="Copiar link público de rastreio">🔗 Rastreio</button>
+                            <button class="btn-secondary" style="padding:6px 10px;font-size:11px;background:rgba(6,182,212,0.15);border-color:var(--primary);color:var(--primary);" onclick="ImpressorasFilaModulo.abrirModalEnfileirarPreVenda('${v._id}')" title="Enviar para a Fila de Impressão">🖨️ Fila</button>
+                            <button class="btn-main" style="padding:6px 12px;font-size:11px;margin:0;" onclick="finalizarPreVenda('${v._id}')">Finalizar</button>
+                            <button class="btn-delete-row" onclick="excluirPreVenda('${v._id}')" title="Excluir orçamento">🗑️</button>
+                        </div>
                     </div>
                 </div>
-            </div>
-        `).join('');
+            `;
+        }).join('');
 
         containers.forEach(c => c.innerHTML = listHtml);
     } catch (err) {

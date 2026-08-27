@@ -9,8 +9,8 @@ function renderTrackingPage(data) {
         nomeCliente = 'Cliente',
         nomeItem = 'Item 3D Personalizado',
         quantidade = 1,
-        statusFila = 'pendente', // pendente, imprimindo, pausado, concluido, entregue, cancelado
-        statusVenda = 'concluida', // pre_venda, concluida
+        statusFila = '', // pendente, imprimindo, pausado, concluido, entregue, cancelado
+        statusVenda = 'orcamento', // orcamento, pre_venda, aprovado, em_producao, acabamento, pronto, enviado, concluida
         percentual = 0,
         tempoRestante = '',
         impressoraNome = 'Impressora 3D',
@@ -22,49 +22,84 @@ function renderTrackingPage(data) {
         nomeEmpresa = '3D Manager Studio'
     } = data || {};
 
-    // Mapeamento dos 5 passos da Timeline
-    // 1. Orçamento / Pedido Aprovado
-    // 2. Na Fila de Produção
-    // 3. Em Impressão
-    // 4. Acabamento & Controle de Qualidade
-    // 5. Pronto para Retirada / Enviado
-    let currentStep = 1;
-    let stepDescription = 'Seu pedido foi registrado e está confirmado no nosso sistema.';
-    let statusBadgeText = 'Orçamento Confirmado';
-    let statusBadgeColor = '#06b6d4';
+    // Mapeamento dos passos da Timeline
+    // 0: Orçamento / Proposta Gerada (Aguardando Aprovação)
+    // 1: Pedido Aprovado
+    // 2: Na Fila de Produção
+    // 3: Em Impressão
+    // 4: Acabamento & Controle de Qualidade
+    // 5: Pronto / Enviado / Entregue
+    let currentStep = 0;
+    let stepDescription = 'Proposta comercial registrada. Aguardando aprovação do cliente para início da produção.';
+    let statusBadgeText = 'Orçamento / Aguardando Aprovação';
+    let statusBadgeColor = '#f59e0b';
 
-    if (statusFila === 'pendente') {
-        currentStep = 2;
-        stepDescription = `Seu pedido está preparado e aguardando na fila da impressora (${impressoraNome}).`;
-        statusBadgeText = 'Na Fila de Impressão';
-        statusBadgeColor = '#f59e0b';
-    } else if (statusFila === 'imprimindo') {
-        currentStep = 3;
-        stepDescription = `Impressão 3D em andamento na ${impressoraNome}! ${percentual > 0 ? `Progresso: ${percentual}%` : ''} ${tempoRestante ? `· Tempo restante estimado: ${tempoRestante}` : ''}`;
-        statusBadgeText = `Imprimindo (${percentual}%)`;
-        statusBadgeColor = '#10b981';
-    } else if (statusFila === 'concluido' && statusVenda !== 'entregue') {
-        currentStep = 4;
-        stepDescription = 'A peça foi impressa com sucesso e está na fase de remoção de suportes, inspeção e acabamento.';
-        statusBadgeText = 'Em Acabamento';
-        statusBadgeColor = '#8b5cf6';
-    } else if (statusFila === 'concluido' || statusVenda === 'entregue') {
+    const statusNorm = String(statusVenda || '').toLowerCase();
+    const filaNorm = String(statusFila || '').toLowerCase();
+
+    if (statusNorm === 'cancelado') {
+        currentStep = -1;
+        stepDescription = 'Este pedido foi cancelado.';
+        statusBadgeText = 'Cancelado';
+        statusBadgeColor = '#ef4444';
+    } else if (statusNorm === 'concluida' || statusNorm === 'entregue') {
         currentStep = 5;
         stepDescription = codigoRastreio 
-            ? `Seu pedido foi enviado! Código de rastreio: ${codigoRastreio}` 
-            : 'Seu pedido está pronto para entrega ou retirada na nossa oficina!';
-        statusBadgeText = 'Pronto / Enviado';
+            ? `Pedido entregue/concluído! Código de envio: ${codigoRastreio}` 
+            : 'Pedido concluído e entregue com sucesso!';
+        statusBadgeText = 'Entregue / Concluído';
         statusBadgeColor = '#10b981';
+    } else if (statusNorm === 'enviado') {
+        currentStep = 5;
+        stepDescription = codigoRastreio 
+            ? `Seu pedido foi despachado! Código de rastreio: ${codigoRastreio}` 
+            : 'Seu pedido foi despachado e está a caminho!';
+        statusBadgeText = 'Enviado';
+        statusBadgeColor = '#10b981';
+    } else if (statusNorm === 'pronto') {
+        currentStep = 5;
+        stepDescription = 'Seu pedido está pronto para entrega ou retirada na oficina!';
+        statusBadgeText = 'Pronto para Retirada';
+        statusBadgeColor = '#10b981';
+    } else if (statusNorm === 'acabamento' || (filaNorm === 'concluido' && !['pronto', 'enviado', 'concluida', 'entregue', 'orcamento', 'pre_venda'].includes(statusNorm))) {
+        currentStep = 4;
+        stepDescription = 'A peça foi impressa e está na fase de acabamento, pós-cura e controle de qualidade.';
+        statusBadgeText = 'Em Acabamento';
+        statusBadgeColor = '#8b5cf6';
+    } else if (filaNorm === 'imprimindo' || statusNorm === 'em_producao') {
+        currentStep = 3;
+        stepDescription = `Impressão 3D em andamento na ${impressoraNome}! ${percentual > 0 ? `Progresso: ${percentual}%` : ''} ${tempoRestante ? `· Tempo restante: ${tempoRestante}` : ''}`;
+        statusBadgeText = `Imprimindo (${percentual || 0}%)`;
+        statusBadgeColor = '#10b981';
+    } else if ((filaNorm === 'pendente' || statusNorm === 'fila') && !['orcamento', 'pre_venda', 'aguardando_aprovacao'].includes(statusNorm)) {
+        currentStep = 2;
+        stepDescription = `Seu pedido está preparado e aguardando na fila da impressora (${impressoraNome}).`;
+        statusBadgeText = 'Na Fila de Produção';
+        statusBadgeColor = '#f59e0b';
+    } else if (statusNorm === 'aprovado') {
+        currentStep = 1;
+        stepDescription = 'Pedido aprovado! Fatiamento e alocação na fila de produção em andamento.';
+        statusBadgeText = 'Pedido Aprovado';
+        statusBadgeColor = '#06b6d4';
+    } else {
+        // pre_venda, orcamento, aguardando_aprovacao
+        currentStep = 0;
+        stepDescription = 'Proposta comercial gerada. Aguardando aprovação para início da impressão.';
+        statusBadgeText = 'Orçamento / Aguardando Aprovação';
+        statusBadgeColor = '#f59e0b';
     }
 
     const filamentosDesc = Array.isArray(filamentos) && filamentos.length > 0
         ? filamentos.map(f => f.nome || 'Filamento Premium').join(', ')
         : 'PLA / PETG Alta Resolução';
 
-    const cleanWhats = String(whatsappEmpresa).replace(/\D/g, '');
+    let cleanWhats = String(whatsappEmpresa || '').replace(/\D/g, '');
+    if (cleanWhats.length >= 10 && cleanWhats.length <= 11) {
+        cleanWhats = '55' + cleanWhats;
+    }
     const whatsLink = cleanWhats
-        ? `https://wa.me/55${cleanWhats}?text=${encodeURIComponent(`Olá! Gostaria de saber mais sobre o meu pedido #${pedidoId} (${nomeItem}).`)}`
-        : '#';
+        ? `https://wa.me/${cleanWhats}?text=${encodeURIComponent(`Olá! Gostaria de tirar dúvidas sobre o meu pedido #${pedidoId} (${nomeItem}).`)}`
+        : `https://api.whatsapp.com/send?text=${encodeURIComponent(`Olá! Gostaria de informações sobre o pedido #${pedidoId} (${nomeItem}).`)}`;
 
     return `<!DOCTYPE html>
 <html lang="pt-BR">
@@ -458,14 +493,14 @@ function renderTrackingPage(data) {
             <!-- TIMELINE VISUAL DE 5 ETAPAS -->
             <div class="timeline">
                 <!-- ETAPA 1 -->
-                <div class="timeline-step ${currentStep > 1 ? 'completed' : (currentStep === 1 ? 'active' : 'pending')}">
+                <div class="timeline-step ${currentStep > 1 ? 'completed' : (currentStep >= 0 ? 'active' : 'pending')}">
                     <div class="step-indicator">
-                        <div class="step-circle">${currentStep > 1 ? '✓' : '1'}</div>
+                        <div class="step-circle">${currentStep > 1 ? '✓' : (currentStep === 0 ? '📝' : '1')}</div>
                         <div class="step-line"></div>
                     </div>
                     <div class="step-content">
-                        <div class="step-title">Orçamento & Pedido Aprovado</div>
-                        <div class="step-desc">${currentStep === 1 ? stepDescription : `Pedido confirmado em ${dataCriacao}.`}</div>
+                        <div class="step-title">${currentStep === 0 ? '📝 Proposta / Orçamento Gerado' : '✅ Pedido Aprovado'}</div>
+                        <div class="step-desc">${currentStep <= 1 ? stepDescription : `Pedido confirmado em ${dataCriacao}.`}</div>
                     </div>
                 </div>
 

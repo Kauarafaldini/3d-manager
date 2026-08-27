@@ -622,7 +622,7 @@ async function renderizarUltimasVendas(filtro = '') {
         if (!VendaModel) return;
 
         const vendas = await VendaModel.find().sort({ data: -1 }).lean();
-        const vendasSemPre = vendas.filter(v => v.status !== 'pre_venda');
+        const vendasSemPre = vendas.filter(v => (!v.status || v.status === 'concluida' || v.status === 'entregue') && v.canal !== 'producao' && v.tipo !== 'producao');
         const termo = filtro.trim().toLowerCase();
         const vendasFiltradas = termo ? vendasSemPre.filter(v => {
             const texto = `${v.nome || ''} ${v.sku || ''} ${v.canal || ''} ${v.pedidoId || ''}`.toLowerCase();
@@ -630,7 +630,7 @@ async function renderizarUltimasVendas(filtro = '') {
         }) : vendasSemPre;
 
         const hoje = new Date();
-        const vendasConcluidas = vendas.filter(v => v.status !== 'pre_venda' && v.canal !== 'producao' && v.tipo !== 'producao');
+        const vendasConcluidas = vendasSemPre;
         const vendasHoje = vendasConcluidas.filter(v => new Date(v.data).toDateString() === hoje.toDateString());
         const totalDia = vendasHoje.reduce((sum, v) => sum + (Number(v.bruto) || 0), 0);
         const qtdeVendida = vendasHoje.reduce((sum, v) => sum + (Number(v.quantidade) || 1), 0);
@@ -719,17 +719,32 @@ async function renderizarPreVendas() {
             return;
         }
 
+        const STATUS_PEDIDO_CONFIG = {
+            'orcamento': { label: '📝 Orçamento / Aguardando Aprovação', cor: '#f59e0b', bg: 'rgba(245,158,11,0.15)' },
+            'pre_venda': { label: '📝 Orçamento Pendente', cor: '#f59e0b', bg: 'rgba(245,158,11,0.15)' },
+            'aguardando_aprovacao': { label: '⏳ Aguardando Aprovação', cor: '#f59e0b', bg: 'rgba(245,158,11,0.15)' },
+            'aprovado': { label: '✅ Pedido Aprovado', cor: '#06b6d4', bg: 'rgba(6,182,212,0.15)' },
+            'em_producao': { label: '⚡ Em Produção / Fila 3D', cor: '#3b82f6', bg: 'rgba(59,130,246,0.15)' },
+            'acabamento': { label: '✨ Em Acabamento', cor: '#8b5cf6', bg: 'rgba(139,92,246,0.15)' },
+            'pronto': { label: '📦 Pronto para Retirada', cor: '#10b981', bg: 'rgba(16,185,129,0.15)' },
+            'enviado': { label: '🚚 Enviado / A Caminho', cor: '#6366f1', bg: 'rgba(99,102,241,0.15)' },
+            'cancelado': { label: '❌ Cancelado', cor: '#ef4444', bg: 'rgba(239,68,68,0.15)' }
+        };
+
         const vendas = await VendaModel.find().sort({ data: -1 }).lean();
-        const preVendas = vendas.filter(v => v.status === 'pre_venda');
+        const preVendas = vendas.filter(v => v.status !== 'concluida' && v.status !== 'entregue' && v.canal !== 'producao' && v.tipo !== 'producao');
 
         if (!preVendas.length) {
-            const emptyHtml = '<p class="empty-msg">Nenhum orçamento pendente. Crie pré-vendas na Calculadora de Preços.</p>';
+            const emptyHtml = '<p class="empty-msg">Nenhum pedido ou orçamento em andamento. Crie pré-vendas na Calculadora de Preços.</p>';
             containers.forEach(c => c.innerHTML = emptyHtml);
             return;
         }
 
         const listHtml = preVendas.map(v => {
             const pedidoIdSafe = v.pedidoId || String(v._id);
+            const statusAtual = v.status || 'orcamento';
+            const statusCfg = STATUS_PEDIDO_CONFIG[statusAtual] || STATUS_PEDIDO_CONFIG['orcamento'];
+
             const dadosJson = JSON.stringify({
                 pedidoId: pedidoIdSafe,
                 nomeItem: v.nome,
@@ -741,13 +756,32 @@ async function renderizarPreVendas() {
             }).replace(/"/g, '&quot;');
 
             return `
-                <div class="item-row" style="border-left-color:#f59e0b;">
+                <div class="item-row" style="border-left-color:${statusCfg.cor};">
                     <div class="item-info">
-                        <b>${v.nome}</b>
+                        <div style="display:flex;align-items:center;gap:8px;margin-bottom:3px;flex-wrap:wrap;">
+                            <b>${v.nome}</b>
+                            <span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:6px;background:${statusCfg.bg};color:${statusCfg.cor};">
+                                ${statusCfg.label}
+                            </span>
+                        </div>
                         <span>${(v.canal || 'direta').toUpperCase()} · R$ ${(v.bruto || 0).toFixed(2)}</span>
                         <small style="color:#64748b;display:block;margin-top:4px;">
                             Pedido #${pedidoIdSafe} · ${new Date(v.data).toLocaleString('pt-BR')} · Qtd: ${v.quantidade || 1}
                         </small>
+                        <!-- SELETOR DE STATUS DO PEDIDO -->
+                        <div style="margin-top:8px;display:flex;align-items:center;gap:6px;">
+                            <label style="font-size:11px;color:var(--text-dim);margin:0;font-weight:600;">Status do Pedido:</label>
+                            <select onchange="alterarStatusPedido('${v._id}', this.value)" style="padding:4px 8px;font-size:11px;border-radius:6px;border:1px solid var(--border-subtle);background:var(--bg-secondary);color:var(--text);font-weight:600;cursor:pointer;">
+                                <option value="orcamento" ${statusAtual === 'orcamento' || statusAtual === 'pre_venda' || statusAtual === 'aguardando_aprovacao' ? 'selected' : ''}>📝 Orçamento / Aguardando Aprovação</option>
+                                <option value="aprovado" ${statusAtual === 'aprovado' ? 'selected' : ''}>✅ Pedido Aprovado</option>
+                                <option value="em_producao" ${statusAtual === 'em_producao' ? 'selected' : ''}>⚡ Em Produção / Fila 3D</option>
+                                <option value="acabamento" ${statusAtual === 'acabamento' ? 'selected' : ''}>✨ Em Acabamento</option>
+                                <option value="pronto" ${statusAtual === 'pronto' ? 'selected' : ''}>📦 Pronto para Retirada</option>
+                                <option value="enviado" ${statusAtual === 'enviado' ? 'selected' : ''}>🚚 Enviado / A Caminho</option>
+                                <option value="concluida" ${statusAtual === 'concluida' ? 'selected' : ''}>🏁 Concluído / Entregue</option>
+                                <option value="cancelado" ${statusAtual === 'cancelado' ? 'selected' : ''}>❌ Cancelado</option>
+                            </select>
+                        </div>
                     </div>
                     <div style="display:flex;flex-direction:column;gap:6px;align-items:flex-end;">
                         <span style="font-weight:700;color:var(--success);font-size:14px;">R$ ${(v.lucro || 0).toFixed(2)}</span>
@@ -755,8 +789,8 @@ async function renderizarPreVendas() {
                             <button class="btn-secondary" style="padding:6px 10px;font-size:11px;background:rgba(124,58,237,0.15);border-color:var(--accent);color:var(--accent);" onclick="PdfOrcamentoModulo.abrirModalProposta(${dadosJson})" title="Gerar Proposta Comercial em PDF e WhatsApp">📄 PDF</button>
                             <button class="btn-secondary" style="padding:6px 10px;font-size:11px;" onclick="PdfOrcamentoModulo.copiarLinkRastreio('${pedidoIdSafe}')" title="Copiar link público de rastreio">🔗 Rastreio</button>
                             <button class="btn-secondary" style="padding:6px 10px;font-size:11px;background:rgba(6,182,212,0.15);border-color:var(--primary);color:var(--primary);" onclick="ImpressorasFilaModulo.abrirModalEnfileirarPreVenda('${v._id}')" title="Enviar para a Fila de Impressão">🖨️ Fila</button>
-                            <button class="btn-main" style="padding:6px 12px;font-size:11px;margin:0;" onclick="finalizarPreVenda('${v._id}')">Finalizar</button>
-                            <button class="btn-delete-row" onclick="excluirPreVenda('${v._id}')" title="Excluir orçamento">🗑️</button>
+                            <button class="btn-main" style="padding:6px 12px;font-size:11px;margin:0;" onclick="finalizarPreVenda('${v._id}')" title="Finalizar e dar baixa no estoque">🏁 Finalizar</button>
+                            <button class="btn-delete-row" onclick="excluirPreVenda('${v._id}')" title="Excluir pedido">🗑️</button>
                         </div>
                     </div>
                 </div>
@@ -765,8 +799,46 @@ async function renderizarPreVendas() {
 
         containers.forEach(c => c.innerHTML = listHtml);
     } catch (err) {
-        console.error('Erro ao carregar pré-vendas:', err);
-        containers.forEach(c => c.innerHTML = '<p class="empty-msg">Erro ao carregar orçamentos.</p>');
+        console.error('Erro ao carregar pedidos em andamento:', err);
+        containers.forEach(c => c.innerHTML = '<p class="empty-msg">Erro ao carregar pedidos.</p>');
+    }
+}
+
+async function alterarStatusPedido(id, novoStatus) {
+    if (novoStatus === 'concluida') {
+        return finalizarPreVenda(id);
+    }
+
+    if (novoStatus === 'cancelado') {
+        if (!confirm('Deseja marcar este pedido como Cancelado?')) {
+            renderizarPreVendas();
+            return;
+        }
+    }
+
+    try {
+        const VendaModel = getSafeVendaModel();
+        if (!VendaModel) return;
+
+        await VendaModel.findByIdAndUpdate(id, { status: novoStatus });
+
+        const labels = {
+            orcamento: 'Orçamento / Aguardando Aprovação',
+            aprovado: 'Pedido Aprovado',
+            em_producao: 'Em Produção',
+            acabamento: 'Em Acabamento',
+            pronto: 'Pronto para Retirada',
+            enviado: 'Enviado',
+            cancelado: 'Cancelado'
+        };
+
+        if (typeof mostrarToast === 'function') {
+            mostrarToast(`Status alterado: ${labels[novoStatus] || novoStatus}! O link de rastreio foi atualizado.`, 'ok');
+        }
+        renderizarPreVendas();
+    } catch (err) {
+        console.error('Erro ao atualizar status do pedido:', err);
+        alert('Erro ao atualizar status: ' + err.message);
     }
 }
 
@@ -836,7 +908,7 @@ async function renderHistoricoVendasFinanceiro(filtro = '') {
         if (!VendaModel) return;
 
         const vendas = await VendaModel.find().sort({ data: -1 }).lean();
-        const vendasConcluidas = vendas.filter(v => v.status !== 'pre_venda' && v.canal !== 'producao' && v.tipo !== 'producao');
+        const vendasConcluidas = vendas.filter(v => (!v.status || v.status === 'concluida' || v.status === 'entregue') && v.canal !== 'producao' && v.tipo !== 'producao');
         const termo = filtro.trim().toLowerCase();
         const vendasFiltradas = termo ? vendasConcluidas.filter(v => {
             const texto = `${v.nome || ''} ${v.sku || ''} ${v.canal || ''} ${v.pedidoId || ''}`.toLowerCase();
@@ -940,6 +1012,7 @@ if (typeof window !== 'undefined') {
     window.abrirReceitaProduto = abrirReceitaProduto;
     window.produtoTemReceita = produtoTemReceita;
     window.renderizarPreVendas = renderizarPreVendas;
+    window.alterarStatusPedido = alterarStatusPedido;
     window.finalizarPreVenda = finalizarPreVenda;
     window.excluirPreVenda = excluirPreVenda;
     window.renderHistoricoVendasFinanceiro = renderHistoricoVendasFinanceiro;

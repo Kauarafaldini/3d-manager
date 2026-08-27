@@ -1,5 +1,5 @@
 /**
- * Acesso aos dados via API (Electron, Android, iOS).
+ * 3D Manager Pro — Bridge de Acesso aos Dados com Suporte Offline Resiliente (IndexedDB)
  */
 (function () {
     const PATHS = {
@@ -12,6 +12,16 @@
         Desperdicio: '/api/data/desperdicios'
     };
 
+    const STORE_NAMES = {
+        Venda: 'vendas',
+        Estoque: 'estoque',
+        Modelo: 'modelos',
+        CustoItem: 'custos',
+        Impressora: 'impressoras',
+        Fila: 'fila',
+        Desperdicio: 'desperdicios'
+    };
+
     let online = false;
     const fakeMongoose = {
         connection: {
@@ -20,12 +30,25 @@
         }
     };
 
-    function wrapDoc(path, doc) {
-        const copy = { ...doc, _id: doc._id };
+    function wrapDoc(path, doc, modelName) {
+        const copy = { ...doc, _id: doc._id || doc.id || ('temp_' + Math.random().toString(36).substring(2, 9)) };
         copy.save = async function () {
-            const updated = await window.apiClient.patch(`${path}/${copy._id}`, { ...this, _id: undefined });
-            Object.assign(copy, updated);
-            return copy;
+            const store = STORE_NAMES[modelName] || 'geral';
+            try {
+                const updated = await window.apiClient.patch(`${path}/${copy._id}`, { ...this, _id: undefined });
+                Object.assign(copy, updated);
+                return copy;
+            } catch (err) {
+                console.warn(`[db-bridge] Salvamento offline para ${modelName} ID ${copy._id}:`, err);
+                if (window.OfflineSyncModulo) {
+                    await window.OfflineSyncModulo.enfileirarAcaoOffline({
+                        tipo: 'PATCH',
+                        path: `${path}/${copy._id}`,
+                        body: { ...this, _id: undefined }
+                    });
+                }
+                return copy;
+            }
         };
         copy.toObject = () => ({ ...copy });
         return copy;
@@ -33,7 +56,7 @@
 
     function createApiModel(name) {
         const path = PATHS[name];
-        const sortMap = { data: '-data', nome: 'nome' };
+        const storeName = STORE_NAMES[name] || name.toLowerCase();
 
         function ModelConstructor(data) {
             if (data) Object.assign(this, data);
@@ -41,20 +64,49 @@
         }
 
         ModelConstructor.prototype.save = async function () {
+            const user = window.apiClient?.getUser?.();
+            if (user?.tenantId && !this.tenantId) {
+                this.tenantId = user.tenantId;
+            }
+
             if (this._id && !this._isNew) {
-                const updated = await window.apiClient.patch(`${path}/${String(this._id)}`, { ...this, _id: undefined, _isNew: undefined });
-                Object.assign(this, updated);
+                try {
+                    const updated = await window.apiClient.patch(`${path}/${String(this._id)}`, { ...this, _id: undefined, _isNew: undefined });
+                    Object.assign(this, updated);
+                    return this;
+                } catch (err) {
+                    console.warn(`[db-bridge] Atualização offline [${name}]:`, err);
+                    if (window.OfflineSyncModulo) {
+                        await window.OfflineSyncModulo.enfileirarAcaoOffline({
+                            tipo: 'PATCH',
+                            path: `${path}/${String(this._id)}`,
+                            body: { ...this, _id: undefined, _isNew: undefined }
+                        });
+                    }
+                    return this;
+                }
+            }
+
+            const body = { ...this, _id: undefined, _isNew: undefined };
+            try {
+                const created = await window.apiClient.post(path, body);
+                Object.assign(this, created);
+                this._isNew = false;
+                return this;
+            } catch (err) {
+                console.warn(`[db-bridge] Criação offline [${name}]:`, err);
+                const tempId = 'temp_' + Math.random().toString(36).substring(2, 9);
+                this._id = tempId;
+                this._isNew = false;
+                if (window.OfflineSyncModulo) {
+                    await window.OfflineSyncModulo.enfileirarAcaoOffline({
+                        tipo: 'POST',
+                        path,
+                        body
+                    });
+                }
                 return this;
             }
-            const body = { ...this, _id: undefined, _isNew: undefined };
-            const user = window.apiClient?.getUser?.();
-            if (user?.tenantId && !body.tenantId) {
-                body.tenantId = user.tenantId;
-            }
-            const created = await window.apiClient.post(path, body);
-            Object.assign(this, created);
-            this._isNew = false;
-            return this;
         };
 
         ModelConstructor.find = function (filter = {}) {
@@ -81,13 +133,25 @@
                         params.push('ativos=1');
                     }
                     const url = params.length ? `${path}?${params.join('&')}` : path;
-                    console.log(`[db-bridge] Buscando ${name} - Token: ${window.apiClient.getToken() ? 'SIM' : 'NÃO'} - URL: ${url}`);
-                    let list = await window.apiClient.get(url);
-                    console.log(`[db-bridge] Recebidos ${list.length} itens de ${name}`);
+
+                    let list = [];
+                    try {
+                        list = await window.apiClient.get(url);
+                        // Atualiza cache local IndexedDB em segundo plano
+                        if (window.OfflineSyncModulo && Array.isArray(list)) {
+                            window.OfflineSyncModulo.salvarCacheColecao(storeName, list);
+                        }
+                    } catch (err) {
+                        console.warn(`[db-bridge] API indisponível para ${name}. Carregando do cache local IndexedDB...`);
+                        if (window.OfflineSyncModulo) {
+                            list = await window.OfflineSyncModulo.obterCacheColecao(storeName);
+                        }
+                    }
+
                     if (query._limit != null && Number.isFinite(query._limit)) {
                         list = list.slice(0, query._limit);
                     }
-                    return list.map(d => wrapDoc(path, d));
+                    return list.map(d => wrapDoc(path, d, name));
                 },
                 then(resolve, reject) {
                     return query.exec().then(resolve, reject);
@@ -97,8 +161,16 @@
         };
 
         ModelConstructor.countDocuments = async function () {
-            const list = await window.apiClient.get(path);
-            return list.length;
+            try {
+                const list = await window.apiClient.get(path);
+                return list.length;
+            } catch {
+                if (window.OfflineSyncModulo) {
+                    const cached = await window.OfflineSyncModulo.obterCacheColecao(storeName);
+                    return cached.length;
+                }
+                return 0;
+            }
         };
 
         ModelConstructor.create = async function (doc) {
@@ -107,23 +179,65 @@
             if (user?.tenantId && !body.tenantId) {
                 body.tenantId = user.tenantId;
             }
-            const created = await window.apiClient.post(path, body);
-            return wrapDoc(path, created);
+
+            try {
+                const created = await window.apiClient.post(path, body);
+                return wrapDoc(path, created, name);
+            } catch (err) {
+                console.warn(`[db-bridge] create offline [${name}]:`, err);
+                const tempId = 'temp_' + Math.random().toString(36).substring(2, 9);
+                const fallbackDoc = { ...body, _id: tempId };
+                if (window.OfflineSyncModulo) {
+                    await window.OfflineSyncModulo.enfileirarAcaoOffline({
+                        tipo: 'POST',
+                        path,
+                        body
+                    });
+                }
+                return wrapDoc(path, fallbackDoc, name);
+            }
         };
 
         ModelConstructor.findById = async function (id) {
-            const list = await window.apiClient.get(path);
-            const doc = list.find(d => d._id === id || d._id === String(id));
-            return doc ? wrapDoc(path, doc) : null;
+            let list = [];
+            try {
+                list = await window.apiClient.get(path);
+            } catch {
+                if (window.OfflineSyncModulo) {
+                    list = await window.OfflineSyncModulo.obterCacheColecao(storeName);
+                }
+            }
+            const doc = list.find(d => String(d._id) === String(id) || String(d.id) === String(id));
+            return doc ? wrapDoc(path, doc, name) : null;
         };
 
         ModelConstructor.findByIdAndUpdate = async function (id, update) {
-            const updated = await window.apiClient.patch(`${path}/${String(id)}`, update);
-            return updated;
+            try {
+                const updated = await window.apiClient.patch(`${path}/${String(id)}`, update);
+                return updated;
+            } catch (err) {
+                if (window.OfflineSyncModulo) {
+                    await window.OfflineSyncModulo.enfileirarAcaoOffline({
+                        tipo: 'PATCH',
+                        path: `${path}/${String(id)}`,
+                        body: update
+                    });
+                }
+                return { ...update, _id: id };
+            }
         };
 
         ModelConstructor.findByIdAndDelete = async function (id) {
-            await window.apiClient.delete(`${path}/${id}`);
+            try {
+                await window.apiClient.delete(`${path}/${id}`);
+            } catch (err) {
+                if (window.OfflineSyncModulo) {
+                    await window.OfflineSyncModulo.enfileirarAcaoOffline({
+                        tipo: 'DELETE',
+                        path: `${path}/${id}`
+                    });
+                }
+            }
         };
 
         return ModelConstructor;

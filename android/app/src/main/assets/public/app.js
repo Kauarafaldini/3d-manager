@@ -1222,8 +1222,11 @@ async function atualizarInterface() {
                                 <button class="btn-secondary spool-btn" onclick="abrirModalAjusteCarretel('${e._id}')" title="Ajustar saldo real após pesagem na balança">
                                     ⚖️ Pesar / Ajustar
                                 </button>
+                                <button class="btn-secondary spool-btn" onclick="SpoolLabelModulo.abrirModalEtiqueta({ _id: '${e._id}', nome: '${(e.nome || '').replace(/'/g, "\\'")}', gramas: ${gramas}, precoKg: ${precoKg} })" title="Gerar Etiqueta física com QR Code">
+                                    🏷️ Etiqueta QR
+                                </button>
                                 <button class="btn-secondary spool-btn" onclick="abrirModalPurgaCarretel('${e._id}')" title="Descontar gramas de purga, teste ou suporte">
-                                    🗑️ Purga / Desperdício
+                                    🗑️ Purga
                                 </button>
                                 <button class="btn-secondary spool-btn-icon" onclick="editarEstoque('${e._id}')" title="Editar Filamento">✏️</button>
                                 <button class="btn-delete-row spool-btn-icon" onclick="excluirEstoque('${e._id}')" title="Excluir Filamento">🗑️</button>

@@ -253,6 +253,71 @@ window.ImpressorasFilaModulo = (function () {
         }).join('');
     }
 
+    function aoMudarTipoConexao() {
+        const tipo = document.getElementById('impFormTipoConexao')?.value || 'manual';
+        const bloco = document.getElementById('impBlocoTelemetria');
+        if (!bloco) return;
+
+        if (tipo === 'manual') {
+            bloco.style.display = 'none';
+        } else {
+            bloco.style.display = 'block';
+            const portaInput = document.getElementById('impFormPorta');
+            if (portaInput && !portaInput.value) {
+                if (tipo === 'bambu') portaInput.value = '8883';
+                else if (tipo === 'klipper') portaInput.value = '7125';
+                else if (tipo === 'octoprint') portaInput.value = '5000';
+            }
+        }
+    }
+
+    async function testarConexaoFormulario() {
+        const protocol = document.getElementById('impFormTipoConexao')?.value || 'manual';
+        const ip = document.getElementById('impFormIp')?.value?.trim();
+        const port = parseInt(document.getElementById('impFormPorta')?.value, 10);
+        const serial = document.getElementById('impFormSerial')?.value?.trim();
+        const accessCode = document.getElementById('impFormAccessCode')?.value?.trim();
+        const nome = document.getElementById('impFormNome')?.value?.trim() || 'Impressora 3D';
+
+        if (!ip && protocol !== 'manual') {
+            if (typeof mostrarToast === 'function') mostrarToast('Informe o IP da impressora para testar', 'erro');
+            return;
+        }
+
+        if (typeof mostrarToast === 'function') mostrarToast(`⏳ Testando conexão via ${protocol.toUpperCase()}...`, 'ok');
+
+        try {
+            const res = await window.httpClient.post('/api/printers/connect', {
+                protocol,
+                ip,
+                port,
+                serial: serial || 'TEST_SN',
+                accessCode,
+                apiKey: accessCode,
+                nome
+            });
+
+            if (res && (res.ok || res.status === 'connected')) {
+                if (typeof mostrarToast === 'function') {
+                    mostrarToast(`✅ Conexão bem-sucedida com ${nome}!`, 'ok');
+                } else {
+                    alert('Conectado com sucesso!');
+                }
+            } else {
+                if (typeof mostrarToast === 'function') {
+                    mostrarToast(res?.message || '⚠️ Falha ao conectar. Verifique IP e porta.', 'erro');
+                } else {
+                    alert('Falha ao conectar: ' + (res?.message || 'verifique dados'));
+                }
+            }
+        } catch (err) {
+            console.error('Erro ao testar conexão:', err);
+            if (typeof mostrarToast === 'function') {
+                mostrarToast(`Erro ao testar: ${err.message}`, 'erro');
+            }
+        }
+    }
+
     function limparFormularioImpressora() {
         const idInput = document.getElementById('impFormId');
         if (idInput) idInput.value = '';
@@ -260,6 +325,16 @@ window.ImpressorasFilaModulo = (function () {
         if (fNome) fNome.value = '';
         const fModelo = document.getElementById('impFormModelo');
         if (fModelo) fModelo.value = '';
+        const fTipo = document.getElementById('impFormTipoConexao');
+        if (fTipo) fTipo.value = 'manual';
+        const fIp = document.getElementById('impFormIp');
+        if (fIp) fIp.value = '';
+        const fPorta = document.getElementById('impFormPorta');
+        if (fPorta) fPorta.value = '';
+        const fSerial = document.getElementById('impFormSerial');
+        if (fSerial) fSerial.value = '';
+        const fAccess = document.getElementById('impFormAccessCode');
+        if (fAccess) fAccess.value = '';
         const fWatts = document.getElementById('impFormWatts');
         if (fWatts) fWatts.value = '150';
         const fDesgaste = document.getElementById('impFormDesgaste');
@@ -268,6 +343,8 @@ window.ImpressorasFilaModulo = (function () {
         if (fTrabalho) fTrabalho.value = '1.00';
         const btnSalvar = document.getElementById('btnSalvarImpressora');
         if (btnSalvar) btnSalvar.textContent = 'Adicionar Impressora';
+
+        aoMudarTipoConexao();
     }
 
     function editarImpressora(id) {
@@ -280,8 +357,16 @@ window.ImpressorasFilaModulo = (function () {
         document.getElementById('impFormWatts').value = imp.potenciaWatts || 150;
         document.getElementById('impFormDesgaste').value = (imp.taxaDesgasteHora || 0).toFixed(2);
         document.getElementById('impFormTrabalho').value = (imp.custoHoraTrabalho || 1).toFixed(2);
-        document.getElementById('btnSalvarImpressora').textContent = 'Salvar Alterações';
 
+        if (document.getElementById('impFormTipoConexao')) {
+            document.getElementById('impFormTipoConexao').value = imp.tipoConexao || 'manual';
+        }
+        if (document.getElementById('impFormIp')) document.getElementById('impFormIp').value = imp.ip || '';
+        if (document.getElementById('impFormSerial')) document.getElementById('impFormSerial').value = imp.serial || '';
+        if (document.getElementById('impFormAccessCode')) document.getElementById('impFormAccessCode').value = imp.accessCode || '';
+
+        document.getElementById('btnSalvarImpressora').textContent = 'Salvar Alterações';
+        aoMudarTipoConexao();
         document.getElementById('impFormNome').focus();
     }
 
@@ -289,6 +374,10 @@ window.ImpressorasFilaModulo = (function () {
         const id = document.getElementById('impFormId')?.value?.trim();
         const nome = document.getElementById('impFormNome')?.value?.trim();
         const modelo = document.getElementById('impFormModelo')?.value?.trim() || 'Impressora 3D';
+        const tipoConexao = document.getElementById('impFormTipoConexao')?.value || 'manual';
+        const ip = document.getElementById('impFormIp')?.value?.trim() || '';
+        const serial = document.getElementById('impFormSerial')?.value?.trim() || '';
+        const accessCode = document.getElementById('impFormAccessCode')?.value?.trim() || '';
         const potenciaWatts = parseFloat(document.getElementById('impFormWatts')?.value) || 150;
         const taxaDesgasteHora = parseFloat(document.getElementById('impFormDesgaste')?.value) || 0;
         const custoHoraTrabalho = parseFloat(document.getElementById('impFormTrabalho')?.value) || 1.00;
@@ -302,22 +391,24 @@ window.ImpressorasFilaModulo = (function () {
             const ImpressoraModel = getSafeImpressoraModel();
             if (!ImpressoraModel) return;
 
+            const dadosImpressora = {
+                nome,
+                modelo,
+                tipoConexao,
+                ip,
+                serial,
+                accessCode,
+                potenciaWatts,
+                taxaDesgasteHora,
+                custoHoraTrabalho
+            };
+
             if (id) {
-                await ImpressoraModel.findByIdAndUpdate(id, {
-                    nome,
-                    modelo,
-                    potenciaWatts,
-                    taxaDesgasteHora,
-                    custoHoraTrabalho
-                });
+                await ImpressoraModel.findByIdAndUpdate(id, dadosImpressora);
                 if (typeof mostrarToast === 'function') mostrarToast(`Impressora "${nome}" atualizada!`, 'ok');
             } else {
                 await ImpressoraModel.create({
-                    nome,
-                    modelo,
-                    potenciaWatts,
-                    taxaDesgasteHora,
-                    custoHoraTrabalho,
+                    ...dadosImpressora,
                     status: 'disponivel',
                     ativo: true
                 });
@@ -674,6 +765,15 @@ window.ImpressorasFilaModulo = (function () {
                 mostrarToast(`🎉 Trabalho "${trabalho.nomeItem}" concluído com sucesso! Insumos baixados.`, 'ok');
             }
 
+            if (typeof NotificacoesModulo !== 'undefined') {
+                NotificacoesModulo.adicionarNotificacao({
+                    tipo: 'impressao_concluida',
+                    icone: '✅',
+                    titulo: `Impressão Concluída: ${trabalho.nomeItem}`,
+                    mensagem: `Peça "${trabalho.nomeItem}" finalizada com sucesso. Insumos baixados no estoque.`
+                });
+            }
+
             await carregarImpressoras();
             await carregarFila();
             renderizarPainelFila();
@@ -1024,12 +1124,15 @@ window.ImpressorasFilaModulo = (function () {
         preencherSeletorCalculadora,
         aoMudarImpressoraCalculadora,
         obterImpressoraSelecionadaCalculadora,
+        obterImpressoras: () => impressorasCache,
         abrirModalGerenciar,
         fecharModalGerenciar,
         aplicarPresetImpressora,
         salvarImpressora,
         editarImpressora,
         excluirImpressora,
+        aoMudarTipoConexao,
+        testarConexaoFormulario,
         abrirModalEnfileirarPreVenda,
         fecharModalEnfileirar,
         confirmarEnfileiramentoPreVenda,

@@ -52,75 +52,7 @@
         </div>
     </div>
 
-    <!-- CONFIGURAÇÕES DA CONTA & LOJA MODAL -->
-    <div class="theme-modal-overlay" id="perfilModalOverlay" onclick="PerfilLojaModulo.fecharModalPerfil(event)" style="display:none;">
-        <div class="theme-modal perfil-loja-modal" style="max-width:540px;">
-            <div class="theme-modal-header">
-                <h3>👤 Configurações da Loja & Perfil</h3>
-                <button class="btn-close-modal" onclick="PerfilLojaModulo.fecharModalPerfil()">✕</button>
-            </div>
 
-            <!-- FOTO / LOGOTIPO HEADER -->
-            <div class="perfil-foto-section" style="display:flex;align-items:center;gap:16px;background:var(--bg-secondary);padding:14px;border-radius:12px;margin-bottom:14px;border:1px solid var(--border-subtle);">
-                <div id="perfilFotoPreview" class="perfil-avatar-preview" style="width:64px;height:64px;border-radius:50%;background:linear-gradient(135deg, var(--primary), var(--accent));display:flex;align-items:center;justify-content:center;overflow:hidden;flex-shrink:0;box-shadow:0 4px 12px rgba(0,0,0,0.2);">
-                    <span style="font-size:28px;font-weight:800;color:white;">A</span>
-                </div>
-                <div style="flex:1;">
-                    <b style="font-size:13px;color:var(--text);display:block;margin-bottom:2px;">Foto / Logotipo da Loja</b>
-                    <span style="font-size:11px;color:var(--text-dim);display:block;margin-bottom:8px;">Aparece no cabeçalho e nas propostas em PDF.</span>
-                    <div style="display:flex;gap:6px;">
-                        <label class="btn-secondary" style="font-size:11px;padding:5px 10px;margin:0;cursor:pointer;">
-                            📷 Alterar Foto
-                            <input type="file" accept="image/*" style="display:none;" onchange="PerfilLojaModulo.carregarFotoLogotipo(event)">
-                        </label>
-                        <button type="button" class="btn-secondary" onclick="PerfilLojaModulo.removerFoto()" style="font-size:11px;padding:5px 10px;color:var(--danger);">Remover</button>
-                    </div>
-                </div>
-            </div>
-
-            <div class="grid-form">
-                <div class="input-container">
-                    <label>Nome do Responsável</label>
-                    <input type="text" id="perfilNome" placeholder="Seu nome completo">
-                </div>
-                <div class="input-container">
-                    <label>Nome Fantasia da Loja / Empresa</label>
-                    <input type="text" id="perfilEmpresa" placeholder="Ex: Oficina 3D Studio">
-                </div>
-                <div class="input-container">
-                    <label>CPF ou CNPJ</label>
-                    <input type="text" id="perfilCpfCnpj" placeholder="000.000.000-00 ou CNPJ" oninput="PerfilLojaModulo.mascaraCpfCnpj(this)">
-                </div>
-                <div class="input-container">
-                    <label>E-mail da Conta</label>
-                    <input type="email" id="perfilEmail" disabled style="opacity:0.7;cursor:not-allowed;">
-                </div>
-                <div class="input-container">
-                    <label>WhatsApp / Telefone Comercial</label>
-                    <input type="text" id="perfilTelefone" placeholder="(11) 99999-9999">
-                </div>
-                <div class="input-container">
-                    <label>Chave PIX da Loja (para Orçamentos)</label>
-                    <input type="text" id="perfilChavePix" placeholder="Chave PIX (e-mail, CPF, tel ou chave aleatória)">
-                </div>
-            </div>
-
-            <!-- SEÇÃO DE IMPRESSORAS 3D DA LOJA -->
-            <div style="margin-top:14px;border-top:1px solid var(--border-subtle);padding-top:12px;">
-                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
-                    <h4 style="margin:0;font-size:13px;color:var(--text);display:flex;align-items:center;gap:6px;">
-                        <span>🖨️ Suas Impressoras 3D</span>
-                    </h4>
-                </div>
-                <div id="perfilListaImpressoras" style="max-height:160px;overflow-y:auto;"></div>
-            </div>
-
-            <div style="display:flex;gap:10px;margin-top:16px;">
-                <button class="btn-main" id="btnSalvarPerfilLoja" type="button" onclick="PerfilLojaModulo.salvarPerfil()" style="flex:1;margin:0;">Salvar Configurações</button>
-                <button class="btn-secondary" type="button" onclick="PerfilLojaModulo.fecharModalPerfil()" style="padding:12px 18px;">Fechar</button>
-            </div>
-        </div>
-    </div>
 
     <!-- CENTRAL DE NOTIFICAÇÕES MODAL -->
     <div class="theme-modal-overlay" id="notificacoesModalOverlay" onclick="NotificacoesModulo.fecharModalNotificacoes(event)" style="display:none;">
@@ -203,8 +135,11 @@
 
             <div class="grid-form" style="background:var(--bg-secondary);padding:14px;border-radius:12px;border:1px solid var(--border-subtle);margin-bottom:14px;">
                 <div class="input-container">
-                    <label>Sua Loja / Marca</label>
-                    <input type="text" id="pdfEmpresaNome" placeholder="Ex: 3D Manager Studio" oninput="PdfOrcamentoModulo.atualizarPreviewProposta()">
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+                        <label style="margin:0;">Sua Loja / Marca</label>
+                        <span style="font-size:10px;color:var(--primary);font-weight:600;">🔒 Puxado do Perfil</span>
+                    </div>
+                    <input type="text" id="pdfEmpresaNome" readonly style="opacity:0.85;cursor:not-allowed;background:var(--bg-primary);" title="Nome definido nas Configurações da Loja">
                 </div>
                 <div class="input-container">
                     <label>Nome do Cliente</label>
@@ -215,7 +150,10 @@
                     <input type="text" id="pdfClienteTelefone" placeholder="Ex: (11) 99999-9999" oninput="PdfOrcamentoModulo.atualizarPreviewProposta()">
                 </div>
                 <div class="input-container">
-                    <label>Chave PIX da Loja</label>
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+                        <label style="margin:0;">Chave PIX da Loja</label>
+                        <span style="font-size:10px;color:var(--text-dim);">Puxada do Perfil</span>
+                    </div>
                     <input type="text" id="pdfChavePix" placeholder="Ex: seu-pix@email.com" oninput="PdfOrcamentoModulo.atualizarPreviewProposta()">
                 </div>
                 <div class="input-container">
@@ -230,17 +168,52 @@
                     <label>Quantidade</label>
                     <input type="number" min="1" id="pdfItemQtd" value="1" oninput="PdfOrcamentoModulo.atualizarPreviewProposta()">
                 </div>
-                <div class="input-container">
-                    <label>Prazo de Produção</label>
-                    <input type="text" id="pdfPrazo" value="2 a 4 dias úteis" oninput="PdfOrcamentoModulo.atualizarPreviewProposta()">
+                <div class="input-container full" style="background:var(--bg-input);padding:12px;border-radius:10px;border:1px solid var(--border-subtle);">
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+                        <label style="margin:0;font-weight:700;">⏱️ Prazo de Produção</label>
+                        <span id="pdfPrazoBadge" style="font-size:11px;font-weight:700;color:var(--primary);background:rgba(6,182,212,0.15);padding:2px 8px;border-radius:6px;">3 dias úteis</span>
+                    </div>
+                    <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
+                        <span style="font-size:11px;color:var(--text-dim);">1d</span>
+                        <input type="range" id="pdfPrazoSlider" min="1" max="30" value="3" style="flex:1;cursor:pointer;" oninput="PdfOrcamentoModulo.aoMudarSliderPrazo(this.value)">
+                        <span style="font-size:11px;color:var(--text-dim);">30d</span>
+                        <select id="pdfPrazoTipoUnidade" onchange="PdfOrcamentoModulo.aoMudarSliderPrazo()" style="width:auto;padding:4px 8px;font-size:11px;">
+                            <option value="úteis" selected>dias úteis</option>
+                            <option value="corridos">dias corridos</option>
+                            <option value="horas">horas</option>
+                        </select>
+                    </div>
+                    <div style="display:flex;align-items:center;gap:6px;">
+                        <input type="checkbox" id="pdfPrazoCustomCheck" onchange="PdfOrcamentoModulo.togglePrazoPersonalizado(this.checked)" style="width:auto;">
+                        <label for="pdfPrazoCustomCheck" style="font-size:11px;color:var(--text-muted);cursor:pointer;margin:0;">Definir prazo personalizado / maior que 30 dias</label>
+                    </div>
+                    <input type="text" id="pdfPrazoCustomInput" placeholder="Ex: 45 dias úteis, A combinar com o cliente..." style="display:none;margin-top:8px;" oninput="PdfOrcamentoModulo.atualizarPreviewProposta()">
+                    <input type="hidden" id="pdfPrazo" value="3 dias úteis">
                 </div>
                 <div class="input-container full">
                     <label>Condições de Pagamento</label>
                     <input type="text" id="pdfCondicoes" value="50% de sinal no pedido + 50% na entrega." oninput="PdfOrcamentoModulo.atualizarPreviewProposta()">
                 </div>
-                <div class="input-container">
-                    <label>Validade da Proposta (dias)</label>
-                    <input type="number" id="pdfValidade" value="7" oninput="PdfOrcamentoModulo.atualizarPreviewProposta()">
+                <div class="input-container full" style="background:var(--bg-input);padding:12px;border-radius:10px;border:1px solid var(--border-subtle);">
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+                        <label style="margin:0;font-weight:700;">📅 Validade da Proposta</label>
+                        <span id="pdfValidadeBadge" style="font-size:11px;font-weight:700;color:var(--accent);background:rgba(124,58,237,0.15);padding:2px 8px;border-radius:6px;">7 dias</span>
+                    </div>
+                    <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
+                        <span style="font-size:11px;color:var(--text-dim);">1d</span>
+                        <input type="range" id="pdfValidadeSlider" min="1" max="30" value="7" style="flex:1;cursor:pointer;" oninput="PdfOrcamentoModulo.aoMudarSliderValidade(this.value)">
+                        <span style="font-size:11px;color:var(--text-dim);">30d</span>
+                    </div>
+                    <div style="display:flex;align-items:center;gap:6px;">
+                        <input type="checkbox" id="pdfValidadeCustomCheck" onchange="PdfOrcamentoModulo.toggleValidadePersonalizada(this.checked)" style="width:auto;">
+                        <label for="pdfValidadeCustomCheck" style="font-size:11px;color:var(--text-muted);cursor:pointer;margin:0;">Definir validade personalizada</label>
+                    </div>
+                    <input type="text" id="pdfValidadeCustomInput" placeholder="Ex: 60 dias, Válido até 30/11..." style="display:none;margin-top:8px;" oninput="PdfOrcamentoModulo.atualizarPreviewProposta()">
+                    <input type="hidden" id="pdfValidade" value="7">
+                </div>
+                <div class="input-container full">
+                    <label>📝 Observações & Requisitos Especiais (opcional)</label>
+                    <textarea id="pdfObservacoes" rows="2" placeholder="Ex: Peça com 20% de preenchimento gyroid, cor preta com acabamento fosco. Frete por conta do comprador." oninput="PdfOrcamentoModulo.atualizarPreviewProposta()" style="resize:vertical;min-height:54px;"></textarea>
                 </div>
             </div>
 
@@ -661,6 +634,158 @@
         </header>
 
         <main class="main-content">
+            
+            <!-- SEÇÃO DE CONFIGURAÇÕES DA LOJA & PERFIL (TELA COMPLETA) -->
+            <section id="sec-configuracoes" class="app-section" style="display:none">
+                <div class="card-glass" style="display:flex;justify-content:space-between;align-items:center;padding:12px 16px;margin-bottom:16px;">
+                    <button type="button" class="btn-secondary" onclick="nav('home')" style="display:flex;align-items:center;gap:6px;padding:8px 14px;font-size:12px;font-weight:700;">
+                        ⬅️ Voltar
+                    </button>
+                    <div style="text-align:center;">
+                        <h3 style="margin:0;font-size:15px;color:var(--text);display:flex;align-items:center;gap:6px;justify-content:center;">
+                            <span>⚙️ Configurações & Perfil da Loja</span>
+                        </h3>
+                        <span style="font-size:11px;color:var(--text-dim);">Identidade visual, PIX, contatos e print farm</span>
+                    </div>
+                    <button type="button" class="btn-main" id="btnSalvarPerfilLojaTopo" onclick="PerfilLojaModulo.salvarPerfil()" style="margin:0;padding:8px 16px;font-size:12px;">
+                        💾 Salvar
+                    </button>
+                </div>
+
+                <!-- CARD 1: DADOS DA LOJA & RESPONSÁVEL -->
+                <div class="card-glass" style="margin-bottom:16px;">
+                    <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;">
+                        <span style="font-size:20px;">🏪</span>
+                        <div>
+                            <h3 style="margin:0;font-size:14px;color:var(--text);">Identidade Visual & Dados da Loja</h3>
+                            <span style="font-size:11px;color:var(--text-dim);">Esses dados aparecem nos orçamentos em PDF, propostas e links de rastreio</span>
+                        </div>
+                    </div>
+
+                    <!-- FOTO / LOGOTIPO HEADER -->
+                    <div class="perfil-foto-section" style="display:flex;align-items:center;gap:16px;background:var(--bg-secondary);padding:14px;border-radius:12px;margin-bottom:16px;border:1px solid var(--border-subtle);">
+                        <div id="perfilFotoPreview" class="perfil-avatar-preview" style="width:68px;height:68px;border-radius:50%;background:linear-gradient(135deg, var(--primary), var(--accent));display:flex;align-items:center;justify-content:center;overflow:hidden;flex-shrink:0;box-shadow:0 4px 14px rgba(0,0,0,0.3);">
+                            <span style="font-size:30px;font-weight:800;color:white;">A</span>
+                        </div>
+                        <div style="flex:1;">
+                            <b style="font-size:13px;color:var(--text);display:block;margin-bottom:2px;">Foto / Logotipo da Marca</b>
+                            <span style="font-size:11px;color:var(--text-dim);display:block;margin-bottom:8px;">Formatos JPG ou PNG. Recomendado quadrado (300x300px).</span>
+                            <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                                <label class="btn-main" style="font-size:11px;padding:6px 12px;margin:0;cursor:pointer;">
+                                    📷 Alterar Foto
+                                    <input type="file" accept="image/*" style="display:none;" onchange="PerfilLojaModulo.carregarFotoLogotipo(event)">
+                                </label>
+                                <button type="button" class="btn-secondary" onclick="PerfilLojaModulo.removerFoto()" style="font-size:11px;padding:6px 12px;color:var(--danger);">Remover</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="grid-form">
+                        <div class="input-container">
+                            <label>Nome do Responsável</label>
+                            <input type="text" id="perfilNome" placeholder="Seu nome completo">
+                        </div>
+                        <div class="input-container">
+                            <label>Nome Fantasia da Loja / Marca</label>
+                            <input type="text" id="perfilEmpresa" placeholder="Ex: Oficina 3D Studio">
+                        </div>
+                        <div class="input-container">
+                            <label>CPF ou CNPJ (para propostas)</label>
+                            <input type="text" id="perfilCpfCnpj" placeholder="000.000.000-00 ou CNPJ" oninput="PerfilLojaModulo.mascaraCpfCnpj(this)">
+                        </div>
+                        <div class="input-container">
+                            <label>E-mail da Conta</label>
+                            <input type="email" id="perfilEmail" disabled style="opacity:0.7;cursor:not-allowed;">
+                        </div>
+                        <div class="input-container">
+                            <label>WhatsApp / Telefone Comercial</label>
+                            <input type="text" id="perfilTelefone" placeholder="(11) 99999-9999">
+                            <small style="font-size:10px;color:var(--text-dim);">Usado no botão "Fale Conosco" do rastreio de pedidos.</small>
+                        </div>
+                        <div class="input-container">
+                            <label>Chave PIX Oficial da Loja</label>
+                            <input type="text" id="perfilChavePix" placeholder="Chave PIX (e-mail, CPF, celular ou aleatória)">
+                            <small style="font-size:10px;color:var(--text-dim);">Puxada automaticamente nos orçamentos e relatórios.</small>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- CARD 2: GESTÃO DE IMPRESSORAS 3D -->
+                <div class="card-glass" style="margin-bottom:16px;">
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+                        <div style="display:flex;align-items:center;gap:8px;">
+                            <span style="font-size:20px;">🖨️</span>
+                            <div>
+                                <h3 style="margin:0;font-size:14px;color:var(--text);">Print Farm & Impressoras 3D</h3>
+                                <span style="font-size:11px;color:var(--text-dim);">Consumo em Watts, taxas de desgaste e status</span>
+                            </div>
+                        </div>
+                        <button type="button" class="btn-main" onclick="ImpressorasFilaModulo.abrirModalGerenciar()" style="margin:0;padding:6px 12px;font-size:11px;">➕ Adicionar Impressora</button>
+                    </div>
+                    <div id="perfilListaImpressoras" style="max-height:280px;overflow-y:auto;"></div>
+                </div>
+
+                <!-- CARD 3: APARÊNCIA & TEMAS -->
+                <div class="card-glass" style="margin-bottom:16px;">
+                    <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
+                        <span style="font-size:20px;">🎨</span>
+                        <div>
+                            <h3 style="margin:0;font-size:14px;color:var(--text);">Tema & Aparência Visual</h3>
+                            <span style="font-size:11px;color:var(--text-dim);">Escolha a paleta de cores preferida da interface</span>
+                        </div>
+                    </div>
+                    <div class="theme-section-label" style="margin-top:4px;">🌙 Temas Escuros</div>
+                    <div class="theme-grid" style="margin-bottom:14px;">
+                        <div class="theme-card" id="theme-card-obsidian-cfg" onclick="aplicarTema('obsidian')">
+                            <div class="theme-swatch" style="background:linear-gradient(135deg,#0891b2,#7c3aed);">🌑</div>
+                            <span class="theme-name">Obsidian</span>
+                            <span class="theme-sub">Azul + Cyan</span>
+                        </div>
+                        <div class="theme-card" id="theme-card-neon-cfg" onclick="aplicarTema('neon')">
+                            <div class="theme-swatch" style="background:linear-gradient(135deg,#a21caf,#6d28d9);">⚡</div>
+                            <span class="theme-name">Neon</span>
+                            <span class="theme-sub">Roxo + Magenta</span>
+                        </div>
+                        <div class="theme-card" id="theme-card-forest-cfg" onclick="aplicarTema('forest')">
+                            <div class="theme-swatch" style="background:linear-gradient(135deg,#059669,#065f46);">🌿</div>
+                            <span class="theme-name">Forest</span>
+                            <span class="theme-sub">Verde + Mint</span>
+                        </div>
+                    </div>
+                    <div class="theme-section-label">☀️ Temas Claros</div>
+                    <div class="theme-grid">
+                        <div class="theme-card" id="theme-card-arctic-cfg" onclick="aplicarTema('arctic')">
+                            <div class="theme-swatch" style="background:linear-gradient(135deg,#0284c7,#7c3aed);">❄️</div>
+                            <span class="theme-name">Arctic</span>
+                            <span class="theme-sub">Branco + Azul</span>
+                        </div>
+                        <div class="theme-card" id="theme-card-sunrise-cfg" onclick="aplicarTema('sunrise')">
+                            <div class="theme-swatch" style="background:linear-gradient(135deg,#ea580c,#dc2626);">🌅</div>
+                            <span class="theme-name">Sunrise</span>
+                            <span class="theme-sub">Creme + Laranja</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- CARD 4: CONEXÃO & SINCRONIZAÇÃO -->
+                <div class="card-glass" style="margin-bottom:20px;">
+                    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;">
+                        <div style="display:flex;align-items:center;gap:8px;">
+                            <span style="font-size:20px;">☁️</span>
+                            <div>
+                                <h3 style="margin:0;font-size:14px;color:var(--text);">Sincronização & Modo Offline</h3>
+                                <span style="font-size:11px;color:var(--text-dim);">Os dados ficam salvos localmente e sobem automaticamente para a nuvem</span>
+                            </div>
+                        </div>
+                        <button type="button" class="btn-secondary" onclick="if(window.OfflineSyncModulo) window.OfflineSyncModulo.sincronizarPendencias(); if(typeof mostrarToast==='function') mostrarToast('Sincronização iniciada...');" style="padding:8px 12px;font-size:11px;">🔄 Sincronizar Agora</button>
+                    </div>
+                </div>
+
+                <div style="display:flex;gap:12px;margin-bottom:30px;">
+                    <button class="btn-main" id="btnSalvarPerfilLoja" type="button" onclick="PerfilLojaModulo.salvarPerfil()" style="flex:1.5;margin:0;padding:14px;font-size:14px;">💾 Salvar Configurações da Loja</button>
+                    <button class="btn-secondary" type="button" onclick="nav('home')" style="flex:1;padding:14px;font-size:13px;">⬅️ Voltar ao Início</button>
+                </div>
+            </section>
             
             <section id="sec-home" class="app-section" style="display:block">
                 <div class="card-glass" style="background:var(--primary-btn);border-color:transparent;">

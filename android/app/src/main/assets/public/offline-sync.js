@@ -82,34 +82,6 @@ window.OfflineSyncModulo = (function () {
     }
 
     /**
-     * Remove um item específico do cache local
-     */
-    async function removerItemCache(collectionName, id) {
-        if (!id) return;
-        const strId = String(id);
-        const db = await initDB();
-        if (db) {
-            try {
-                const tx = db.transaction([collectionName], 'readwrite');
-                const store = tx.objectStore(collectionName);
-                store.delete(strId);
-            } catch (err) {
-                console.warn(`[offline-sync] Erro ao remover ${strId} de ${collectionName}:`, err);
-            }
-        }
-        try {
-            const saved = localStorage.getItem(`3dm_cache_${collectionName}`);
-            if (saved) {
-                const parsed = JSON.parse(saved);
-                if (Array.isArray(parsed)) {
-                    const filtered = parsed.filter(item => String(item._id || item.id) !== strId);
-                    localStorage.setItem(`3dm_cache_${collectionName}`, JSON.stringify(filtered));
-                }
-            }
-        } catch (_) {}
-    }
-
-    /**
      * Obtém coleção do cache local
      */
     async function obterCacheColecao(collectionName) {
@@ -299,7 +271,6 @@ window.OfflineSyncModulo = (function () {
     return {
         initDB,
         salvarCacheColecao,
-        removerItemCache,
         obterCacheColecao,
         enfileirarAcaoOffline,
         obterQuantidadePendencias,

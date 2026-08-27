@@ -2212,6 +2212,515 @@ select option {
     transition: width 0.5s ease;
 }
 
+/* =============================================
+   PROPOSTA COMERCIAL EM PDF / ORÇAMENTO
+   ============================================= */
+.orcamento-pdf-modal {
+    max-width: 820px !important;
+    width: 95vw;
+    max-height: 92vh;
+    overflow-y: auto;
+}
 
+.pdf-preview-scroll {
+    background: #475569;
+    padding: 18px;
+    border-radius: 12px;
+    display: flex;
+    justify-content: center;
+    overflow-x: auto;
+    margin: 14px 0;
+    box-shadow: inset 0 2px 8px rgba(0,0,0,0.3);
+}
 
+.orcamento-doc-paper {
+    background: #ffffff;
+    color: #0f172a;
+    width: 100%;
+    max-width: 660px;
+    padding: 32px;
+    border-radius: 4px;
+    box-shadow: 0 8px 30px rgba(0,0,0,0.35);
+    font-size: 12px;
+    line-height: 1.5;
+}
 
+.doc-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    border-bottom: 2px solid #0891b2;
+    padding-bottom: 18px;
+    margin-bottom: 18px;
+}
+
+.doc-brand {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.doc-logo-box {
+    width: 46px;
+    height: 46px;
+    background: linear-gradient(135deg, #0891b2, #7c3aed);
+    color: white;
+    font-size: 24px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.doc-company-name {
+    margin: 0;
+    font-size: 18px;
+    font-weight: 800;
+    color: #0f172a;
+    letter-spacing: -0.3px;
+}
+
+.doc-company-sub {
+    font-size: 10px;
+    color: #64748b;
+    display: block;
+}
+
+.doc-meta {
+    text-align: right;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.doc-tag {
+    font-size: 9px;
+    font-weight: 700;
+    background: #0891b2;
+    color: white;
+    padding: 2px 8px;
+    border-radius: 4px;
+    display: inline-block;
+    align-self: flex-end;
+}
+
+.doc-num {
+    font-size: 15px;
+    color: #0f172a;
+    font-weight: 800;
+}
+
+.doc-client-card {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    padding: 12px 16px;
+    display: grid;
+    grid-template-columns: 2fr 1.5fr 1.5fr;
+    gap: 12px;
+    margin-bottom: 18px;
+}
+
+.doc-lbl {
+    font-size: 9px;
+    font-weight: 700;
+    text-transform: uppercase;
+    color: #64748b;
+    display: block;
+    margin-bottom: 2px;
+}
+
+.doc-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 18px;
+}
+
+.doc-table th {
+    background: #f1f5f9;
+    color: #475569;
+    font-size: 10px;
+    text-transform: uppercase;
+    font-weight: 700;
+    padding: 8px 10px;
+    border-top: 1px solid #e2e8f0;
+    border-bottom: 1px solid #e2e8f0;
+    text-align: left;
+}
+
+.doc-table td {
+    padding: 12px 10px;
+    border-bottom: 1px solid #e2e8f0;
+    vertical-align: top;
+    color: #334155;
+}
+
+.doc-footer-grid {
+    display: grid;
+    grid-template-columns: 1.3fr 1fr;
+    gap: 18px;
+    margin-bottom: 18px;
+}
+
+.doc-payment-box {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    padding: 12px;
+}
+
+.doc-totals-box {
+    background: #f1f5f9;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    padding: 14px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+
+.doc-total-line {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 12px;
+    color: #475569;
+    margin-bottom: 4px;
+}
+
+.doc-terms {
+    border-top: 1px solid #e2e8f0;
+    padding-top: 10px;
+    font-size: 9px;
+    color: #64748b;
+    line-height: 1.4;
+}
+
+/* =============================================
+   ETIQUETA TÉRMICA DE CARRETEL
+   ============================================= */
+.spool-thermal-label {
+    background: #ffffff;
+    color: #0f172a;
+    width: 360px;
+    padding: 14px;
+    border: 2px dashed #94a3b8;
+    border-radius: 8px;
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.2);
+    margin: 0 auto;
+}
+
+.label-qr-col {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+}
+
+.label-code-id {
+    font-size: 9px;
+    font-family: monospace;
+    font-weight: 700;
+    color: #475569;
+}
+
+.label-info-col {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.label-brand-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.label-logo {
+    font-size: 10px;
+    font-weight: 800;
+    color: #0891b2;
+}
+
+.label-badge {
+    font-size: 8px;
+    font-weight: 700;
+    background: #0f172a;
+    color: white;
+    padding: 1px 5px;
+    border-radius: 3px;
+}
+
+.label-material-name {
+    font-size: 13px;
+    font-weight: 800;
+    color: #0f172a;
+    margin: 2px 0 4px;
+    line-height: 1.2;
+}
+
+.label-specs-grid {
+    display: flex;
+    gap: 12px;
+    background: #f8fafc;
+    padding: 6px 8px;
+    border-radius: 6px;
+    border: 1px solid #e2e8f0;
+}
+
+.lbl-dim {
+    font-size: 8px;
+    font-weight: 700;
+    color: #64748b;
+    display: block;
+}
+
+.lbl-val {
+    font-size: 11px;
+    font-weight: 700;
+    color: #0f172a;
+}
+
+.label-footer-info {
+    font-size: 8px;
+    color: #94a3b8;
+    margin-top: 4px;
+}
+
+/* =============================================
+   QR CODE SCANNER MODAL (CÂMERA)
+   ============================================= */
+.qr-scanner-wrapper {
+    position: relative;
+    width: 100%;
+    max-width: 380px;
+    height: 300px;
+    margin: 0 auto 14px;
+    background: #000;
+    border-radius: 16px;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.qr-scanner-video {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.qr-viewfinder {
+    position: absolute;
+    width: 200px;
+    height: 200px;
+    border: 2px solid rgba(6, 182, 212, 0.8);
+    border-radius: 16px;
+    box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.5);
+    pointer-events: none;
+}
+
+.qr-laser-line {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: linear-gradient(90deg, transparent, #06b6d4, #10b981, transparent);
+    box-shadow: 0 0 10px #06b6d4;
+    animation: qrScanLaser 2.2s infinite ease-in-out;
+}
+
+@keyframes qrScanLaser {
+    0%, 100% { top: 10%; opacity: 0.8; }
+    50% { top: 90%; opacity: 1; }
+}
+
+/* =============================================
+   PRINT MEDIA STYLESHEET (@media print)
+   ============================================= */
+@media print {
+    body * {
+        visibility: hidden !important;
+    }
+    
+    /* Quando imprimindo a proposta */
+    #orcamentoPdfModalOverlay,
+    #orcamentoPdfModalOverlay *,
+    #pdfOrcamentoDocumento,
+    #pdfOrcamentoDocumento * {
+        visibility: visible !important;
+    }
+
+    #pdfOrcamentoDocumento {
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 100%;
+        margin: 0;
+        padding: 0;
+    }
+
+    .orcamento-doc-paper {
+        box-shadow: none !important;
+        border: none !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        padding: 0 !important;
+    }
+
+    .theme-modal-header,
+    .theme-modal-header *,
+    .btn-main,
+    .btn-secondary,
+    .grid-form,
+    .btn-close-modal {
+        display: none !important;
+    }
+
+    /* Quando imprimindo etiqueta */
+    #spoolLabelModalOverlay,
+    #spoolLabelModalOverlay *,
+    #spoolThermalLabelPrint,
+    #spoolThermalLabelPrint * {
+        visibility: visible !important;
+    }
+
+    #spoolThermalLabelPrint {
+        position: absolute;
+        left: 0;
+        top: 0;
+        border: 1px solid #000 !important;
+        box-shadow: none !important;
+    }
+}
+
+/* =============================================
+   NOTIFICAÇÕES & SINO NO CABEÇALHO
+   ============================================= */
+.btn-notification-bell {
+    position: relative;
+}
+
+.notification-badge {
+    position: absolute;
+    top: -4px;
+    right: -4px;
+    background: #ef4444;
+    color: white;
+    font-size: 10px;
+    font-weight: 800;
+    min-width: 18px;
+    height: 18px;
+    border-radius: 9px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 4px;
+    border: 2px solid var(--bg-card);
+    box-shadow: 0 2px 6px rgba(239, 68, 68, 0.5);
+}
+
+.notification-badge.pulse {
+    animation: notifPulse 2s infinite ease-in-out;
+}
+
+@keyframes notifPulse {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.18); }
+}
+
+.notif-item {
+    display: flex;
+    gap: 12px;
+    padding: 12px;
+    border-radius: 10px;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-subtle);
+    cursor: pointer;
+    transition: all 0.15s ease;
+    position: relative;
+}
+
+.notif-item:hover {
+    background: var(--bg-card);
+    border-color: var(--primary);
+    transform: translateY(-1px);
+}
+
+.notif-nova {
+    border-left: 4px solid var(--primary);
+    background: rgba(6, 182, 212, 0.05);
+}
+
+.notif-lida {
+    opacity: 0.75;
+}
+
+.notif-icon-col {
+    font-size: 20px;
+    display: flex;
+    align-items: flex-start;
+    padding-top: 2px;
+}
+
+.notif-content-col {
+    flex: 1;
+}
+
+.notif-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-bottom: 2px;
+}
+
+.notif-title {
+    font-size: 13px;
+    color: var(--text);
+}
+
+.notif-time {
+    font-size: 10px;
+    color: var(--text-dim);
+}
+
+.notif-desc {
+    margin: 0;
+    font-size: 11px;
+    color: var(--text-muted);
+    line-height: 1.4;
+}
+
+.notif-unread-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--primary);
+    position: absolute;
+    top: 14px;
+    right: 12px;
+}
+
+/* =============================================
+   PERFIL & LOGOTIPO DA LOJA
+   ============================================= */
+.perfil-avatar-preview img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.mobile-header .avatar {
+    cursor: pointer;
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.mobile-header .avatar:hover {
+    transform: scale(1.08);
+    box-shadow: 0 0 12px var(--primary);
+}
