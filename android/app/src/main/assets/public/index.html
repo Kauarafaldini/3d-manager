@@ -550,26 +550,29 @@
                 </div>
 
                 <!-- CAMPOS DE TELEMETRIA DINÂMICOS -->
-                <div id="impBlocoTelemetria" class="input-container full" style="display:none;background:var(--bg-input);padding:12px;border-radius:10px;border:1px solid var(--border-subtle);">
+                <div id="impBlocoTelemetria" class="input-container full" style="display:none;background:var(--bg-secondary);padding:14px;border-radius:12px;border:1px solid var(--border-input);">
+                    <div style="font-size:12px;font-weight:700;color:var(--primary);margin-bottom:8px;">
+                        🌐 Conexão Direta com a Impressora (IP Local / Wi-Fi)
+                    </div>
                     <div class="grid-form">
                         <div class="input-container">
-                            <label>Endereço IP (Rede Local)</label>
-                            <input type="text" id="impFormIp" placeholder="Ex: 192.168.1.150">
+                            <label>Endereço IP (Wi-Fi Local)</label>
+                            <input type="text" id="impFormIp" placeholder="Ex: 192.168.1.150" autocomplete="off">
                         </div>
                         <div class="input-container">
                             <label>Porta</label>
-                            <input type="number" id="impFormPorta" placeholder="Ex: 7125 ou 8883">
+                            <input type="number" id="impFormPorta" placeholder="Ex: 8883 ou 7125">
                         </div>
                         <div class="input-container">
                             <label>Serial / Identificador</label>
-                            <input type="text" id="impFormSerial" placeholder="Ex: 01P00A492800123">
+                            <input type="text" id="impFormSerial" placeholder="Ex: 01P00A492800123" autocomplete="off">
                         </div>
                         <div class="input-container">
                             <label>Código de Acesso / API Key</label>
-                            <input type="password" id="impFormAccessCode" placeholder="Código de 8 dígitos ou Token">
+                            <input type="password" id="impFormAccessCode" placeholder="Código de 8 dígitos ou Token" autocomplete="off">
                         </div>
                         <div class="input-container full">
-                            <button type="button" class="btn-secondary" onclick="ImpressorasFilaModulo.testarConexaoFormulario()" style="width:100%;">🔗 Testar Conexão com a Impressora</button>
+                            <button type="button" class="btn-secondary" onclick="ImpressorasFilaModulo.testarConexaoFormulario()" style="width:100%;margin-top:4px;">🔗 Testar Conexão com a Impressora</button>
                         </div>
                     </div>
                 </div>

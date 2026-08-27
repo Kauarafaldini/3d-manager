@@ -198,17 +198,65 @@
             }
         };
 
-        ModelConstructor.findById = async function (id) {
-            let list = [];
-            try {
-                list = await window.apiClient.get(path);
-            } catch {
-                if (window.OfflineSyncModulo) {
-                    list = await window.OfflineSyncModulo.obterCacheColecao(storeName);
+        ModelConstructor.findById = function (id) {
+            const query = {
+                lean() { return query; },
+                async exec() {
+                    let list = [];
+                    try {
+                        list = await window.apiClient.get(path);
+                        if (window.OfflineSyncModulo && Array.isArray(list)) {
+                            window.OfflineSyncModulo.salvarCacheColecao(storeName, list);
+                        }
+                    } catch {
+                        if (window.OfflineSyncModulo) {
+                            list = await window.OfflineSyncModulo.obterCacheColecao(storeName);
+                        }
+                    }
+                    const doc = list.find(d => String(d._id) === String(id) || String(d.id) === String(id));
+                    return doc ? wrapDoc(path, doc, name) : null;
+                },
+                then(resolve, reject) {
+                    return query.exec().then(resolve, reject);
+                },
+                catch(reject) {
+                    return query.exec().catch(reject);
                 }
-            }
-            const doc = list.find(d => String(d._id) === String(id) || String(d.id) === String(id));
-            return doc ? wrapDoc(path, doc, name) : null;
+            };
+            return query;
+        };
+
+        ModelConstructor.findOne = function (filter = {}) {
+            const query = {
+                lean() { return query; },
+                async exec() {
+                    let list = [];
+                    try {
+                        list = await window.apiClient.get(path);
+                        if (window.OfflineSyncModulo && Array.isArray(list)) {
+                            window.OfflineSyncModulo.salvarCacheColecao(storeName, list);
+                        }
+                    } catch {
+                        if (window.OfflineSyncModulo) {
+                            list = await window.OfflineSyncModulo.obterCacheColecao(storeName);
+                        }
+                    }
+                    const doc = list.find(d => {
+                        for (const key of Object.keys(filter)) {
+                            if (String(d[key]) !== String(filter[key])) return false;
+                        }
+                        return true;
+                    });
+                    return doc ? wrapDoc(path, doc, name) : null;
+                },
+                then(resolve, reject) {
+                    return query.exec().then(resolve, reject);
+                },
+                catch(reject) {
+                    return query.exec().catch(reject);
+                }
+            };
+            return query;
         };
 
         ModelConstructor.findByIdAndUpdate = async function (id, update) {

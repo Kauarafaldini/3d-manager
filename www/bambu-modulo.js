@@ -524,6 +524,7 @@
         toggleLuzCamara,
         enviarComando,
         iniciarSimuladorLocal,
+        getConfig: () => ({ ...currentConfig }),
         abrirModalConfig,
         fecharModalConfig,
         salvarEConectarModal,

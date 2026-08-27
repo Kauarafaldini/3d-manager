@@ -790,9 +790,16 @@ async function abrirModalGerenciarPedido(idOuPedidoId) {
         const VendaModel = getSafeVendaModel();
         if (!VendaModel) return;
 
-        let venda = await VendaModel.findById(idOuPedidoId).lean();
-        if (!venda) {
-            venda = await VendaModel.findOne({ pedidoId: idOuPedidoId }).lean();
+        let venda = null;
+        if (typeof VendaModel.findById === 'function') {
+            venda = await VendaModel.findById(idOuPedidoId);
+        }
+        if (!venda && typeof VendaModel.findOne === 'function') {
+            venda = await VendaModel.findOne({ pedidoId: idOuPedidoId });
+        }
+        if (!venda && typeof VendaModel.find === 'function') {
+            const todas = await VendaModel.find();
+            venda = todas.find(v => String(v._id) === String(idOuPedidoId) || String(v.pedidoId) === String(idOuPedidoId));
         }
         if (!venda) {
             alert('Pedido não encontrado.');
