@@ -76,6 +76,105 @@
         </div>
     </div>
 
+    <!-- MODAL DE IMPORTAÇÃO DE MODELO POR LINK / BAMBU HANDY -->
+    <div class="theme-modal-overlay" id="modalImportarUrlOverlay" onclick="UrlImporterModulo.fecharModal(event)" style="display:none;">
+        <div class="theme-modal url-import-modal">
+            <div class="theme-modal-header">
+                <div style="display:flex;align-items:center;gap:10px;">
+                    <span style="font-size:22px;">🔗</span>
+                    <div>
+                        <h3 style="margin:0;font-size:16px;">Importar Modelo por Link</h3>
+                        <small style="color:var(--text-dim);font-size:11px;">Bambu Handy, MakerWorld, Printables, Thingiverse</small>
+                    </div>
+                </div>
+                <button class="btn-close-modal" onclick="UrlImporterModulo.fecharModal()">✕</button>
+            </div>
+
+            <!-- INPUT E AÇÕES DE BUSCA -->
+            <div style="margin:14px 0 10px;">
+                <label style="font-size:12px;font-weight:600;color:var(--text-muted);display:block;margin-bottom:6px;">
+                    Link de compartilhamento ou URL do modelo:
+                </label>
+                <div style="display:flex;gap:8px;">
+                    <input type="text" id="urlImportInput" placeholder="Ex: https://makerworld.com/en/models/..." style="flex:1;" onkeydown="if(event.key==='Enter') UrlImporterModulo.buscarModelo()">
+                    <button class="btn-secondary" type="button" onclick="UrlImporterModulo.colarDoClipboard()" style="padding:10px 14px;white-space:nowrap;" title="Colar link da área de transferência">📋 Colar</button>
+                    <button class="btn-main" type="button" onclick="UrlImporterModulo.buscarModelo()" style="margin:0;padding:10px 18px;white-space:nowrap;">⚡ Buscar</button>
+                </div>
+                <small style="font-size:10px;color:var(--text-dim);display:block;margin-top:4px;">
+                    💡 Dica: No app <b>Bambu Handy</b> do celular, clique em <b>Compartilhar</b> e selecione o 3D Manager Pro ou cole o link aqui.
+                </small>
+            </div>
+
+            <!-- CONTAINER DE CARREGAMENTO -->
+            <div id="urlImportLoading" style="display:none;text-align:center;padding:30px 10px;">
+                <div class="spinner-pulse" style="margin:0 auto 12px;"></div>
+                <p style="margin:0;font-size:13px;color:var(--text);font-weight:600;">Consultando fatiamento e perfis do modelo...</p>
+                <span style="font-size:11px;color:var(--text-dim);">Extraindo peso, tempo de impressão, cores e placas</span>
+            </div>
+
+            <!-- CONTAINER DE ERRO -->
+            <div id="urlImportError" style="display:none;margin-top:10px;"></div>
+
+            <!-- CONTAINER DE RESULTADO -->
+            <div id="urlImportResult" style="display:none;margin-top:12px;">
+                <!-- HERO CARD DO MODELO -->
+                <div class="url-model-hero-card">
+                    <img id="urlImportCover" src="" class="url-model-cover" alt="Capa do Modelo" style="display:none;">
+                    <div style="flex:1;min-width:0;">
+                        <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;">
+                            <span id="urlImportPlatformBadge" class="badge-tag" style="background:var(--primary);color:#000;font-weight:700;">MakerWorld</span>
+                            <span id="urlImportAutor" style="font-size:11px;color:var(--text-dim);"></span>
+                        </div>
+                        <h4 id="urlImportTitulo" style="margin:0 0 6px;font-size:15px;color:var(--text);line-height:1.3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;"></h4>
+                        <div style="display:flex;gap:14px;font-size:12px;">
+                            <div>⏱️ Tempo: <strong id="urlImportTempo" style="color:var(--primary);">--</strong></div>
+                            <div>⚖️ Peso: <strong id="urlImportPeso" style="color:var(--primary);">--</strong></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- SELETOR DE PERFIS / BRANCHES -->
+                <div id="urlImportPerfisContainer" style="display:none;margin-top:12px;">
+                    <label style="font-size:11px;font-weight:700;color:var(--text-muted);display:block;margin-bottom:6px;text-transform:uppercase;">
+                        🌿 Perfis de Impressão Disponíveis (Branches):
+                    </label>
+                    <div id="urlImportPerfisList" class="url-perfis-grid"></div>
+                </div>
+
+                <!-- FILAMENTOS UTILIZADOS -->
+                <div style="margin-top:12px;">
+                    <label style="font-size:11px;font-weight:700;color:var(--text-muted);display:block;margin-bottom:6px;text-transform:uppercase;">
+                        🎨 Filamentos & Cores Identificados:
+                    </label>
+                    <div id="urlImportFilamentosList" style="display:flex;flex-wrap:wrap;gap:6px;"></div>
+                </div>
+
+                <!-- PLACAS / PLATES (SE HOUVER) -->
+                <div id="urlImportPlatesContainer" style="display:none;margin-top:12px;">
+                    <label style="font-size:11px;font-weight:700;color:var(--text-muted);display:block;margin-bottom:6px;text-transform:uppercase;">
+                        🖨️ Placas / Mesas de Impressão:
+                    </label>
+                    <div id="urlImportPlatesList" class="url-plates-grid"></div>
+                </div>
+
+                <!-- AÇÕES -->
+                <div style="display:flex;flex-direction:column;gap:8px;margin-top:16px;">
+                    <button class="btn-main" type="button" onclick="UrlImporterModulo.aplicarNaCalculadora()" style="margin:0;padding:12px;font-size:14px;">
+                        ⚡ Aplicar na Calculadora de Preços
+                    </button>
+                    <div style="display:flex;gap:8px;">
+                        <button class="btn-secondary" type="button" onclick="UrlImporterModulo.adicionarAFila()" style="flex:1;padding:10px;font-size:12px;">
+                            📥 Enviar p/ Fila
+                        </button>
+                        <button class="btn-secondary" type="button" onclick="UrlImporterModulo.salvarNoCatalogo()" style="flex:1;padding:10px;font-size:12px;">
+                            💾 Salvar no Catálogo
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- BAMBU LAB SETTINGS MODAL -->
     <div class="theme-modal-overlay" id="bambuModalOverlay" onclick="BambuModulo.fecharModalConfig(event)" style="display:none;">
         <div class="theme-modal bambu-config-modal">
@@ -999,16 +1098,32 @@
             </section>
 
             <section id="sec-calculadora" class="app-section" style="display:none">
-                <!-- DRAG & DROP SLICER IMPORT (.3MF / .GCODE) -->
-                <div class="dropzone-slicer" id="dropzoneSlicer" onclick="document.getElementById('slicerFileInput').click()">
-                    <input type="file" id="slicerFileInput" accept=".3mf,.gcode,.gco,.g" style="display:none;" onchange="onSlicerFileSelected(event)">
-                    <div class="dropzone-content">
-                        <div class="dropzone-icon">📂</div>
-                        <div>
-                            <strong style="font-size:13px;color:var(--text);display:block;">Importar Fatiamento (.3MF / .GCODE)</strong>
-                            <p style="margin:2px 0 0;font-size:11px;color:var(--text-dim);">
-                                Arraste aqui o arquivo do <b>Bambu Studio</b> ou <b>OrcaSlicer</b> para preencher peso, cores e tempo automaticamente.
-                            </p>
+                <!-- OPÇÕES DE IMPORTAÇÃO RÁPIDA (ARQUIVO .3MF / LINK BAMBU HANDY) -->
+                <div class="import-options-grid" style="display:grid;grid-template-columns:repeat(auto-fit, minmax(280px, 1fr));gap:10px;margin-bottom:15px;">
+                    <!-- DRAG & DROP SLICER IMPORT (.3MF / .GCODE) -->
+                    <div class="dropzone-slicer" id="dropzoneSlicer" onclick="document.getElementById('slicerFileInput').click()" style="margin:0;cursor:pointer;">
+                        <input type="file" id="slicerFileInput" accept=".3mf,.gcode,.gco,.g" style="display:none;" onchange="onSlicerFileSelected(event)">
+                        <div class="dropzone-content">
+                            <div class="dropzone-icon">📂</div>
+                            <div>
+                                <strong style="font-size:13px;color:var(--text);display:block;">Importar Arquivo (.3MF / .GCODE)</strong>
+                                <p style="margin:2px 0 0;font-size:11px;color:var(--text-dim);">
+                                    Arraste o arquivo do <b>Bambu Studio</b> ou <b>OrcaSlicer</b>.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- IMPORTAR POR LINK / BAMBU HANDY -->
+                    <div class="dropzone-slicer dropzone-url-import" onclick="UrlImporterModulo.abrirModal()" style="margin:0;cursor:pointer;border-color:rgba(16,185,129,0.3);background:linear-gradient(135deg, rgba(16,185,129,0.05) 0%, rgba(6,182,212,0.05) 100%);">
+                        <div class="dropzone-content">
+                            <div class="dropzone-icon" style="background:rgba(16,185,129,0.15);color:#10b981;">🔗</div>
+                            <div>
+                                <strong style="font-size:13px;color:var(--text);display:block;">Importar por Link / Bambu Handy</strong>
+                                <p style="margin:2px 0 0;font-size:11px;color:var(--text-dim);">
+                                    Cole o link do <b>Bambu Handy</b> ou <b>MakerWorld</b> direto do celular.
+                                </p>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -1625,6 +1740,7 @@
     <script src="qr-scanner-modulo.js"></script>
     <script src="notificacoes-modulo.js"></script>
     <script src="perfil-loja-modulo.js"></script>
+    <script src="url-importer-modulo.js"></script>
     <script src="app.js"></script>
 </body>
 </html>

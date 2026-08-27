@@ -6,6 +6,7 @@ const bcrypt = require('bcryptjs');
 const mongoose = require('mongoose');
 const { conectar, User, COLLECTIONS } = require('./db');
 const { signToken, authMiddleware, requireAdmin, tenantFilter } = require('./auth');
+const { resolveModelUrl } = require('./model-resolver');
 
 const PORT = parseInt(process.env.PORT || process.env.API_PORT || '3847', 10);
 const DEV_MODE = process.env.DEV_MODE === 'true'; // Modo de desenvolvimento
@@ -254,6 +255,23 @@ registerCollectionRoutes('custos', COLLECTIONS.CustoItem);
 registerCollectionRoutes('impressoras', COLLECTIONS.Impressora);
 registerCollectionRoutes('fila', COLLECTIONS.Fila);
 registerCollectionRoutes('desperdicios', COLLECTIONS.Desperdicio);
+
+// =============================================
+// RESOLUÇÃO DE MODELOS POR URL (MAKERWORLD / BAMBU / PRINTABLES / THINGIVERSE)
+// =============================================
+app.post('/api/models/resolve-url', async (req, res) => {
+    try {
+        const { url } = req.body || {};
+        if (!url) {
+            return res.status(400).json({ ok: false, erro: 'URL ou texto de compartilhamento não informado.' });
+        }
+        const resultado = await resolveModelUrl(url);
+        res.json(resultado);
+    } catch (err) {
+        console.error('[models/resolve-url] Erro:', err.message);
+        res.status(400).json({ ok: false, erro: err.message });
+    }
+});
 
 // =============================================
 // GEMINI AI PRICING ASSISTANT
