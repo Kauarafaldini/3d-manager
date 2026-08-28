@@ -184,7 +184,13 @@ class BambuService {
                     if (!resolved) {
                         resolved = true;
                         clearTimeout(connectTimeout);
-                        resolve({ ok: false, status: 'error', message: err.message });
+                        let userMsg = err.message;
+                        if (err.message.includes('Not authorized')) {
+                            userMsg = 'Código de Acesso (Access Code) incorreto. Confira os 8 dígitos na tela da sua impressora em Configurações ➔ Wi-Fi.';
+                        } else if (err.message.includes('Unacceptable protocol version')) {
+                            userMsg = 'Versão do protocolo MQTT rejeitada pela impressora.';
+                        }
+                        resolve({ ok: false, status: 'error', message: userMsg });
                     }
                 });
 

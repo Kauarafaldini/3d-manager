@@ -12,6 +12,7 @@
     "node": ">=18"
   },
   "dependencies": {
+    "3d-manager": "file:..",
     "bcryptjs": "^2.4.3",
     "cors": "^2.8.6",
     "dotenv": "^16.6.1",
