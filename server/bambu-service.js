@@ -73,19 +73,29 @@ class BambuService {
             }
         }
 
-        const brokerUrl = `mqtts://${ip}:8883`;
+        const cleanIp = String(ip).trim();
+        const cleanSerial = String(serial).trim().toUpperCase();
+        const cleanAccessCode = String(accessCode).trim();
+
+        const brokerUrl = `mqtts://${cleanIp}:8883`;
         const options = {
             port: 8883,
-            host: ip,
+            host: cleanIp,
             username: 'bblp',
-            password: accessCode,
+            password: cleanAccessCode,
+            protocol: 'mqtts',
+            protocolVersion: 4, // CRUCIAL: Bambu Lab requer MQTT 3.1.1 (MQTT 5 causa connack timeout)
+            clean: true,
+            keepalive: 60,
             rejectUnauthorized: false,
-            clientId: `3dmanager_${serial.substring(0, 6)}_${Math.random().toString(16).substring(2, 6)}`,
-            connectTimeout: 10000,
+            checkServerIdentity: () => undefined, // Ignora checagem de SAN em certificado autoassinado
+            ciphers: 'DEFAULT:@SECLEVEL=0', // Permite handshake TLS com certificado da Bambu no Node 20/22+
+            clientId: `3dm_${cleanSerial.substring(0, 6)}_${Math.random().toString(16).substring(2, 6)}`,
+            connectTimeout: 8000,
             reconnectPeriod: 5000
         };
 
-        console.log(`[bambu-service] Conectando a ${nome || serial} em ${brokerUrl}...`);
+        console.log(`[bambu-service] Conectando a ${nome || cleanSerial} em ${brokerUrl} (MQTT 3.1.1)...`);
 
         return new Promise((resolve, reject) => {
             let resolved = false;

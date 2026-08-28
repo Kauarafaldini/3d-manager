@@ -81,6 +81,11 @@ function renderTrackingPage(data) {
         stepDescription = 'Pedido aprovado! Fatiamento e alocação na fila de produção em andamento.';
         statusBadgeText = 'Pedido Aprovado';
         statusBadgeColor = '#06b6d4';
+    } else if (statusNorm === 'a_pagar') {
+        currentStep = 1;
+        stepDescription = 'Pedido registrado e aprovado! Aguardando confirmação de pagamento para início da impressão.';
+        statusBadgeText = 'Aguardando Pagamento';
+        statusBadgeColor = '#eab308';
     } else {
         // pre_venda, orcamento, aguardando_aprovacao
         currentStep = 0;

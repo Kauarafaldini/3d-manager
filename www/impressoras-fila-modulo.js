@@ -49,34 +49,7 @@ window.ImpressorasFilaModulo = (function () {
             if (!ImpressoraModel) return [];
 
             impressorasCache = await ImpressoraModel.find({ ativo: { $ne: false } }).sort({ nome: 1 }).lean();
-
-            const isSeeded = localStorage.getItem('3dm_printers_seeded');
-            // Apenas na primeira execução absoluta do app cria presets padrão se estiver vazio
-            if (!isSeeded && (!impressorasCache || impressorasCache.length === 0)) {
-                console.log('[PrintFarm] Primeira inicialização. Criando impressoras padrão...');
-                localStorage.setItem('3dm_printers_seeded', '1');
-                const default1 = await ImpressoraModel.create({
-                    nome: 'Bambu Lab P1S #01',
-                    modelo: 'Bambu Lab P1S',
-                    potenciaWatts: 160,
-                    taxaDesgasteHora: 0.80,
-                    custoHoraTrabalho: 1.00,
-                    status: 'disponivel',
-                    ativo: true
-                });
-                const default2 = await ImpressoraModel.create({
-                    nome: 'Bambu Lab A1 mini #01',
-                    modelo: 'Bambu Lab A1 mini',
-                    potenciaWatts: 60,
-                    taxaDesgasteHora: 0.40,
-                    custoHoraTrabalho: 1.00,
-                    status: 'disponivel',
-                    ativo: true
-                });
-                impressorasCache = [default1, default2];
-            } else if (!isSeeded && impressorasCache.length > 0) {
-                localStorage.setItem('3dm_printers_seeded', '1');
-            }
+            if (!impressorasCache) impressorasCache = [];
 
             preencherSeletorCalculadora();
             return impressorasCache;
@@ -282,17 +255,45 @@ window.ImpressorasFilaModulo = (function () {
     function aoMudarTipoConexao() {
         const tipo = document.getElementById('impFormTipoConexao')?.value || 'manual';
         const bloco = document.getElementById('impBlocoTelemetria');
+        const dicaEl = document.getElementById('impDicaTelemetria');
+        const codeLabel = document.getElementById('impLabelAccessCode');
+        const codeInput = document.getElementById('impFormAccessCode');
+        const serialLabel = document.getElementById('impLabelSerial');
+        const portaInput = document.getElementById('impFormPorta');
+
         if (!bloco) return;
 
         if (tipo === 'manual') {
             bloco.style.display = 'none';
         } else {
             bloco.style.display = 'block';
-            const portaInput = document.getElementById('impFormPorta');
-            if (portaInput && !portaInput.value) {
-                if (tipo === 'bambu') portaInput.value = '8883';
-                else if (tipo === 'klipper') portaInput.value = '7125';
-                else if (tipo === 'octoprint') portaInput.value = '5000';
+            if (tipo === 'bambu') {
+                if (portaInput) portaInput.value = '8883';
+                if (codeLabel) codeLabel.textContent = 'Código de Acesso (8 dígitos na tela)';
+                if (codeInput) {
+                    codeInput.placeholder = 'Ex: 12345678';
+                    codeInput.title = 'Fica na tela da Bambu em Configurações ➔ Wi-Fi';
+                }
+                if (serialLabel) serialLabel.textContent = 'Serial Number (SN)';
+                if (dicaEl) dicaEl.innerHTML = '💡 <b>Bambu Lab:</b> O Código de Acesso fica na tela da impressora em <b>Configurações ➔ Wi-Fi/WLAN</b> (são 8 números/letras). Não precisa de chave da internet.';
+            } else if (tipo === 'klipper') {
+                if (portaInput) portaInput.value = '7125';
+                if (codeLabel) codeLabel.textContent = 'API Key (Opcional - pode deixar vazio)';
+                if (codeInput) {
+                    codeInput.placeholder = 'Deixe em branco se não configurou token';
+                    codeInput.title = 'Klipper/Moonraker local normalmente não exige chave';
+                }
+                if (serialLabel) serialLabel.textContent = 'Identificador (Ex: Klipper 01)';
+                if (dicaEl) dicaEl.innerHTML = '💡 <b>Klipper / Moonraker (Creality K1, Ender 3 V3, etc):</b> Basta colocar o <b>IP da impressora</b> e a porta <b>7125</b>. O código de acesso pode ficar vazio!';
+            } else if (tipo === 'octoprint') {
+                if (portaInput) portaInput.value = '5000';
+                if (codeLabel) codeLabel.textContent = 'API Key do OctoPrint';
+                if (codeInput) {
+                    codeInput.placeholder = 'Ex: 4A7B8C9D... (Gerada no OctoPrint)';
+                    codeInput.title = 'Configurações ➔ API ➔ API Key no OctoPrint';
+                }
+                if (serialLabel) serialLabel.textContent = 'Identificador';
+                if (dicaEl) dicaEl.innerHTML = '💡 <b>OctoPrint:</b> Encontre a chave no OctoPrint em <b>Settings ➔ API ➔ API Key</b>.';
             }
         }
     }
@@ -788,7 +789,10 @@ window.ImpressorasFilaModulo = (function () {
 
             // 4. Se tiver venda vinculada, finaliza a venda
             if (trabalho.vendaId && VendaModel) {
-                await VendaModel.findByIdAndUpdate(trabalho.vendaId, { status: 'concluida' });
+                await VendaModel.findByIdAndUpdate(trabalho.vendaId, { 
+                    status: 'concluida',
+                    data: new Date()
+                });
             }
 
             // 5. Atualiza status da impressora (se não tiver outro trabalho imprimindo, volta para 'disponivel')

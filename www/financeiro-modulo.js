@@ -556,6 +556,12 @@ async function atualizarRelatorioFinanceiro() {
         document.getElementById('relParcelas').textContent = formatarMoeda(parcelasMensais);
         document.getElementById('relNumVendas').textContent = `${m.qtd} no período · ${todasVendas.length} total`;
 
+        // Métricas de Pedidos A Pagar / Aguardando Pagamento
+        const pedidosAPagar = todasVendas.filter(v => v.status === 'a_pagar');
+        const valorAPagar = pedidosAPagar.reduce((acc, v) => acc + (v.bruto || 0), 0);
+        const elAPagar = document.getElementById('relAPagar');
+        if (elAPagar) elAPagar.textContent = `${formatarMoeda(valorAPagar)} (${pedidosAPagar.length})`;
+
         // Métricas de Break-Even e Desperdício
         const elBeFat = document.getElementById('relBreakEvenFaturamento');
         if (elBeFat) elBeFat.textContent = formatarMoeda(faturamentoBreakEven);

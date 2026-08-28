@@ -1,78 +1,30 @@
-# Comandos do Projeto — 3D Manager Pro
-
-Este documento contém os principais comandos para desenvolvimento, execução e build do aplicativo.
-
-## 📱 Build Mobile (Android / iOS)
-
-### Gerar APK de Depuração (Debug)
-Compila e gera o arquivo APK para testes.
-```bash
-npm run build:android
-```
-*O APK gerado ficará localizado em:* `android/app/build/outputs/apk/debug/app-debug.apk`
-
-### Gerar APK de Produção (Release)
-Compila e gera o pacote de lançamento pronto para distribuição.
-```bash
-npm run build:android:release
-```
-*O APK gerado ficará localizado em:* `android/app/build/outputs/apk/release/`
-
-### Sincronizar Capacitor
-Sincroniza o código frontend (`www/`) com as plataformas nativas (Android/iOS) após alterações de código.
-```bash
-npm run cap:sync
-```
-Ou diretamente:
-```bash
-npx cap sync
-```
-
-### Abrir nos Ambientes Nativos
-Para abrir o projeto nas IDEs nativas:
-```bash
-npx cap open android   # Abre no Android Studio
-npx cap open ios       # Abre no Xcode
-```
-
----
-
-## 💻 Desenvolvimento Desktop (Electron)
-
-### Executar Frontend (Desktop) + Backend (API) simultaneamente
-```bash
-npm run dev
-```
-
-### Executar Apenas o Frontend (Electron)
-```bash
-npm start
-```
-
----
-
-## 🖥️ Backend (API)
-
-### Instalar Dependências do Servidor
-```bash
-npm run server:install
-```
-
-### Iniciar Apenas a API
-```bash
-npm run server
-```
-
----
-
-## ⚙️ Banco de Dados
-
-### Inicializar Banco de Dados
-```bash
-node init-db.js
-```
-
-### Resetar Banco de Dados
-```bash
-node reset-db.js
-```
+1. 💳 Automação de Pagamentos & Notificações (Alto Impacto no Fluxo de Caixa)
+PIX Dinâmico com Baixa Automática (Mercado Pago / Asaas / EFI / OpenPix):
+Ao mover um pedido para o status "A Pagar", gerar uma cobrança PIX com QR Code dinâmico.
+Quando o cliente efetua o pagamento no banco dele, um Webhook detecta o pagamento e muda o status do pedido automaticamente para Aprovado / Em Produção, sem você precisar conferir comprovante manualmente.
+Integração com WhatsApp (1 Clique ou API):
+Botão direto no card do pedido: "💬 Enviar Orçamento no WhatsApp" e "📦 Enviar Rastreio".
+Gera mensagens prontas e elegantes como:
+"Olá João! Seu orçamento #PED-ABC está pronto: [Link do PDF / PIX]"
+"Boa notícia! Sua impressão começou. Acompanhe ao vivo aqui: [Link de Rastreio]"
+2. 🖨️ Operacional & Gestão de Print Farm
+Suporte a Klipper (Moonraker) & OctoPrint:
+O app já possui comunicação MQTT com Bambu Lab. Adicionar suporte via API REST ao Klipper/Moonraker (para quem usa Creality K1, Ender 3 V3, Voron, Kingroon, etc.) e OctoPrint, centralizando qualquer impressora da sua oficina em uma única tela.
+Manutenção Preventiva & Vida Útil das Máquinas:
+O sistema acumula as horas de impressão de cada máquina.
+Alertas automáticos no painel:
+Ex: "Lubrificar guias lineares (atingiu 150h)"
+Ex: "Inspecionar correias / Limpar bico (atingiu 300h)"
+3. 🛍️ Experiência do Cliente & Vendas (Mini E-commerce / Vitrine)
+Catálogo Público / Mini Loja Online do Studio:
+Uma página pública (ex: seuservidor.com/catalogo) onde os clientes podem ver os produtos que você tem cadastrados, escolher cores disponíveis no seu estoque em tempo real e solicitar orçamentos diretamente.
+Upload Direto de STL pelo Cliente:
+O cliente entra no seu link, faz upload do arquivo .stl, escolhe a cor e recebe uma estimativa inicial de orçamento.
+4. 📊 Financeiro Avançado & Contabilidade
+Dedução de Impostos (MEI / Simples Nacional):
+Campo na Calculadora de Preços para alíquota de impostos (ex: 4% a 6% do Simples ou DAS MEI), garantindo margem líquida ainda mais precisa.
+Exportação de Relatórios (Excel / CSV / PDF Contábil):
+Botão para exportar o fechamento do mês (faturamento bruto, custos de matéria-prima, comissões de marketplace e lucro líquido) para enviar ao contador ou arquivar.
+5. 🤖 Inteligência Artificial (IA Gemini)
+Diagnóstico de Falhas por Foto:
+Tirar uma foto de uma peça com problema (stringing, warping, delaminação, layer shift) e o Gemini analisar a imagem para indicar a causa provável e sugerir ajustes de temperatura, refrigeração ou nivelamento.

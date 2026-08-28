@@ -183,22 +183,22 @@ function getTenantId(req) {
     return new mongoose.Types.ObjectId(req.user.tenantId);
 }
 
+// Middleware opcional de autenticação (pula em modo DEV)
+const optionalAuth = (req, res, next) => {
+    if (DEV_MODE) {
+        // Em modo DEV, cria um usuário fake
+        req.user = {
+            sub: '000000000000000000000000',
+            role: 'super_admin',
+            tenantId: '000000000000000000000000'
+        };
+        return next();
+    }
+    return authMiddleware(req, res, next);
+};
+
 function registerCollectionRoutes(pathName, ModelFactory) {
     const base = `/api/data/${pathName}`;
-
-    // Middleware opcional de autenticação (pula em modo DEV)
-    const optionalAuth = (req, res, next) => {
-        if (DEV_MODE) {
-            // Em modo DEV, cria um usuário fake
-            req.user = {
-                sub: '000000000000000000000000',
-                role: 'super_admin',
-                tenantId: '000000000000000000000000'
-            };
-            return next();
-        }
-        return authMiddleware(req, res, next);
-    };
 
     app.get(base, optionalAuth, async (req, res) => {
         const tenantId = getTenantId(req);
@@ -621,7 +621,7 @@ printerConnector.setFinishCallback(async (protocol, identifier, telemetry) => {
 });
 
 // Rotas de Conexão Multi-Impressoras (Bambu, Klipper, OctoPrint)
-app.post('/api/printers/connect', authMiddleware, async (req, res) => {
+app.post('/api/printers/connect', optionalAuth, async (req, res) => {
     try {
         const { protocol = 'bambu', ip, port, serial, accessCode, apiKey, nome, useSimulator, id } = req.body || {};
 
@@ -650,7 +650,7 @@ app.post('/api/printers/connect', authMiddleware, async (req, res) => {
     }
 });
 
-app.post('/api/printers/disconnect', authMiddleware, async (req, res) => {
+app.post('/api/printers/disconnect', optionalAuth, async (req, res) => {
     try {
         const { id, serial, protocol = 'bambu' } = req.body || {};
         const ident = serial || id;
@@ -670,7 +670,7 @@ app.post('/api/printers/disconnect', authMiddleware, async (req, res) => {
     }
 });
 
-app.get('/api/printers/status', authMiddleware, (req, res) => {
+app.get('/api/printers/status', optionalAuth, (req, res) => {
     try {
         const { serial, id } = req.query;
         const ident = serial || id;
@@ -687,7 +687,7 @@ app.get('/api/printers/status', authMiddleware, (req, res) => {
 });
 
 // Rotas Bambu Lab legadas / compatibilidade
-app.get('/api/bambu/status', authMiddleware, (req, res) => {
+app.get('/api/bambu/status', optionalAuth, (req, res) => {
     try {
         const { serial } = req.query;
         if (serial) {
@@ -702,7 +702,7 @@ app.get('/api/bambu/status', authMiddleware, (req, res) => {
     }
 });
 
-app.post('/api/bambu/connect', authMiddleware, async (req, res) => {
+app.post('/api/bambu/connect', optionalAuth, async (req, res) => {
     try {
         const { ip, serial, accessCode, nome, useSimulator } = req.body || {};
         if (!serial) {

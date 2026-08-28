@@ -554,6 +554,7 @@
                     <div style="font-size:12px;font-weight:700;color:var(--primary);margin-bottom:8px;">
                         🌐 Conexão Direta com a Impressora (IP Local / Wi-Fi)
                     </div>
+                    <p id="impDicaTelemetria" style="font-size:11px;color:var(--text-dim);margin:0 0 10px;line-height:1.4;background:var(--bg-primary);padding:8px 10px;border-radius:8px;border-left:3px solid var(--primary);"></p>
                     <div class="grid-form">
                         <div class="input-container">
                             <label>Endereço IP (Wi-Fi Local)</label>
@@ -564,11 +565,11 @@
                             <input type="number" id="impFormPorta" placeholder="Ex: 8883 ou 7125">
                         </div>
                         <div class="input-container">
-                            <label>Serial / Identificador</label>
+                            <label id="impLabelSerial">Serial / Identificador</label>
                             <input type="text" id="impFormSerial" placeholder="Ex: 01P00A492800123" autocomplete="off">
                         </div>
                         <div class="input-container">
-                            <label>Código de Acesso / API Key</label>
+                            <label id="impLabelAccessCode">Código de Acesso / API Key</label>
                             <input type="password" id="impFormAccessCode" placeholder="Código de 8 dígitos ou Token" autocomplete="off">
                         </div>
                         <div class="input-container full">
@@ -1032,6 +1033,7 @@
                         <div class="mini-stat"><span>Margem média</span><strong id="relMargem">0%</strong></div>
                         <div class="mini-stat"><span>Estoque filamento</span><strong id="relEstoqueValor">R$ 0,00</strong><small id="relEstoquePeso">0 g</small></div>
                         <div class="mini-stat"><span>Parcelas / mês</span><strong id="relParcelas" style="color:var(--warning);">R$ 0,00</strong></div>
+                        <div class="mini-stat"><span>💳 Pedidos a Pagar</span><strong id="relAPagar" style="color:#eab308;">R$ 0,00</strong></div>
                         <div class="mini-stat"><span>🎯 Ponto de Equilíbrio</span><strong id="relBreakEvenFaturamento" style="color:var(--primary);">R$ 0,00</strong><small id="relBreakEvenHoras">0h mín.</small></div>
                         <div class="mini-stat"><span>♻️ Sucata / Perdas</span><strong id="relDesperdicioValor" style="color:var(--danger);">R$ 0,00</strong><small id="relDesperdicioPeso">0 g</small></div>
                     </div>
