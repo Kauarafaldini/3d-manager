@@ -574,7 +574,7 @@ async function efetuarVendaTerminal() {
             }
 
             const custoTotal = (produtoSelecionadoTerminal.custoProducao || 0) * quantidade;
-            const lucroReal = valorTotal - taxaComissao - taxaFixa;
+            const lucroReal = valorTotal - taxaComissao - taxaFixa - custoTotal;
 
             const novaVenda = new VendaModel({
                 nome: produtoSelecionadoTerminal.nome,
@@ -763,8 +763,8 @@ async function renderizarPreVendas() {
                     </div>
                     <div style="display:flex;align-items:center;gap:10px;">
                         <div style="text-align:right;">
-                            <span style="font-weight:700;color:var(--success);font-size:14px;display:block;">R$ ${(v.lucro || 0).toFixed(2)}</span>
-                            <small style="color:var(--text-dim);font-size:10px;">Total: R$ ${(v.bruto || 0).toFixed(2)}</small>
+                            <span style="font-weight:700;color:var(--success);font-size:14px;display:block;">R$ ${(v.bruto || 0).toFixed(2)}</span>
+                            <small style="color:var(--text-dim);font-size:10px;">Custo: R$ ${(v.custo || 0).toFixed(2)} | Lucro: R$ ${(v.lucro || 0).toFixed(2)}</small>
                         </div>
                         <button class="btn-secondary" style="padding:6px 12px;font-size:11px;border-radius:8px;" onclick="event.stopPropagation(); abrirModalGerenciarPedido('${v._id}')">⚙️ Gerenciar</button>
                     </div>
@@ -790,9 +790,16 @@ async function abrirModalGerenciarPedido(idOuPedidoId) {
         const VendaModel = getSafeVendaModel();
         if (!VendaModel) return;
 
-        let venda = await VendaModel.findById(idOuPedidoId).lean();
-        if (!venda) {
-            venda = await VendaModel.findOne({ pedidoId: idOuPedidoId }).lean();
+        let venda = null;
+        if (typeof VendaModel.findById === 'function') {
+            venda = await VendaModel.findById(idOuPedidoId);
+        }
+        if (!venda && typeof VendaModel.findOne === 'function') {
+            venda = await VendaModel.findOne({ pedidoId: idOuPedidoId });
+        }
+        if (!venda && typeof VendaModel.find === 'function') {
+            const todas = await VendaModel.find();
+            venda = todas.find(v => String(v._id) === String(idOuPedidoId) || String(v.pedidoId) === String(idOuPedidoId));
         }
         if (!venda) {
             alert('Pedido não encontrado.');

@@ -574,7 +574,7 @@ async function efetuarVendaTerminal() {
             }
 
             const custoTotal = (produtoSelecionadoTerminal.custoProducao || 0) * quantidade;
-            const lucroReal = valorTotal - taxaComissao - taxaFixa;
+            const lucroReal = valorTotal - taxaComissao - taxaFixa - custoTotal;
 
             const novaVenda = new VendaModel({
                 nome: produtoSelecionadoTerminal.nome,
@@ -724,12 +724,13 @@ async function renderizarPreVendas() {
             'pre_venda': { label: '📝 Orçamento', cor: '#f59e0b', bg: 'rgba(245,158,11,0.15)' },
             'aguardando_aprovacao': { label: '⏳ Aguardando Aprovação', cor: '#f59e0b', bg: 'rgba(245,158,11,0.15)' },
             'aprovado': { label: '✅ Aprovado', cor: '#06b6d4', bg: 'rgba(6,182,212,0.15)' },
+            'a_pagar': { label: '💳 A Pagar', cor: '#eab308', bg: 'rgba(234,179,8,0.15)' },
             'em_producao': { label: '⚡ Em Produção', cor: '#3b82f6', bg: 'rgba(59,130,246,0.15)' },
             'acabamento': { label: '✨ Acabamento', cor: '#8b5cf6', bg: 'rgba(139,92,246,0.15)' },
             'pronto': { label: '📦 Pronto', cor: '#10b981', bg: 'rgba(16,185,129,0.15)' },
             'enviado': { label: '🚚 Enviado', cor: '#6366f1', bg: 'rgba(99,102,241,0.15)' },
             'entregue': { label: '✅ Entregue', cor: '#059669', bg: 'rgba(5,150,105,0.15)' },
-            'concluida': { label: '🏁 Concluído', cor: '#047857', bg: 'rgba(4,120,87,0.15)' },
+            'concluida': { label: '🏁 Concluído / Pago', cor: '#10b981', bg: 'rgba(16,185,129,0.2)' },
             'cancelado': { label: '❌ Cancelado', cor: '#ef4444', bg: 'rgba(239,68,68,0.15)' }
         };
 
@@ -765,8 +766,8 @@ async function renderizarPreVendas() {
                     </div>
                     <div style="display:flex;align-items:center;gap:10px;">
                         <div style="text-align:right;">
-                            <span style="font-weight:700;color:var(--success);font-size:14px;display:block;">R$ ${(v.lucro || 0).toFixed(2)}</span>
-                            <small style="color:var(--text-dim);font-size:10px;">Total: R$ ${(v.bruto || 0).toFixed(2)}</small>
+                            <span style="font-weight:700;color:var(--success);font-size:14px;display:block;">R$ ${(v.bruto || 0).toFixed(2)}</span>
+                            <small style="color:var(--text-dim);font-size:10px;">Custo: R$ ${(v.custo || 0).toFixed(2)} | Lucro: R$ ${(v.lucro || 0).toFixed(2)}</small>
                         </div>
                         <button class="btn-secondary" style="padding:6px 12px;font-size:11px;border-radius:8px;" onclick="event.stopPropagation(); abrirModalGerenciarPedido('${v._id}')">⚙️ Gerenciar</button>
                     </div>
@@ -792,9 +793,16 @@ async function abrirModalGerenciarPedido(idOuPedidoId) {
         const VendaModel = getSafeVendaModel();
         if (!VendaModel) return;
 
-        let venda = await VendaModel.findById(idOuPedidoId).lean();
-        if (!venda) {
-            venda = await VendaModel.findOne({ pedidoId: idOuPedidoId }).lean();
+        let venda = null;
+        if (typeof VendaModel.findById === 'function') {
+            venda = await VendaModel.findById(idOuPedidoId);
+        }
+        if (!venda && typeof VendaModel.findOne === 'function') {
+            venda = await VendaModel.findOne({ pedidoId: idOuPedidoId });
+        }
+        if (!venda && typeof VendaModel.find === 'function') {
+            const todas = await VendaModel.find();
+            venda = todas.find(v => String(v._id) === String(idOuPedidoId) || String(v.pedidoId) === String(idOuPedidoId));
         }
         if (!venda) {
             alert('Pedido não encontrado.');
@@ -807,12 +815,13 @@ async function abrirModalGerenciarPedido(idOuPedidoId) {
         const STATUS_OPTIONS = [
             { value: 'orcamento', label: '📝 Orçamento / Aguardando Aprovação', cor: '#f59e0b', bg: 'rgba(245,158,11,0.15)' },
             { value: 'aprovado', label: '✅ Pedido Aprovado', cor: '#06b6d4', bg: 'rgba(6,182,212,0.15)' },
+            { value: 'a_pagar', label: '💳 A Pagar / Aguardando Pagamento', cor: '#eab308', bg: 'rgba(234,179,8,0.15)' },
             { value: 'em_producao', label: '⚡ Em Produção / Fila 3D', cor: '#3b82f6', bg: 'rgba(59,130,246,0.15)' },
             { value: 'acabamento', label: '✨ Em Acabamento', cor: '#8b5cf6', bg: 'rgba(139,92,246,0.15)' },
             { value: 'pronto', label: '📦 Pronto para Retirada', cor: '#10b981', bg: 'rgba(16,185,129,0.15)' },
             { value: 'enviado', label: '🚚 Enviado / A Caminho', cor: '#6366f1', bg: 'rgba(99,102,241,0.15)' },
             { value: 'entregue', label: '✅ Entregue ao Cliente', cor: '#059669', bg: 'rgba(5,150,105,0.15)' },
-            { value: 'concluida', label: '🏁 Concluído / Finalizado', cor: '#047857', bg: 'rgba(4,120,87,0.15)' },
+            { value: 'concluida', label: '🏁 Concluído / Pago', cor: '#10b981', bg: 'rgba(16,185,129,0.2)' },
             { value: 'cancelado', label: '❌ Cancelado', cor: '#ef4444', bg: 'rgba(239,68,68,0.15)' }
         ];
 
@@ -949,12 +958,13 @@ async function alterarStatusPedido(id, novoStatus) {
         const labels = {
             orcamento: 'Orçamento / Aguardando Aprovação',
             aprovado: 'Pedido Aprovado',
+            a_pagar: 'A Pagar / Aguardando Pagamento',
             em_producao: 'Em Produção',
             acabamento: 'Em Acabamento',
             pronto: 'Pronto para Retirada',
             enviado: 'Enviado',
             entregue: 'Entregue ao Cliente',
-            concluida: 'Concluído / Finalizado',
+            concluida: 'Concluído / Pago',
             cancelado: 'Cancelado'
         };
 
@@ -962,6 +972,9 @@ async function alterarStatusPedido(id, novoStatus) {
             mostrarToast(`Status alterado: ${labels[novoStatus] || novoStatus}! O link de rastreio foi atualizado.`, 'ok');
         }
         renderizarPreVendas();
+        if (typeof atualizarInterface === 'function') await atualizarInterface();
+        if (typeof atualizarRelatorioFinanceiro === 'function') await atualizarRelatorioFinanceiro();
+        if (typeof atualizarOverviewHome === 'function') await atualizarOverviewHome();
     } catch (err) {
         console.error('Erro ao atualizar status do pedido:', err);
         alert('Erro ao atualizar status: ' + err.message);
@@ -975,7 +988,11 @@ async function finalizarPreVenda(id) {
         const VendaModel = getSafeVendaModel();
         if (!VendaModel) return;
 
-        await VendaModel.findByIdAndUpdate(id, { status: 'concluida' });
+        // Atualiza status para concluída e data para o momento da conclusão
+        await VendaModel.findByIdAndUpdate(id, { 
+            status: 'concluida',
+            data: new Date()
+        });
 
         // Baixar estoque de filamentos se houver
         const venda = await VendaModel.findById(id);
@@ -1002,6 +1019,8 @@ async function finalizarPreVenda(id) {
         renderizarPreVendas();
         if (typeof atualizarInterface === 'function') await atualizarInterface();
         if (typeof atualizarRelatorioFinanceiro === 'function') await atualizarRelatorioFinanceiro();
+        if (typeof renderHistoricoVendasFinanceiro === 'function') await renderHistoricoVendasFinanceiro();
+        if (typeof renderizarUltimasVendas === 'function') await renderizarUltimasVendas();
         if (typeof atualizarOverviewHome === 'function') await atualizarOverviewHome();
         if (typeof carregarEstoqueProdutos === 'function') await carregarEstoqueProdutos();
     } catch (err) {

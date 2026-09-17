@@ -12,13 +12,13 @@ window.ImpressorasFilaModulo = (function () {
 
     // Presets populares de impressoras 3D
     const PRESETS_IMPRESSORAS = [
-        { nome: 'Bambu Lab P1S', modelo: 'Bambu Lab P1S', potenciaWatts: 160, taxaDesgasteHora: 0.80, custoHoraTrabalho: 1.00 },
-        { nome: 'Bambu Lab A1 mini', modelo: 'Bambu Lab A1 mini', potenciaWatts: 60, taxaDesgasteHora: 0.40, custoHoraTrabalho: 1.00 },
-        { nome: 'Bambu Lab X1-Carbon', modelo: 'Bambu Lab X1-Carbon', potenciaWatts: 180, taxaDesgasteHora: 1.00, custoHoraTrabalho: 1.00 },
-        { nome: 'Bambu Lab A1', modelo: 'Bambu Lab A1', potenciaWatts: 95, taxaDesgasteHora: 0.55, custoHoraTrabalho: 1.00 },
-        { nome: 'Creality Ender 3 V3 / SE', modelo: 'Ender 3 V3', potenciaWatts: 120, taxaDesgasteHora: 0.35, custoHoraTrabalho: 1.00 },
-        { nome: 'Creality K1 / K1 Max', modelo: 'Creality K1', potenciaWatts: 350, taxaDesgasteHora: 0.90, custoHoraTrabalho: 1.00 },
-        { nome: 'Elegoo Neptune 4 Pro', modelo: 'Neptune 4', potenciaWatts: 200, taxaDesgasteHora: 0.50, custoHoraTrabalho: 1.00 }
+        { nome: 'Bambu Lab P1S', modelo: 'Bambu Lab P1S', potenciaWatts: 160, taxaDesgasteHora: 0.80, custoHoraTrabalho: 1.00, tipoConexao: 'bambu' },
+        { nome: 'Bambu Lab A1 mini', modelo: 'Bambu Lab A1 mini', potenciaWatts: 60, taxaDesgasteHora: 0.40, custoHoraTrabalho: 1.00, tipoConexao: 'bambu' },
+        { nome: 'Bambu Lab X1-Carbon', modelo: 'Bambu Lab X1-Carbon', potenciaWatts: 180, taxaDesgasteHora: 1.00, custoHoraTrabalho: 1.00, tipoConexao: 'bambu' },
+        { nome: 'Bambu Lab A1', modelo: 'Bambu Lab A1', potenciaWatts: 95, taxaDesgasteHora: 0.55, custoHoraTrabalho: 1.00, tipoConexao: 'bambu' },
+        { nome: 'Creality Ender 3 V3 / SE', modelo: 'Ender 3 V3', potenciaWatts: 120, taxaDesgasteHora: 0.35, custoHoraTrabalho: 1.00, tipoConexao: 'manual' },
+        { nome: 'Creality K1 / K1 Max', modelo: 'Creality K1', potenciaWatts: 350, taxaDesgasteHora: 0.90, custoHoraTrabalho: 1.00, tipoConexao: 'klipper' },
+        { nome: 'Elegoo Neptune 4 Pro', modelo: 'Neptune 4', potenciaWatts: 200, taxaDesgasteHora: 0.50, custoHoraTrabalho: 1.00, tipoConexao: 'klipper' }
     ];
 
     function getSafeImpressoraModel() {
@@ -199,6 +199,7 @@ window.ImpressorasFilaModulo = (function () {
         if (modal) {
             modal.style.display = 'flex';
             renderizarListaModalImpressoras();
+            aoMudarTipoConexao();
         }
     }
 
@@ -219,6 +220,27 @@ window.ImpressorasFilaModulo = (function () {
         document.getElementById('impFormWatts').value = preset.potenciaWatts;
         document.getElementById('impFormDesgaste').value = preset.taxaDesgasteHora.toFixed(2);
         document.getElementById('impFormTrabalho').value = preset.custoHoraTrabalho.toFixed(2);
+
+        if (document.getElementById('impFormTipoConexao')) {
+            document.getElementById('impFormTipoConexao').value = preset.tipoConexao || (preset.nome.includes('Bambu') ? 'bambu' : 'manual');
+        }
+        aoMudarTipoConexao();
+
+        // Se for Bambu e já houver configuração no módulo Bambu, preenche IP/Serial/AccessCode para conveniência
+        if ((preset.tipoConexao === 'bambu' || preset.nome.includes('Bambu')) && window.BambuModulo && typeof window.BambuModulo.getConfig === 'function') {
+            const bCfg = window.BambuModulo.getConfig();
+            if (bCfg) {
+                if (bCfg.ip && document.getElementById('impFormIp') && !document.getElementById('impFormIp').value) {
+                    document.getElementById('impFormIp').value = bCfg.ip;
+                }
+                if (bCfg.serial && document.getElementById('impFormSerial') && !document.getElementById('impFormSerial').value) {
+                    document.getElementById('impFormSerial').value = bCfg.serial;
+                }
+                if (bCfg.accessCode && document.getElementById('impFormAccessCode') && !document.getElementById('impFormAccessCode').value) {
+                    document.getElementById('impFormAccessCode').value = bCfg.accessCode;
+                }
+            }
+        }
     }
 
     function renderizarListaModalImpressoras() {

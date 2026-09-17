@@ -16,19 +16,13 @@ const vendaSchema = new mongoose.Schema({
     canal: String,
     status: { 
         type: String, 
-        enum: ['pre_venda', 'orcamento', 'aguardando_aprovacao', 'aprovado', 'em_producao', 'acabamento', 'pronto', 'enviado', 'concluida', 'entregue', 'cancelado'], 
+        enum: ['pre_venda', 'orcamento', 'aguardando_aprovacao', 'aprovado', 'a_pagar', 'em_producao', 'acabamento', 'pronto', 'enviado', 'concluida', 'entregue', 'cancelado'], 
         default: 'concluida' 
     },
     pedidoId: String,
     data: { type: Date, default: Date.now },
     filamentosUsados: [{ estoqueId: String, nome: String, peso: Number, precoKg: Number }],
-    detalheCustos: {
-        material: Number,
-        energia: Number,
-        maquina: Number,
-        embalagem: Number,
-        extras: Number
-    },
+    detalheCustos: mongoose.Schema.Types.Mixed,
     custosExtras: [{
         custoItemId: String,
         nome: String,

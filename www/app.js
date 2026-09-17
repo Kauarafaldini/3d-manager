@@ -398,8 +398,8 @@ async function lancarPreVendaFinanceiro() {
             clienteNome,
             nome,
             lucro: dados.lucroReal,
-            bruto: dados.venda,
-            custo: dados.custoProducao,
+            bruto: dados.venda * dados.quantidadeChapa,
+            custo: dados.custoProducaoTotal,
             canal: document.getElementById('pCanal').value,
             filamentosUsados: dados.filamentosUsados,
             detalheCustos: {
@@ -658,7 +658,7 @@ function calcFinanceiro(foiAlteradoPelaMargem = false) {
 
     const valorComissao = venda * taxaComissaoPct;
     const vendaTotal = venda * quantidadeChapa;
-    const lucroReal = vendaTotal - custoProducaoTotal - (valorComissao * quantidadeChapa) - (taxaFixa * quantidadeChapa);
+    const lucroReal = vendaTotal - (valorComissao * quantidadeChapa) - (taxaFixa * quantidadeChapa) - custoProducaoTotal;
     const markupReal = custoProducaoTotal > 0 ? (lucroReal / custoProducaoTotal) * 100 : 0;
 
     const margemEl = document.getElementById('pMargemDesejada');
@@ -767,8 +767,9 @@ async function registrarVenda() {
         const novaVenda = new VendaModel({
             nome,
             lucro: dados.lucroReal,
-            bruto: dados.venda,
-            custo: dados.custoProducao,
+            bruto: dados.venda * dados.quantidadeChapa,
+            custo: dados.custoProducaoTotal,
+            quantidade: dados.quantidadeChapa,
             canal: document.getElementById('pCanal').value,
             filamentosUsados: dados.filamentosUsados,
             detalheCustos: {
