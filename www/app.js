@@ -658,8 +658,8 @@ function calcFinanceiro(foiAlteradoPelaMargem = false) {
 
     const valorComissao = venda * taxaComissaoPct;
     const vendaTotal = venda * quantidadeChapa;
-    const lucroReal = vendaTotal - (valorComissao * quantidadeChapa) - (taxaFixa * quantidadeChapa);
-    const markupReal = custoProducaoTotal > 0 ? ((lucroReal - custoProducaoTotal) / custoProducaoTotal) * 100 : 0;
+    const lucroReal = vendaTotal - custoProducaoTotal - (valorComissao * quantidadeChapa) - (taxaFixa * quantidadeChapa);
+    const markupReal = custoProducaoTotal > 0 ? (lucroReal / custoProducaoTotal) * 100 : 0;
 
     const margemEl = document.getElementById('pMargemDesejada');
     if (!foiAlteradoPelaMargem && document.activeElement !== margemEl) {

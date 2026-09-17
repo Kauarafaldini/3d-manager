@@ -156,17 +156,19 @@
                     </div>
                     <input type="text" id="pdfChavePix" placeholder="Ex: seu-pix@email.com" oninput="PdfOrcamentoModulo.atualizarPreviewProposta()">
                 </div>
-                <div class="input-container">
-                    <label>Nome da Peça</label>
-                    <input type="text" id="pdfItemNome" oninput="PdfOrcamentoModulo.atualizarPreviewProposta()">
+                <div class="input-container full" style="display:flex;align-items:center;gap:8px;background:var(--bg-secondary);padding:10px 14px;border-radius:10px;border:1px solid var(--border-subtle);">
+                    <input type="checkbox" id="pdfIncluirPagamento" onchange="PdfOrcamentoModulo.atualizarPreviewProposta()" style="width:auto;transform:scale(1.2);">
+                    <label for="pdfIncluirPagamento" style="cursor:pointer;text-transform:none;font-size:12px;color:var(--text-muted);margin:0;">
+                        💳 Incluir dados de pagamento (PIX / QR Code / Código de Barras) — <b style="color:var(--text-dim);">desmarque para cotações</b>
+                    </label>
                 </div>
-                <div class="input-container">
-                    <label>Valor Unitário (R$)</label>
-                    <input type="number" step="0.01" id="pdfItemValor" oninput="PdfOrcamentoModulo.atualizarPreviewProposta()">
-                </div>
-                <div class="input-container">
-                    <label>Quantidade</label>
-                    <input type="number" min="1" id="pdfItemQtd" value="1" oninput="PdfOrcamentoModulo.atualizarPreviewProposta()">
+
+                <div class="input-container full" style="background:var(--bg-input);padding:14px;border-radius:12px;border:1px solid var(--border-subtle);">
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+                        <label style="margin:0;font-weight:700;font-size:13px;">📦 Itens do Orçamento</label>
+                        <button type="button" class="btn-secondary" onclick="PdfOrcamentoModulo.adicionarItemProposta()" style="padding:5px 12px;font-size:11px;border-radius:8px;">➕ Adicionar Item</button>
+                    </div>
+                    <div id="pdfItensContainer" style="display:flex;flex-direction:column;gap:10px;"></div>
                 </div>
                 <div class="input-container full" style="background:var(--bg-input);padding:14px;border-radius:12px;border:1px solid var(--border-subtle);">
                     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">

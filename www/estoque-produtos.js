@@ -728,6 +728,8 @@ async function renderizarPreVendas() {
             'acabamento': { label: '✨ Acabamento', cor: '#8b5cf6', bg: 'rgba(139,92,246,0.15)' },
             'pronto': { label: '📦 Pronto', cor: '#10b981', bg: 'rgba(16,185,129,0.15)' },
             'enviado': { label: '🚚 Enviado', cor: '#6366f1', bg: 'rgba(99,102,241,0.15)' },
+            'entregue': { label: '✅ Entregue', cor: '#059669', bg: 'rgba(5,150,105,0.15)' },
+            'concluida': { label: '🏁 Concluído', cor: '#047857', bg: 'rgba(4,120,87,0.15)' },
             'cancelado': { label: '❌ Cancelado', cor: '#ef4444', bg: 'rgba(239,68,68,0.15)' }
         };
 
@@ -809,6 +811,8 @@ async function abrirModalGerenciarPedido(idOuPedidoId) {
             { value: 'acabamento', label: '✨ Em Acabamento', cor: '#8b5cf6', bg: 'rgba(139,92,246,0.15)' },
             { value: 'pronto', label: '📦 Pronto para Retirada', cor: '#10b981', bg: 'rgba(16,185,129,0.15)' },
             { value: 'enviado', label: '🚚 Enviado / A Caminho', cor: '#6366f1', bg: 'rgba(99,102,241,0.15)' },
+            { value: 'entregue', label: '✅ Entregue ao Cliente', cor: '#059669', bg: 'rgba(5,150,105,0.15)' },
+            { value: 'concluida', label: '🏁 Concluído / Finalizado', cor: '#047857', bg: 'rgba(4,120,87,0.15)' },
             { value: 'cancelado', label: '❌ Cancelado', cor: '#ef4444', bg: 'rgba(239,68,68,0.15)' }
         ];
 
@@ -949,6 +953,8 @@ async function alterarStatusPedido(id, novoStatus) {
             acabamento: 'Em Acabamento',
             pronto: 'Pronto para Retirada',
             enviado: 'Enviado',
+            entregue: 'Entregue ao Cliente',
+            concluida: 'Concluído / Finalizado',
             cancelado: 'Cancelado'
         };
 
