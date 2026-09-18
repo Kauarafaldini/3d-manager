@@ -43,7 +43,329 @@ class BambuService {
     }
 
     /**
-     * Conecta ou atualiza conexão com uma impressora Bambu Lab
+     * Resolve Base URL da API da Bambu pelo código da região
+     */
+    getCloudApiBaseUrl(region = 'us') {
+        return region === 'cn' ? 'https://api.bambulab.cn' : 'https://api.bambulab.com';
+    }
+
+    /**
+     * Resolve o broker MQTT de nuvem da Bambu pelo código da região
+     */
+    getCloudMqttBroker(region = 'us') {
+        if (region === 'cn') return { url: 'mqtts://cn.mqtt.bambulab.com:8883', host: 'cn.mqtt.bambulab.com' };
+        if (region === 'eu') return { url: 'mqtts://eu.mqtt.bambulab.com:8883', host: 'eu.mqtt.bambulab.com' };
+        return { url: 'mqtts://us.mqtt.bambulab.com:8883', host: 'us.mqtt.bambulab.com' };
+    }
+
+    /**
+     * Extrai o identificador de usuário (UID) a partir do JWT da Bambu se disponível
+     */
+    extractUidFromToken(token) {
+        if (!token || typeof token !== 'string') return null;
+        try {
+            const parts = token.split('.');
+            if (parts.length === 3) {
+                const payload = JSON.parse(Buffer.from(parts[1], 'base64').toString('utf8'));
+                return payload.uid || payload.sub || payload.user_id || payload.account_id || null;
+            }
+        } catch (_) {}
+        return null;
+    }
+
+    /**
+     * Autenticação na Nuvem Oficial da Bambu Lab
+     * Suporta e-mail, senha e código de verificação 2FA
+     */
+    async loginCloud({ account, password, code, region = 'us' }) {
+        if (!account || !password) {
+            throw new Error('E-mail e senha da conta Bambu Lab são obrigatórios.');
+        }
+
+        const baseUrl = this.getCloudApiBaseUrl(region);
+        const url = `${baseUrl}/v1/user-service/user/login`;
+
+        const bodyPayload = {
+            account: String(account).trim(),
+            password: String(password).trim()
+        };
+        if (code) {
+            bodyPayload.code = String(code).trim();
+        }
+
+        console.log(`[bambu-service] Tentando login na nuvem Bambu (${baseUrl})...`);
+
+        const res = await fetch(url, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'User-Agent': 'bambu-studio/01.09.03.50',
+                'Accept': 'application/json'
+            },
+            body: JSON.stringify(bodyPayload)
+        });
+
+        const data = await res.json().catch(() => ({}));
+
+        // Caso a Bambu solicite 2FA (código por e-mail ou app)
+        if (data.loginType === 'verifyCode' || (data.code === 200 && data.loginType === 'verifyCode')) {
+            return {
+                ok: false,
+                need2FA: true,
+                message: 'A Bambu Lab enviou um código de verificação para o seu e-mail (ou app autenticador). Digite o código de 6 dígitos para continuar.'
+            };
+        }
+
+        if (!res.ok || !data.accessToken) {
+            const errMsg = data.message || data.error || (data.code === 400 ? 'E-mail, senha ou código incorreto.' : 'Falha ao autenticar na Bambu Lab');
+            return { ok: false, message: errMsg };
+        }
+
+        const token = data.accessToken;
+        const refreshToken = data.refreshToken || '';
+
+        // Tenta obter UID do perfil ou JWT
+        let userId = this.extractUidFromToken(token);
+        if (!userId) {
+            userId = await this.getCloudUserProfile(token, region).catch(() => null);
+        }
+
+        // Busca lista de impressoras vinculadas
+        let devices = [];
+        try {
+            devices = await this.getCloudDevices(token, region);
+        } catch (devErr) {
+            console.warn('[bambu-service] Não foi possível carregar dispositivos no login:', devErr.message);
+        }
+
+        return {
+            ok: true,
+            token,
+            refreshToken,
+            userId: userId || 'user',
+            devices
+        };
+    }
+
+    /**
+     * Obtém o UID (ID do usuário) na nuvem Bambu
+     */
+    async getCloudUserProfile(token, region = 'us') {
+        const baseUrl = this.getCloudApiBaseUrl(region);
+        const urls = [
+            `${baseUrl}/v1/design-user-service/my/preference`,
+            `${baseUrl}/v1/user-service/user/preference`
+        ];
+
+        for (const u of urls) {
+            try {
+                const res = await fetch(u, {
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'User-Agent': 'bambu-studio/01.09.03.50',
+                        'Accept': 'application/json'
+                    }
+                });
+                if (res.ok) {
+                    const data = await res.json();
+                    const uid = data?.uid || data?.user_id || data?.id || data?.preference?.uid;
+                    if (uid) return String(uid);
+                }
+            } catch (_) {}
+        }
+        return this.extractUidFromToken(token) || 'user';
+    }
+
+    /**
+     * Lista todas as impressoras vinculadas à conta do usuário
+     */
+    async getCloudDevices(token, region = 'us') {
+        if (!token) throw new Error('Token de acesso não fornecido.');
+        const baseUrl = this.getCloudApiBaseUrl(region);
+        const url = `${baseUrl}/v1/iot-service/api/user/bind`;
+
+        console.log(`[bambu-service] Buscando impressoras vinculadas em ${url}...`);
+
+        const res = await fetch(url, {
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'User-Agent': 'bambu-studio/01.09.03.50',
+                'Accept': 'application/json'
+            }
+        });
+
+        if (!res.ok) {
+            const txt = await res.text().catch(() => '');
+            throw new Error(`Falha ao obter impressoras (${res.status}): ${txt || res.statusText}`);
+        }
+
+        const data = await res.json().catch(() => ({}));
+        const rawDevices = data?.devices || (Array.isArray(data) ? data : []);
+
+        return rawDevices.map(d => ({
+            serial: d.dev_id || d.device_id || d.sn || '',
+            name: d.name || d.device_name || d.dev_id || 'Bambu Lab',
+            model: d.dev_model_name || d.dev_product_name || d.model || 'Bambu Lab',
+            online: !!d.online,
+            printStatus: d.print_status || (d.online ? 'IDLE' : 'OFFLINE'),
+            accessCode: d.dev_access_code || ''
+        }));
+    }
+
+    /**
+     * Conecta a uma impressora Bambu via broker MQTT da Nuvem
+     */
+    async connectCloudPrinter(config) {
+        const { serial, token, userId, region = 'us', nome, model } = config;
+
+        if (!serial) throw new Error('Serial Number da impressora é obrigatório.');
+        if (!token) throw new Error('Token da conta Bambu Lab é obrigatório.');
+
+        if (this.connections.has(serial)) {
+            await this.disconnectPrinter(serial);
+        }
+
+        if (!mqtt) {
+            try {
+                mqtt = require('mqtt');
+            } catch (err) {
+                throw new Error('Módulo MQTT não está disponível no ambiente Node.js');
+            }
+        }
+
+        const cleanSerial = String(serial).trim().toUpperCase();
+        let cleanUserId = String(userId || '').trim();
+        if (!cleanUserId || cleanUserId === 'user') {
+            cleanUserId = this.extractUidFromToken(token) || 'user';
+        }
+
+        const broker = this.getCloudMqttBroker(region);
+        const username = `u_${cleanUserId}`;
+        const clientId = `3dm_${cleanSerial.substring(0, 6)}_${Math.random().toString(16).substring(2, 6)}`;
+
+        const options = {
+            port: 8883,
+            host: broker.host,
+            username: username,
+            password: token,
+            protocol: 'mqtts',
+            protocolVersion: 4, // MQTT 3.1.1
+            clean: true,
+            keepalive: 60,
+            rejectUnauthorized: false,
+            clientId,
+            connectTimeout: 12000,
+            reconnectPeriod: 5000
+        };
+
+        console.log(`[bambu-service] Conectando a ${nome || cleanSerial} via Nuvem Bambu (${broker.url})...`);
+
+        return new Promise((resolve) => {
+            let resolved = false;
+
+            try {
+                const client = mqtt.connect(broker.url, options);
+
+                const connRecord = {
+                    config: { ...config, isCloud: true, broker: broker.host },
+                    client,
+                    isCloud: true,
+                    status: 'connecting',
+                    lastUpdate: new Date(),
+                    telemetry: {
+                        connected: false,
+                        isCloud: true,
+                        model: model || 'Bambu Lab',
+                        state: 'OFFLINE',
+                        percent: 0,
+                        remainingMinutes: 0,
+                        remainingFormatted: 'Conectando...',
+                        layer: 0,
+                        totalLayers: 0,
+                        nozzleTemp: 0,
+                        nozzleTarget: 0,
+                        bedTemp: 0,
+                        bedTarget: 0,
+                        chamberTemp: 0,
+                        fileName: '',
+                        chamberLight: 'off',
+                        speedLevel: 2,
+                        ams: [],
+                        vtTray: null
+                    }
+                };
+
+                this.connections.set(cleanSerial, connRecord);
+
+                const connectTimeout = setTimeout(() => {
+                    if (!resolved) {
+                        resolved = true;
+                        connRecord.status = 'timeout';
+                        resolve({ ok: false, status: 'timeout', message: 'Tempo limite ao conectar à nuvem da Bambu. Verifique sua internet ou token.' });
+                    }
+                }, 15000);
+
+                client.on('connect', () => {
+                    console.log(`[bambu-service] Conectado com sucesso à Nuvem Bambu Lab [${cleanSerial}]!`);
+                    clearTimeout(connectTimeout);
+                    connRecord.status = 'connected';
+                    connRecord.telemetry.connected = true;
+
+                    const reportTopic = `device/${cleanSerial}/report`;
+                    client.subscribe(reportTopic, (err) => {
+                        if (err) {
+                            console.error(`[bambu-service] Erro ao assinar ${reportTopic}:`, err);
+                        } else {
+                            console.log(`[bambu-service] Assinado no tópico de nuvem ${reportTopic}`);
+                            this.sendCommand(cleanSerial, {
+                                pushing: { sequence_id: '1', command: 'pushall' }
+                            }).catch(() => {});
+                        }
+                    });
+
+                    if (!resolved) {
+                        resolved = true;
+                        resolve({ ok: true, status: 'connected', mode: 'cloud', printer: connRecord.telemetry });
+                    }
+                });
+
+                client.on('message', (topic, message) => {
+                    try {
+                        const payload = JSON.parse(message.toString());
+                        this.handleTelemetryMessage(cleanSerial, payload);
+                    } catch (e) {
+                        console.error('[bambu-service] Erro ao decodificar JSON do MQTT Cloud:', e);
+                    }
+                });
+
+                client.on('error', (err) => {
+                    console.error(`[bambu-service] Erro na conexão Cloud [${cleanSerial}]:`, err.message);
+                    connRecord.status = 'error';
+                    connRecord.telemetry.connected = false;
+                    if (!resolved) {
+                        resolved = true;
+                        clearTimeout(connectTimeout);
+                        resolve({ ok: false, status: 'error', message: `Erro ao conectar na nuvem: ${err.message}` });
+                    }
+                });
+
+                client.on('close', () => {
+                    connRecord.status = 'disconnected';
+                    connRecord.telemetry.connected = false;
+                });
+
+            } catch (err) {
+                console.error('[bambu-service] Falha ao iniciar cliente MQTT Cloud:', err);
+                if (!resolved) {
+                    resolved = true;
+                    resolve({ ok: false, status: 'error', message: err.message });
+                }
+            }
+        });
+    }
+
+    /**
+     * Conecta ou atualiza conexão com uma impressora Bambu Lab (Modo Local / LAN)
      */
     async connectPrinter(config) {
         const { id, nome, ip, serial, accessCode, useSimulator } = config;
@@ -89,9 +411,10 @@ class BambuService {
             keepalive: 60,
             rejectUnauthorized: false,
             checkServerIdentity: () => undefined, // Ignora checagem de SAN em certificado autoassinado
-            ciphers: 'DEFAULT:@SECLEVEL=0', // Permite handshake TLS com certificado da Bambu no Node 20/22+
+            ciphers: 'DEFAULT:@SECLEVEL=0:ALL', // Permite handshake TLS com certificado da Bambu no Node 20/22+
+            minVersion: 'TLSv1',
             clientId: `3dm_${cleanSerial.substring(0, 6)}_${Math.random().toString(16).substring(2, 6)}`,
-            connectTimeout: 8000,
+            connectTimeout: 10000,
             reconnectPeriod: 5000
         };
 

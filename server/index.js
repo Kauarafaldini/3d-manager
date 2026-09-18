@@ -635,6 +635,18 @@ app.post('/api/printers/connect', optionalAuth, async (req, res) => {
             return res.json(result);
         }
 
+        if (protocol === 'bambu_cloud') {
+            const result = await bambuService.connectCloudPrinter({
+                serial: String(serial || id).trim(),
+                token: accessCode || apiKey,
+                userId: req.body.userId,
+                region: req.body.region || 'us',
+                nome: nome || 'Bambu Lab',
+                model: req.body.modelo || req.body.model
+            });
+            return res.json(result);
+        }
+
         // Padrão: Bambu Lab
         const result = await bambuService.connectPrinter({
             ip: ip ? String(ip).trim() : '',
@@ -719,6 +731,69 @@ app.post('/api/bambu/connect', optionalAuth, async (req, res) => {
     } catch (err) {
         console.error('bambu/connect', err);
         res.status(500).json({ ok: false, erro: err.message });
+    }
+});
+
+// =============================================
+// BAMBU LAB CLOUD API & DISCOVERY
+// =============================================
+app.post('/api/bambu/cloud/login', optionalAuth, async (req, res) => {
+    try {
+        const { account, password, code, region = 'us' } = req.body || {};
+        const result = await bambuService.loginCloud({ account, password, code, region });
+        res.json(result);
+    } catch (err) {
+        console.error('bambu/cloud/login', err);
+        res.status(500).json({ ok: false, message: err.message });
+    }
+});
+
+app.post('/api/bambu/cloud/token-login', optionalAuth, async (req, res) => {
+    try {
+        const { token, region = 'us' } = req.body || {};
+        if (!token) return res.status(400).json({ ok: false, message: 'Token de acesso é obrigatório' });
+
+        const cleanToken = String(token).trim();
+        let userId = bambuService.extractUidFromToken(cleanToken);
+        if (!userId) {
+            userId = await bambuService.getCloudUserProfile(cleanToken, region).catch(() => null);
+        }
+        const devices = await bambuService.getCloudDevices(cleanToken, region);
+        res.json({
+            ok: true,
+            token: cleanToken,
+            userId: userId || 'user',
+            devices
+        });
+    } catch (err) {
+        console.error('bambu/cloud/token-login', err);
+        res.status(500).json({ ok: false, message: err.message });
+    }
+});
+
+app.post('/api/bambu/cloud/devices', optionalAuth, async (req, res) => {
+    try {
+        const { token, region = 'us' } = req.body || {};
+        if (!token) return res.status(400).json({ ok: false, message: 'Token é obrigatório' });
+        const devices = await bambuService.getCloudDevices(String(token).trim(), region);
+        res.json({ ok: true, devices });
+    } catch (err) {
+        console.error('bambu/cloud/devices', err);
+        res.status(500).json({ ok: false, message: err.message });
+    }
+});
+
+app.post('/api/bambu/cloud/connect', optionalAuth, async (req, res) => {
+    try {
+        const { serial, token, userId, region = 'us', nome, model } = req.body || {};
+        if (!serial || !token) {
+            return res.status(400).json({ ok: false, message: 'Serial da impressora e token são obrigatórios' });
+        }
+        const result = await bambuService.connectCloudPrinter({ serial, token, userId, region, nome, model });
+        res.json(result);
+    } catch (err) {
+        console.error('bambu/cloud/connect', err);
+        res.status(500).json({ ok: false, message: err.message });
     }
 });
 

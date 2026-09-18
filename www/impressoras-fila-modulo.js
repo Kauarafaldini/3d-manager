@@ -267,7 +267,16 @@ window.ImpressorasFilaModulo = (function () {
             bloco.style.display = 'none';
         } else {
             bloco.style.display = 'block';
-            if (tipo === 'bambu') {
+            if (tipo === 'bambu_cloud') {
+                if (portaInput) portaInput.value = '8883';
+                if (codeLabel) codeLabel.textContent = 'Token da Conta Bambu (JWT)';
+                if (codeInput) {
+                    codeInput.placeholder = 'Preenchido ao autenticar sua conta Bambu';
+                    codeInput.title = 'Token da conta Bambu Cloud';
+                }
+                if (serialLabel) serialLabel.textContent = 'Serial Number (SN)';
+                if (dicaEl) dicaEl.innerHTML = '💡 <b>Bambu Lab Nuvem:</b> Não precisa de IP local! Clique no botão <b>"☁️ Conta Bambu Lab"</b> acima para detectar e conectar suas máquinas em 1 clique.';
+            } else if (tipo === 'bambu') {
                 if (portaInput) portaInput.value = '8883';
                 if (codeLabel) codeLabel.textContent = 'Código de Acesso (8 dígitos na tela)';
                 if (codeInput) {
@@ -275,7 +284,7 @@ window.ImpressorasFilaModulo = (function () {
                     codeInput.title = 'Fica na tela da Bambu em Configurações ➔ Wi-Fi';
                 }
                 if (serialLabel) serialLabel.textContent = 'Serial Number (SN)';
-                if (dicaEl) dicaEl.innerHTML = '💡 <b>Bambu Lab:</b> O Código de Acesso fica na tela da impressora em <b>Configurações ➔ Wi-Fi/WLAN</b> (são 8 números/letras). Não precisa de chave da internet.';
+                if (dicaEl) dicaEl.innerHTML = '💡 <b>Bambu Lab:</b> O Código de Acesso fica na tela da impressora em <b>Configurações ➔ Wi-Fi/WLAN</b> (são 8 números/letras). Ative o <b>Modo LAN</b> para conexão direta.';
             } else if (tipo === 'klipper') {
                 if (portaInput) portaInput.value = '7125';
                 if (codeLabel) codeLabel.textContent = 'API Key (Opcional - pode deixar vazio)';
@@ -306,8 +315,13 @@ window.ImpressorasFilaModulo = (function () {
         const accessCode = document.getElementById('impFormAccessCode')?.value?.trim();
         const nome = document.getElementById('impFormNome')?.value?.trim() || 'Impressora 3D';
 
-        if (!ip && protocol !== 'manual') {
+        if (!ip && protocol !== 'manual' && protocol !== 'bambu_cloud') {
             if (typeof mostrarToast === 'function') mostrarToast('Informe o IP da impressora para testar', 'erro');
+            return;
+        }
+
+        if (protocol === 'bambu_cloud' && !serial) {
+            if (typeof mostrarToast === 'function') mostrarToast('Informe o Serial Number (SN) da impressora', 'erro');
             return;
         }
 
