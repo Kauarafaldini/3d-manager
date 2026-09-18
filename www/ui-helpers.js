@@ -128,3 +128,36 @@ if (typeof window !== 'undefined') {
     window.resetFormularioEstoque = resetFormularioEstoque;
     window.resetFormularioCustoCadastro = resetFormularioCustoCadastro;
 }
+
+// =============================================
+// GLOBAL ESCAPE KEY HANDLER — Close topmost modal
+// =============================================
+document.addEventListener('keydown', function(e) {
+    if (e.key !== 'Escape') return;
+
+    // Map overlay IDs to their close functions (ordered by priority)
+    const modalClosers = [
+        { id: 'qrScannerModalOverlay', fn: () => window.QrScannerModulo?.fecharScanner() },
+        { id: 'spoolLabelModalOverlay', fn: () => window.SpoolLabelModulo?.fecharModalEtiqueta() },
+        { id: 'spoolModalOverlay', fn: () => typeof fecharModalCarretel === 'function' && fecharModalCarretel() },
+        { id: 'aiPricingModalOverlay', fn: () => typeof fecharModalSugestaoPrecoIA === 'function' && fecharModalSugestaoPrecoIA() },
+        { id: 'enfileirarModalOverlay', fn: () => window.ImpressorasFilaModulo?.fecharModalEnfileirar() },
+        { id: 'trabalhoAvulsoModalOverlay', fn: () => window.ImpressorasFilaModulo?.fecharModalTrabalhoAvulso() },
+        { id: 'impressorasModalOverlay', fn: () => window.ImpressorasFilaModulo?.fecharModalGerenciar() },
+        { id: 'gerenciarPedidoModalOverlay', fn: () => typeof fecharModalGerenciarPedido === 'function' && fecharModalGerenciarPedido() },
+        { id: 'orcamentoPdfModalOverlay', fn: () => window.PdfOrcamentoModulo?.fecharModalProposta() },
+        { id: 'bambuModalOverlay', fn: () => window.BambuModulo?.fecharModalConfig() },
+        { id: 'modalImportarUrlOverlay', fn: () => window.UrlImporterModulo?.fecharModal() },
+        { id: 'notificacoesModalOverlay', fn: () => window.NotificacoesModulo?.fecharModalNotificacoes() },
+        { id: 'themeModalOverlay', fn: () => typeof toggleModalTema === 'function' && toggleModalTema() },
+    ];
+
+    for (const { id, fn } of modalClosers) {
+        const overlay = document.getElementById(id);
+        if (overlay && (overlay.style.display === 'flex' || overlay.classList.contains('open'))) {
+            e.preventDefault();
+            try { fn(); } catch (err) { console.warn('[esc] Erro ao fechar modal:', id, err); }
+            return;
+        }
+    }
+});

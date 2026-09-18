@@ -110,7 +110,8 @@ function nav(tab, btn) {
             });
         }
         
-        if (container && container.children.length === 0) {
+        const containerFilamentos = document.getElementById('container-filamentos-linhas');
+        if (containerFilamentos && containerFilamentos.children.length === 0) {
             adicionarLinhaFilamento();
         }
         if (window.ImpressorasFilaModulo && typeof window.ImpressorasFilaModulo.preencherSeletorCalculadora === 'function') {
@@ -190,6 +191,21 @@ function aplicarTema(nome) {
     });
     const cardAtivo = document.getElementById(`theme-card-${nome}`);
     if (cardAtivo) cardAtivo.classList.add('active');
+    const cardCfgAtivo = document.getElementById(`theme-card-${nome}-cfg`);
+    if (cardCfgAtivo) cardCfgAtivo.classList.add('active');
+
+    // Sincronizar theme-color na barra de status mobile
+    const themeColors = {
+        obsidian: '#080a10',
+        neon: '#0d0618',
+        forest: '#061410',
+        arctic: '#f0f4f8',
+        sunrise: '#fef9f0'
+    };
+    const metaThemeColor = document.querySelector('meta[name="theme-color"]');
+    if (metaThemeColor && themeColors[nome]) {
+        metaThemeColor.setAttribute('content', themeColors[nome]);
+    }
 }
 
 function toggleModalTema() {

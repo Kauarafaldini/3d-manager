@@ -2,8 +2,9 @@
 <html lang="pt-br">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <meta name="description" content="3D Manager Pro — Gerencie sua impressora 3D: estoque, custos, vendas e relatórios financeiros.">
+    <meta name="theme-color" content="#080a10">
     <link rel="stylesheet" href="style.css">
     <title>3D Manager Pro</title>
 </head>
@@ -290,7 +291,7 @@
                     <!-- Stepper & Unidade -->
                     <div id="pdfPrazoControleRapido" style="display:flex;align-items:center;gap:8px;">
                         <button type="button" class="btn-stepper" onclick="PdfOrcamentoModulo.ajustarPrazoDias(-1)" style="width:36px;height:36px;border-radius:8px;font-size:16px;font-weight:700;background:var(--bg-primary);border:1px solid var(--border-subtle);color:var(--text);cursor:pointer;display:flex;align-items:center;justify-content:center;">-</button>
-                        <input type="number" id="pdfPrazoDiasInput" value="3" min="1" max="90" style="width:64px;text-align:center;font-weight:700;font-size:14px;padding:8px 4px;" oninput="PdfOrcamentoModulo.aoDigitarPrazoDias(this.value)">
+                        <input type="number" id="pdfPrazoDiasInput" value="3" min="1" max="90" inputmode="numeric" style="width:64px;text-align:center;font-weight:700;font-size:14px;padding:8px 4px;" oninput="PdfOrcamentoModulo.aoDigitarPrazoDias(this.value)">
                         <button type="button" class="btn-stepper" onclick="PdfOrcamentoModulo.ajustarPrazoDias(1)" style="width:36px;height:36px;border-radius:8px;font-size:16px;font-weight:700;background:var(--bg-primary);border:1px solid var(--border-subtle);color:var(--text);cursor:pointer;display:flex;align-items:center;justify-content:center;">+</button>
                         <select id="pdfPrazoTipoUnidade" onchange="PdfOrcamentoModulo.atualizarPrazoTexto()" style="flex:1;padding:8px 10px;font-size:12px;border-radius:8px;">
                             <option value="úteis" selected>dias úteis</option>
@@ -331,7 +332,7 @@
                     <!-- Stepper Control -->
                     <div id="pdfValidadeControleRapido" style="display:flex;align-items:center;gap:8px;">
                         <button type="button" class="btn-stepper" onclick="PdfOrcamentoModulo.ajustarValidadeDias(-1)" style="width:36px;height:36px;border-radius:8px;font-size:16px;font-weight:700;background:var(--bg-primary);border:1px solid var(--border-subtle);color:var(--text);cursor:pointer;display:flex;align-items:center;justify-content:center;">-</button>
-                        <input type="number" id="pdfValidadeDiasInput" value="7" min="1" max="90" style="flex:1;text-align:center;font-weight:700;font-size:14px;padding:8px 4px;" oninput="PdfOrcamentoModulo.aoDigitarValidadeDias(this.value)">
+                        <input type="number" id="pdfValidadeDiasInput" value="7" min="1" max="90" inputmode="numeric" style="flex:1;text-align:center;font-weight:700;font-size:14px;padding:8px 4px;" oninput="PdfOrcamentoModulo.aoDigitarValidadeDias(this.value)">
                         <button type="button" class="btn-stepper" onclick="PdfOrcamentoModulo.ajustarValidadeDias(1)" style="width:36px;height:36px;border-radius:8px;font-size:16px;font-weight:700;background:var(--bg-primary);border:1px solid var(--border-subtle);color:var(--text);cursor:pointer;display:flex;align-items:center;justify-content:center;">+</button>
                     </div>
 
@@ -449,7 +450,7 @@
                 </div>
                 <div class="input-container full">
                     <label id="spoolModalLabel">Novo peso restante em gramas (g)</label>
-                    <input type="number" id="spoolModalValor" step="1" min="0" placeholder="Ex: 850">
+                    <input type="number" id="spoolModalValor" step="1" min="0" placeholder="Ex: 850" inputmode="numeric">
                     <small id="spoolModalHelp" style="font-size:10px;color:var(--text-dim);">Informe o peso do filamento aferido na balança.</small>
                 </div>
             </div>
@@ -564,7 +565,7 @@
                         </div>
                         <div class="input-container">
                             <label>Porta</label>
-                            <input type="number" id="impFormPorta" placeholder="Ex: 8883 ou 7125">
+                            <input type="number" id="impFormPorta" placeholder="Ex: 8883 ou 7125" inputmode="numeric">
                         </div>
                         <div class="input-container">
                             <label id="impLabelSerial">Serial / Identificador</label>
@@ -582,15 +583,15 @@
 
                 <div class="input-container">
                     <label>Consumo Médio (Watts)</label>
-                    <input type="number" id="impFormWatts" value="150" placeholder="Ex: 160">
+                    <input type="number" id="impFormWatts" value="150" placeholder="Ex: 160" inputmode="numeric">
                 </div>
                 <div class="input-container">
                     <label>Depreciação / Desgaste (R$/h)</label>
-                    <input type="number" step="0.01" id="impFormDesgaste" value="0.80" placeholder="Ex: 0.80">
+                    <input type="number" step="0.01" id="impFormDesgaste" value="0.80" placeholder="Ex: 0.80" inputmode="decimal">
                 </div>
                 <div class="input-container full">
                     <label>Mão de Obra / Operador (R$/h)</label>
-                    <input type="number" step="0.01" id="impFormTrabalho" value="1.00" placeholder="Ex: 1.00">
+                    <input type="number" step="0.01" id="impFormTrabalho" value="1.00" placeholder="Ex: 1.00" inputmode="decimal">
                 </div>
             </div>
 
@@ -651,15 +652,15 @@
                 </div>
                 <div class="input-container">
                     <label>Horas Estimadas</label>
-                    <input type="number" id="tabAvulsoHoras" value="2" min="0">
+                    <input type="number" id="tabAvulsoHoras" value="2" min="0" inputmode="numeric">
                 </div>
                 <div class="input-container">
                     <label>Minutos</label>
-                    <input type="number" id="tabAvulsoMinutos" value="0" min="0" max="59">
+                    <input type="number" id="tabAvulsoMinutos" value="0" min="0" max="59" inputmode="numeric">
                 </div>
                 <div class="input-container">
                     <label>Peso Estimado (g)</label>
-                    <input type="number" id="tabAvulsoPeso" value="50" min="0">
+                    <input type="number" id="tabAvulsoPeso" value="50" min="0" inputmode="numeric">
                 </div>
                 <div class="input-container full">
                     <label>Observação (opcional)</label>
@@ -708,27 +709,27 @@
             <div id="auth-form-register" style="display:none">
                 <div class="input-container">
                     <label>Nome do Responsável</label>
-                    <input type="text" id="regNome" placeholder="Seu nome completo">
+                    <input type="text" id="regNome" placeholder="Seu nome completo" autocomplete="name">
                 </div>
                 <div class="input-container">
                     <label>CPF ou CNPJ (obrigatório)</label>
-                    <input type="text" id="regCpfCnpj" placeholder="000.000.000-00 ou 00.000.000/0000-00" oninput="PerfilLojaModulo.mascaraCpfCnpj(this)">
+                    <input type="text" id="regCpfCnpj" placeholder="000.000.000-00 ou 00.000.000/0000-00" inputmode="numeric" oninput="PerfilLojaModulo.mascaraCpfCnpj(this)">
                 </div>
                 <div class="input-container">
                     <label>E-mail</label>
-                    <input type="email" id="regEmail" placeholder="seu@email.com">
+                    <input type="email" id="regEmail" placeholder="seu@email.com" autocomplete="email">
                 </div>
                 <div class="input-container">
                     <label>Nome da Loja / Empresa (opcional)</label>
-                    <input type="text" id="regEmpresa" placeholder="Ex: Oficina 3D Studio">
+                    <input type="text" id="regEmpresa" placeholder="Ex: Oficina 3D Studio" autocomplete="organization">
                 </div>
                 <div class="input-container">
                     <label>WhatsApp / Telefone (opcional)</label>
-                    <input type="text" id="regTelefone" placeholder="(11) 99999-9999">
+                    <input type="tel" id="regTelefone" placeholder="(11) 99999-9999" inputmode="tel" autocomplete="tel">
                 </div>
                 <div class="input-container">
                     <label>Senha (mín. 6)</label>
-                    <input type="password" id="regSenha" placeholder="••••••">
+                    <input type="password" id="regSenha" placeholder="••••••" autocomplete="new-password">
                 </div>
                 <button class="btn-login" type="button" onclick="registrarCliente()">Criar conta</button>
             </div>
@@ -779,11 +780,11 @@
                 </div>
             </div>
             <div class="header-actions">
-                <button class="btn-theme-switcher" onclick="QrScannerModulo.abrirScanner()" title="Escanear QR Code com Câmera">📷</button>
+                <button class="btn-theme-switcher" onclick="QrScannerModulo.abrirScanner()" title="Escanear QR Code com Câmera" aria-label="Escanear QR Code">📷</button>
                 <button class="btn-theme-switcher btn-notification-bell" onclick="NotificacoesModulo.abrirModalNotificacoes()" title="Central de Notificações">
                     🔔<span class="notification-badge" id="notifBadge" style="display:none;">0</span>
                 </button>
-                <button class="btn-exit" type="button" onclick="sairApp()">Sair</button>
+                <button class="btn-exit" type="button" onclick="sairApp()" aria-label="Sair da conta">Sair</button>
             </div>
         </header>
 
@@ -1197,7 +1198,7 @@
 
                         <div class="input-container full">
                             <label>Quantidade por Chapa</label>
-                            <input type="number" step="1" min="1" id="pQuantidadeChapa" value="1" oninput="calcFinanceiro(false)">
+                            <input type="number" step="1" min="1" id="pQuantidadeChapa" value="1" inputmode="numeric" oninput="calcFinanceiro(false)">
                             <small style="font-size:9px;color:var(--text-dim);">Divide o custo total do material pela quantidade de itens na chapa</small>
                         </div>
                         
@@ -1206,11 +1207,11 @@
                             <div class="tempo-duplo">
                                 <div class="input-container" style="margin:0;">
                                     <label style="text-transform:none;font-size:10px;">Horas</label>
-                                    <input type="number" id="pTempoHoras" min="0" step="1" value="0" placeholder="0" oninput="onTempoInput()">
+                                    <input type="number" id="pTempoHoras" min="0" step="1" value="0" placeholder="0" inputmode="numeric" oninput="onTempoInput()">
                                 </div>
                                 <div class="input-container" style="margin:0;">
                                     <label style="text-transform:none;font-size:10px;">Minutos</label>
-                                    <input type="number" id="pTempoMinutos" min="0" max="59" step="1" value="0" placeholder="0" oninput="onTempoInput()">
+                                    <input type="number" id="pTempoMinutos" min="0" max="59" step="1" value="0" placeholder="0" inputmode="numeric" oninput="onTempoInput()">
                                 </div>
                             </div>
                             <small id="resTempoEquiv" style="color:var(--text-dim);font-size:10px;display:block;margin-top:6px;">Total: 0h 0min (0,00 h)</small>
@@ -1218,30 +1219,30 @@
 
                         <div class="input-container">
                             <label>Custo hora de trabalho (R$/h)</label>
-                            <input type="number" step="0.01" id="pTrabalhoHora" value="1.00" oninput="calcFinanceiro(false)">
+                            <input type="number" step="0.01" id="pTrabalhoHora" value="1.00" inputmode="decimal" oninput="calcFinanceiro(false)">
                             <small style="font-size:9px;color:var(--text-dim);">Ex: R$ 1,00 × 1h30 = R$ 1,50</small>
                         </div>
                         <div class="input-container">
                             <label>Desgaste impressora (R$/h)</label>
-                            <input type="number" step="0.01" id="pDesgaste" value="0" oninput="calcFinanceiro(false)">
+                            <input type="number" step="0.01" id="pDesgaste" value="0" inputmode="decimal" oninput="calcFinanceiro(false)">
                         </div>
 
                         <div class="input-container">
                             <label>Custo Energia (R$/h)</label>
-                            <input type="number" step="0.01" id="pEnergia" value="1.00" oninput="calcFinanceiro(false)">
+                            <input type="number" step="0.01" id="pEnergia" value="1.00" inputmode="decimal" oninput="calcFinanceiro(false)">
                             <small style="font-size:9px;color:var(--text-dim);">Ex: R$ 1,00 × 2h = R$ 2,00</small>
                         </div>
                         <div class="input-container">
                             <label>Consumo Máquina (W)</label>
-                            <input type="number" id="pPotencia" value="150" oninput="calcFinanceiro(false)">
+                            <input type="number" id="pPotencia" value="150" inputmode="numeric" oninput="calcFinanceiro(false)">
                         </div>
                         <div class="input-container">
                             <label>Embalagem (R$)</label>
-                            <input type="number" step="0.01" id="pEmbalagem" value="2.50" oninput="calcFinanceiro(false)">
+                            <input type="number" step="0.01" id="pEmbalagem" value="2.50" inputmode="decimal" oninput="calcFinanceiro(false)">
                         </div>
                         <div class="input-container">
                             <label>Margem de Falha / Risco (%)</label>
-                            <input type="number" step="1" min="0" max="50" id="pTaxaFalha" value="5" oninput="calcFinanceiro(false)">
+                            <input type="number" step="1" min="0" max="50" id="pTaxaFalha" value="5" inputmode="numeric" oninput="calcFinanceiro(false)">
                             <small style="font-size:9px;color:var(--text-dim);">Padrão: 5% a 10% para cobrir perdas e descolamento</small>
                         </div>
 
@@ -1269,7 +1270,7 @@
                                 </div>
                                 <div class="input-container">
                                     <label>Comissão faixa ≥ R$ 80 (%)</label>
-                                    <input type="number" step="0.1" id="shopeeComissao" value="14" oninput="calcFinanceiro(false)">
+                                    <input type="number" step="0.1" id="shopeeComissao" value="14" inputmode="decimal" oninput="calcFinanceiro(false)">
                                     <small style="font-size:9px;color:var(--text-dim);">Padrão 14%. Faixas menores usam tabela fixa (50% até R$8 / 20% R$8–79). Ajuste aqui se sua categoria tiver taxa diferente.</small>
                                 </div>
                                 <div class="input-container full" style="display:flex;flex-direction:row;align-items:center;gap:8px;">
@@ -1286,12 +1287,12 @@
                                 </div>
                                 <div class="input-container">
                                     <label>Taxa fixa manual (R$)</label>
-                                    <input type="number" step="0.01" id="shopeeFixo" value="4.00" oninput="calcFinanceiro(false)">
+                                    <input type="number" step="0.01" id="shopeeFixo" value="4.00" inputmode="decimal" oninput="calcFinanceiro(false)">
                                     <small style="font-size:9px;color:var(--text-dim);">Usada apenas se a tabela oficial estiver desabilitada</small>
                                 </div>
                                 <div class="input-container">
                                     <label>Isenta taxa fixa se preço ≥ (R$)</label>
-                                    <input type="number" step="0.01" id="shopeeFixoLimite" value="79.90" oninput="calcFinanceiro(false)">
+                                    <input type="number" step="0.01" id="shopeeFixoLimite" value="79.90" inputmode="decimal" oninput="calcFinanceiro(false)">
                                 </div>
                             </div>
                         </div>
@@ -1308,17 +1309,17 @@
                                 </div>
                                 <div class="input-container highlight-box">
                                     <label>Comissão ML (%)</label>
-                                    <input type="number" step="0.1" id="mlComissao" value="13" oninput="onMlComissaoManual(); calcFinanceiro(false)">
+                                    <input type="number" step="0.1" id="mlComissao" value="13" inputmode="decimal" oninput="onMlComissaoManual(); calcFinanceiro(false)">
                                     <small style="font-size:9px;color:var(--text-dim);">Confira em Custos por vender no ML. Varia por categoria.</small>
                                 </div>
                                 <div class="input-container">
                                     <label>Taxa fixa (R$)</label>
-                                    <input type="number" step="0.01" id="mlFixo" value="6.50" oninput="calcFinanceiro(false)">
+                                    <input type="number" step="0.01" id="mlFixo" value="6.50" inputmode="decimal" oninput="calcFinanceiro(false)">
                                     <small style="font-size:9px;color:var(--text-dim);">Desde 2026 varia por peso/dimensão. R$ 6,50 é referência para itens leves. Itens &lt; R$ 12,50 usam 50% do valor automaticamente.</small>
                                 </div>
                                 <div class="input-container">
                                     <label>Limite para taxa fixa (R$)</label>
-                                    <input type="number" step="0.01" id="mlFixoLimite" value="79.00" oninput="calcFinanceiro(false)">
+                                    <input type="number" step="0.01" id="mlFixoLimite" value="79.00" inputmode="decimal" oninput="calcFinanceiro(false)">
                                 </div>
                                 <div class="input-container full" style="display:flex;flex-direction:row;align-items:center;gap:8px;">
                                     <input type="checkbox" id="mlFreteGratis" checked onchange="atualizarInterfaceCanais(); calcFinanceiro(false)" style="width:auto;transform:scale(1.2);">
@@ -1326,7 +1327,7 @@
                                 </div>
                                 <div id="ml-bloco-frete" class="input-container">
                                     <label>Custo estimado do frete (R$)</label>
-                                    <input type="number" step="0.01" id="mlFrete" value="20.00" oninput="calcFinanceiro(false)">
+                                    <input type="number" step="0.01" id="mlFrete" value="20.00" inputmode="decimal" oninput="calcFinanceiro(false)">
                                     <small style="font-size:9px;color:var(--text-dim);">Quando o preço final ≥ limite acima</small>
                                 </div>
                             </div>
@@ -1334,11 +1335,11 @@
 
                         <div class="input-container highlight-box">
                             <label>Markup / Lucro sobre o Custo (%)</label>
-                            <input type="number" step="1" id="pMargemDesejada" placeholder="Ex: 120" oninput="calcFinanceiro(true)">
+                            <input type="number" step="1" id="pMargemDesejada" placeholder="Ex: 120" inputmode="numeric" oninput="calcFinanceiro(true)">
                         </div>
                         <div class="input-container highlight-box">
                             <label>Preço de Venda Final (R$)</label>
-                            <input type="number" step="0.01" id="pVenda" value="0" oninput="calcFinanceiro(false)">
+                            <input type="number" step="0.01" id="pVenda" value="0" inputmode="decimal" oninput="calcFinanceiro(false)">
                         </div>
                         
                         <div class="input-container full" style="margin-top:4px;">
@@ -1416,7 +1417,7 @@
                                 <div class="grid-form">
                                     <div class="input-container">
                                         <label>Quantidade</label>
-                                        <input type="number" id="termQuantidade" min="1" value="1" oninput="atualizarTotalVenda()">
+                                        <input type="number" id="termQuantidade" min="1" value="1" inputmode="numeric" oninput="atualizarTotalVenda()">
                                     </div>
                                     <div class="input-container">
                                         <label>Canal de Venda</label>
@@ -1526,11 +1527,11 @@
                                 </div>
                                 <div class="input-container">
                                     <label>Preço de venda (R$)</label>
-                                    <input type="number" step="0.01" id="prodCadPreco" placeholder="0,00 (Opcional - calculado na Calculadora)">
+                                    <input type="number" step="0.01" id="prodCadPreco" placeholder="0,00 (Opcional - calculado na Calculadora)" inputmode="decimal">
                                 </div>
                                 <div class="input-container">
                                     <label>Estoque inicial (un.)</label>
-                                    <input type="number" min="0" step="1" id="prodCadEstoque" value="0">
+                                    <input type="number" min="0" step="1" id="prodCadEstoque" value="0" inputmode="numeric">
                                 </div>
                             </div>
                             <div class="estoque-form-actions">
@@ -1591,7 +1592,7 @@
                             <div class="grid-form">
                                 <div class="input-container">
                                     <label>Chapas produzidas</label>
-                                    <input type="number" id="prodQuantidade" min="1" value="1" oninput="atualizarInfoProducao()">
+                                    <input type="number" id="prodQuantidade" min="1" value="1" inputmode="numeric" oninput="atualizarInfoProducao()">
                                 </div>
                                 <div class="input-container">
                                     <label>Lote (opcional)</label>
@@ -1618,11 +1619,11 @@
                             </div>
                             <div class="input-container">
                                 <label>Preço KG (R$)</label>
-                                <input type="number" step="0.01" id="estPreco" placeholder="Ex: 120.00">
+                                <input type="number" step="0.01" id="estPreco" placeholder="Ex: 120.00" inputmode="decimal">
                             </div>
                             <div class="input-container">
                                 <label>Peso Inicial (g)</label>
-                                <input type="number" id="estGrama" value="1000" placeholder="Ex: 1000">
+                                <input type="number" id="estGrama" value="1000" placeholder="Ex: 1000" inputmode="numeric">
                             </div>
                         </div>
                         <button class="btn-main" onclick="adicionarEstoque()">Salvar filamento</button>
@@ -1660,33 +1661,33 @@
                             </div>
                             <div class="input-container cad-campo-lote-estoque">
                                 <label>Preço total pago (R$)</label>
-                                <input type="number" step="0.01" id="cadPrecoTotalEstoque" placeholder="Ex: 22.00" oninput="atualizarPreviewCustoCadastroEstoque()">
+                                <input type="number" step="0.01" id="cadPrecoTotalEstoque" placeholder="Ex: 22.00" inputmode="decimal" oninput="atualizarPreviewCustoCadastroEstoque()">
                             </div>
                             <div class="input-container cad-campo-lote-estoque">
                                 <label>Quantidade no lote</label>
-                                <input type="number" step="0.01" id="cadQtdTotalEstoque" placeholder="Ex: 100" oninput="atualizarPreviewCustoCadastroEstoque()">
+                                <input type="number" step="0.01" id="cadQtdTotalEstoque" placeholder="Ex: 100" inputmode="decimal" oninput="atualizarPreviewCustoCadastroEstoque()">
                             </div>
                             <div class="input-container cad-campo-unitario-estoque" style="display:none">
                                 <label>Custo por unidade (R$)</label>
-                                <input type="number" step="0.0001" id="cadCustoUnitarioEstoque" oninput="atualizarPreviewCustoCadastroEstoque()">
+                                <input type="number" step="0.0001" id="cadCustoUnitarioEstoque" inputmode="decimal" oninput="atualizarPreviewCustoCadastroEstoque()">
                             </div>
                             <div class="input-container cad-campo-parcela-estoque" style="display:none">
                                 <label>Valor total (R$)</label>
-                                <input type="number" step="0.01" id="cadPrecoTotalParcelaEstoque" placeholder="Ex: 2400.00" oninput="autoCalcParcelaEstoque(); atualizarPreviewCustoCadastroEstoque()">
+                                <input type="number" step="0.01" id="cadPrecoTotalParcelaEstoque" placeholder="Ex: 2400.00" inputmode="decimal" oninput="autoCalcParcelaEstoque(); atualizarPreviewCustoCadastroEstoque()">
                                 <small style="font-size:9px;color:var(--text-dim);">Opcional: valor total do financiamento</small>
                             </div>
                             <div class="input-container cad-campo-parcela-estoque" style="display:none">
                                 <label>Nº de parcelas</label>
-                                <input type="number" min="1" step="1" id="cadNumParcelasEstoque" placeholder="Ex: 12" oninput="autoCalcParcelaEstoque(); atualizarPreviewCustoCadastroEstoque()">
+                                <input type="number" min="1" step="1" id="cadNumParcelasEstoque" placeholder="Ex: 12" inputmode="numeric" oninput="autoCalcParcelaEstoque(); atualizarPreviewCustoCadastroEstoque()">
                             </div>
                             <div class="input-container cad-campo-parcela-estoque" style="display:none">
                                 <label>Valor da parcela (R$/mês)</label>
-                                <input type="number" step="0.01" id="cadValorMensalEstoque" placeholder="Calculado automaticamente" oninput="atualizarPreviewCustoCadastroEstoque()">
+                                <input type="number" step="0.01" id="cadValorMensalEstoque" placeholder="Calculado automaticamente" inputmode="decimal" oninput="atualizarPreviewCustoCadastroEstoque()">
                                 <small style="font-size:9px;color:var(--text-dim);">Preencha valor total + nº parcelas OU edite direto</small>
                             </div>
                             <div class="input-container cad-campo-hora-estoque" style="display:none">
                                 <label>Custo por hora (R$)</label>
-                                <input type="number" step="0.01" id="cadCustoHoraEstoque" oninput="atualizarPreviewCustoCadastroEstoque()">
+                                <input type="number" step="0.01" id="cadCustoHoraEstoque" inputmode="decimal" oninput="atualizarPreviewCustoCadastroEstoque()">
                             </div>
                             <div class="input-container">
                                 <label>Unidade</label>
