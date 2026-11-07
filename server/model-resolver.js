@@ -6,6 +6,55 @@
 const https = require('https');
 const http = require('http');
 
+const ALLOWED_MODEL_DOMAINS = [
+    'makerworld.com',
+    'bblmw.com',
+    'bambulab.com',
+    'printables.com',
+    'thingiverse.com'
+];
+
+const MAX_RESPONSE_BYTES = 2 * 1024 * 1024; // 2 MB
+const MAX_REDIRECTS = 5;
+
+function validateExternalModelUrl(rawUrl) {
+    let parsed;
+    try {
+        parsed = new URL(rawUrl);
+    } catch {
+        throw new Error('URL inválida.');
+    }
+
+    if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') {
+        throw new Error('Protocolo de URL não permitido.');
+    }
+
+    const host = parsed.hostname.toLowerCase();
+    // Bloqueia loopback, IPs privados e metadados de nuvem (anti-SSRF)
+    if (
+        host === 'localhost' ||
+        host.endsWith('.local') ||
+        /^127\./.test(host) ||
+        /^10\./.test(host) ||
+        /^192\.168\./.test(host) ||
+        /^169\.254\./.test(host) ||
+        /^172\.(1[6-9]|2\d|3[0-1])\./.test(host) ||
+        host === '0.0.0.0' ||
+        host === '[::1]'
+    ) {
+        throw new Error('Endereço de destino bloqueado por política de segurança (SSRF).');
+    }
+
+    const domainAllowed = ALLOWED_MODEL_DOMAINS.some(
+        d => host === d || host.endsWith('.' + d)
+    );
+    if (!domainAllowed) {
+        throw new Error('Domínio não permitido. Use links oficiais do MakerWorld, Printables ou Thingiverse.');
+    }
+
+    return parsed.toString();
+}
+
 /**
  * Extrai a primeira URL encontrada em um texto (útil para mensagens de compartilhamento do celular)
  */
@@ -16,11 +65,22 @@ function extrairUrlDoTexto(texto) {
 }
 
 /**
- * Faz requisição HTTP/HTTPS GET retornando Promise com o corpo da resposta
+ * Faz requisição HTTP/HTTPS GET retornando Promise com o corpo da resposta (com proteção SSRF, limite de redirects e tamanho)
  */
-function fetchHttp(url, options = {}) {
+function fetchHttp(url, options = {}, redirectCount = 0) {
     return new Promise((resolve, reject) => {
-        const client = url.startsWith('https') ? https : http;
+        let safeUrl;
+        try {
+            safeUrl = validateExternalModelUrl(url);
+        } catch (err) {
+            return reject(err);
+        }
+
+        if (redirectCount > MAX_REDIRECTS) {
+            return reject(new Error('Número máximo de redirecionamentos excedido.'));
+        }
+
+        const client = safeUrl.startsWith('https') ? https : http;
         const reqOptions = {
             headers: {
                 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
@@ -32,19 +92,28 @@ function fetchHttp(url, options = {}) {
             timeout: options.timeout || 15000
         };
 
-        const req = client.request(url, reqOptions, (res) => {
-            // Seguir redirecionamentos (301, 302, 307, 308)
+        const req = client.request(safeUrl, reqOptions, (res) => {
+            // Seguir redirecionamentos (301, 302, 307, 308) validando o novo destino contra SSRF
             if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
                 let redirectUrl = res.headers.location;
                 if (!redirectUrl.startsWith('http')) {
-                    const u = new URL(url);
+                    const u = new URL(safeUrl);
                     redirectUrl = `${u.protocol}//${u.host}${redirectUrl}`;
                 }
-                return resolve(fetchHttp(redirectUrl, options));
+                res.resume();
+                return resolve(fetchHttp(redirectUrl, options, redirectCount + 1));
             }
 
             let data = '';
-            res.on('data', chunk => data += chunk);
+            let receivedBytes = 0;
+            res.on('data', chunk => {
+                receivedBytes += Buffer.byteLength(chunk);
+                if (receivedBytes > MAX_RESPONSE_BYTES) {
+                    req.destroy();
+                    return reject(new Error('Resposta remota excedeu o tamanho máximo permitido (2 MB).'));
+                }
+                data += chunk;
+            });
             res.on('end', () => {
                 resolve({
                     status: res.statusCode,

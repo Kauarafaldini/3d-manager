@@ -27,6 +27,13 @@ class UnifiedPrinterConnector {
         this.onPrintFinishCallback = callback;
     }
 
+    canAccessTenant(record, tenantId) {
+        if (!record || !tenantId) return true;
+        const ownerTenant = record.config?.tenantId;
+        if (!ownerTenant) return true;
+        return String(ownerTenant) === String(tenantId);
+    }
+
     async handlePrintFinished(protocol, identifier, telemetry) {
         console.log(`[printer-connector] Impressão finalizada via ${protocol} [${identifier}]!`);
         if (typeof this.onPrintFinishCallback === 'function') {
@@ -46,7 +53,11 @@ class UnifiedPrinterConnector {
         if (!ip) throw new Error('IP da impressora Klipper/Moonraker é obrigatório.');
 
         const printerId = String(id || ip);
-        this.disconnectKlipper(printerId);
+        const existingKlipper = this.klipperConnections.get(printerId);
+        if (existingKlipper && !this.canAccessTenant(existingKlipper, printerConfig.tenantId)) {
+            throw new Error('Esta impressora Klipper já está conectada em outra conta.');
+        }
+        this.disconnectKlipper(printerId, printerConfig.tenantId);
 
         const baseUrl = `http://${ip}:${port}`;
         console.log(`[printer-connector] Conectando a Klipper (${nome || ip}) em ${baseUrl}...`);
@@ -147,8 +158,11 @@ class UnifiedPrinterConnector {
         }
     }
 
-    disconnectKlipper(printerId) {
+    disconnectKlipper(printerId, tenantId = null) {
         const record = this.klipperConnections.get(printerId);
+        if (record && !this.canAccessTenant(record, tenantId)) {
+            throw new Error('Acesso negado a esta impressora.');
+        }
         if (record && record.timer) {
             clearInterval(record.timer);
         }
@@ -164,7 +178,11 @@ class UnifiedPrinterConnector {
         if (!ip) throw new Error('IP do OctoPrint é obrigatório.');
 
         const printerId = String(id || ip);
-        this.disconnectOctoPrint(printerId);
+        const existingOcto = this.octoConnections.get(printerId);
+        if (existingOcto && !this.canAccessTenant(existingOcto, printerConfig.tenantId)) {
+            throw new Error('Esta impressora OctoPrint já está conectada em outra conta.');
+        }
+        this.disconnectOctoPrint(printerId, printerConfig.tenantId);
 
         const baseUrl = `http://${ip}:${port}`;
         console.log(`[printer-connector] Conectando a OctoPrint (${nome || ip}) em ${baseUrl}...`);
@@ -266,8 +284,11 @@ class UnifiedPrinterConnector {
         }
     }
 
-    disconnectOctoPrint(printerId) {
+    disconnectOctoPrint(printerId, tenantId = null) {
         const record = this.octoConnections.get(printerId);
+        if (record && !this.canAccessTenant(record, tenantId)) {
+            throw new Error('Acesso negado a esta impressora.');
+        }
         if (record && record.timer) {
             clearInterval(record.timer);
         }
@@ -278,22 +299,22 @@ class UnifiedPrinterConnector {
     // ==========================================
     // GET STATUS FOR ANY PRINTER
     // ==========================================
-    getPrinterStatus(idOrSerial) {
+    getPrinterStatus(idOrSerial, tenantId = null) {
         // Verifica Bambu
-        const bambu = bambuService.getStatus(idOrSerial);
+        const bambu = bambuService.getStatus(idOrSerial, tenantId);
         if (bambu && bambu.connected) {
             return { protocol: 'bambu', ...bambu };
         }
 
         // Verifica Klipper
         const klipper = this.klipperConnections.get(String(idOrSerial));
-        if (klipper) {
+        if (klipper && this.canAccessTenant(klipper, tenantId)) {
             return { protocol: 'klipper', ...klipper.telemetry };
         }
 
         // Verifica OctoPrint
         const octo = this.octoConnections.get(String(idOrSerial));
-        if (octo) {
+        if (octo && this.canAccessTenant(octo, tenantId)) {
             return { protocol: 'octoprint', ...octo.telemetry };
         }
 

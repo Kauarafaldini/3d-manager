@@ -110,7 +110,10 @@ window.UrlImporterModulo = (function () {
 
         try {
             const apiBase = getApiBaseUrl();
-            const token = localStorage.getItem('token') || '';
+            const token = (window.apiClient && typeof window.apiClient.getToken === 'function' ? window.apiClient.getToken() : null)
+                || localStorage.getItem('3dm_token')
+                || localStorage.getItem('token')
+                || '';
             const headers = { 'Content-Type': 'application/json' };
             if (token) headers['Authorization'] = `Bearer ${token}`;
 
@@ -396,7 +399,10 @@ window.UrlImporterModulo = (function () {
 
         try {
             const apiBase = getApiBaseUrl();
-            const token = localStorage.getItem('token') || '';
+            const token = (window.apiClient && typeof window.apiClient.getToken === 'function' ? window.apiClient.getToken() : null)
+                || localStorage.getItem('3dm_token')
+                || localStorage.getItem('token')
+                || '';
             const headers = { 'Content-Type': 'application/json' };
             if (token) headers['Authorization'] = `Bearer ${token}`;
 

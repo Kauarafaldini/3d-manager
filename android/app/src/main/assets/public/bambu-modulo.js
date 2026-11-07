@@ -1,8 +1,3 @@
-/**
- * 3D Manager Pro — Módulo Bambu Lab (MQTT Local / Telemetria em Tempo Real)
- * Compatível com Electron, Web e Dispositivos Móveis
- */
-
 (function () {
     const STORAGE_KEY = '3dm_bambu_config';
     const PRINTERS_LIST_KEY = '3dm_bambu_printers';
@@ -12,6 +7,12 @@
         ip: '',
         serial: '',
         accessCode: '',
+        mode: 'cloud',
+        bambuToken: '',
+        bambuUserId: '',
+        bambuRegion: 'us',
+        bambuAccount: '',
+        model: '',
         autoConnect: true,
         useSimulator: false
     };
@@ -19,7 +20,7 @@
     let telemetryState = {
         connected: false,
         isSimulator: false,
-        state: 'OFFLINE', // IDLE, RUNNING, PAUSE, FINISH, FAILED, OFFLINE
+        state: 'OFFLINE',
         percent: 0,
         remainingMinutes: 0,
         remainingFormatted: '--',
@@ -81,20 +82,33 @@
         try {
             // Tenta via API backend
             if (window.apiClient) {
-                const res = await window.apiClient.post('/api/bambu/connect', {
-                    nome: currentConfig.nome,
-                    ip: currentConfig.ip,
-                    serial: currentConfig.serial,
-                    accessCode: currentConfig.accessCode,
-                    useSimulator: currentConfig.useSimulator
-                });
+                let res;
+                if (currentConfig.mode === 'cloud' && currentConfig.bambuToken && currentConfig.serial) {
+                    res = await window.apiClient.post('/api/bambu/cloud/connect', {
+                        serial: currentConfig.serial,
+                        token: currentConfig.bambuToken,
+                        userId: currentConfig.bambuUserId,
+                        region: currentConfig.bambuRegion || 'us',
+                        nome: currentConfig.nome,
+                        model: currentConfig.model || 'Bambu Lab'
+                    });
+                } else {
+                    res = await window.apiClient.post('/api/bambu/connect', {
+                        nome: currentConfig.nome,
+                        ip: currentConfig.ip,
+                        serial: currentConfig.serial,
+                        accessCode: currentConfig.accessCode,
+                        useSimulator: currentConfig.useSimulator
+                    });
+                }
 
                 if (res && res.ok) {
                     telemetryState.connected = true;
                     if (res.printer) Object.assign(telemetryState, res.printer);
                     iniciarPolling();
                     if (typeof mostrarToast === 'function') {
-                        mostrarToast(`Bambu Lab [${currentConfig.nome}] conectada!`, 'ok');
+                        const connType = currentConfig.mode === 'cloud' ? 'via Nuvem Oficial' : 'via Wi-Fi Local';
+                        mostrarToast(`Bambu Lab [${currentConfig.nome}] conectada ${connType}!`, 'ok');
                     }
                 } else {
                     // Se falhar e estiver em modo simulador ou cliente standalone
@@ -104,7 +118,7 @@
                         telemetryState.connected = false;
                         telemetryState.state = 'OFFLINE';
                         if (typeof mostrarToast === 'function') {
-                            mostrarToast(res?.message || 'Falha ao conectar na Bambu Lab. Verifique IP e Código.', 'erro');
+                            mostrarToast(res?.message || res?.erro || 'Falha ao conectar na Bambu Lab.', 'erro');
                         }
                     }
                 }
@@ -118,6 +132,9 @@
             } else {
                 telemetryState.connected = false;
                 telemetryState.state = 'OFFLINE';
+                if (typeof mostrarToast === 'function') {
+                    mostrarToast('Erro de rede ao conectar na Bambu Lab', 'erro');
+                }
             }
         } finally {
             isConnecting = false;
@@ -353,10 +370,10 @@
                         <div>
                             <div style="display:flex;align-items:center;gap:8px;">
                                 <h3 style="margin:0;font-size:15px;color:var(--text);">${currentConfig.nome || 'Bambu Lab'}</h3>
-                                ${telemetryState.isSimulator ? '<span class="bambu-sim-badge">Simulador</span>' : ''}
+                                ${telemetryState.isSimulator ? '<span class="bambu-sim-badge">Simulador</span>' : (isOnline ? `<span class="bambu-sim-badge" style="background:${currentConfig.mode === 'cloud' ? 'rgba(14,165,233,0.15)' : 'rgba(16,185,129,0.15)'};color:${currentConfig.mode === 'cloud' ? '#0ea5e9' : '#10b981'};border:1px solid ${currentConfig.mode === 'cloud' ? 'rgba(14,165,233,0.3)' : 'rgba(16,185,129,0.3)'};font-size:10px;padding:2px 6px;border-radius:6px;">${currentConfig.mode === 'cloud' ? '☁️ Nuvem' : '🌐 LAN'}</span>` : '')}
                             </div>
                             <p style="margin:2px 0 0;font-size:11px;color:var(--text-dim);">
-                                ${isOnline ? (telemetryState.fileName || 'Nenhum trabalho ativo') : 'Aguardando conexão Wi-Fi local'}
+                                ${isOnline ? (telemetryState.fileName || 'Nenhum trabalho ativo') : (currentConfig.mode === 'cloud' ? 'Aguardando conexão com a Nuvem Bambu' : 'Aguardando conexão Wi-Fi local')}
                             </p>
                         </div>
                     </div>
@@ -470,17 +487,400 @@
     }
 
     /**
+     * Alternar abas do Modal: Nuvem Oficial vs IP Local
+     */
+    function trocarAbaModal(aba) {
+        const btnCloud = document.getElementById('bambuTabBtnCloud');
+        const btnLocal = document.getElementById('bambuTabBtnLocal');
+        const painelCloud = document.getElementById('bambuPainelCloud');
+        const painelLocal = document.getElementById('bambuPainelLocal');
+
+        if (aba === 'cloud') {
+            if (btnCloud) btnCloud.classList.add('active');
+            if (btnLocal) btnLocal.classList.remove('active');
+            if (painelCloud) painelCloud.style.display = 'block';
+            if (painelLocal) painelLocal.style.display = 'none';
+        } else {
+            if (btnLocal) btnLocal.classList.add('active');
+            if (btnCloud) btnCloud.classList.remove('active');
+            if (painelLocal) painelLocal.style.display = 'block';
+            if (painelCloud) painelCloud.style.display = 'none';
+        }
+    }
+
+    /**
+     * Alternar modo de autenticação na Nuvem: E-mail/Senha vs Token Direto
+     */
+    function trocarModoAuthNuvem(modo) {
+        const btnCred = document.getElementById('btnModoCredenciais');
+        const btnTok = document.getElementById('btnModoToken');
+        const formCred = document.getElementById('bambuFormCredenciais');
+        const formTok = document.getElementById('bambuFormToken');
+
+        if (modo === 'credentials') {
+            if (btnCred) {
+                btnCred.style.background = 'var(--primary)';
+                btnCred.style.color = 'white';
+                btnCred.style.borderColor = 'var(--primary)';
+            }
+            if (btnTok) {
+                btnTok.style.background = 'var(--bg-secondary)';
+                btnTok.style.color = 'var(--text)';
+                btnTok.style.borderColor = 'var(--border-subtle)';
+            }
+            if (formCred) formCred.style.display = 'grid';
+            if (formTok) formTok.style.display = 'none';
+        } else {
+            if (btnTok) {
+                btnTok.style.background = 'var(--primary)';
+                btnTok.style.color = 'white';
+                btnTok.style.borderColor = 'var(--primary)';
+            }
+            if (btnCred) {
+                btnCred.style.background = 'var(--bg-secondary)';
+                btnCred.style.color = 'var(--text)';
+                btnCred.style.borderColor = 'var(--border-subtle)';
+            }
+            if (formCred) formCred.style.display = 'none';
+            if (formTok) formTok.style.display = 'grid';
+        }
+    }
+
+    /**
+     * Login na Nuvem Oficial Bambu Lab via API (suporta 2FA)
+     */
+    async function fazerLoginNuvem() {
+        const accountInput = document.getElementById('bambuCloudAccount');
+        const passwordInput = document.getElementById('bambuCloudPassword');
+        const regionSelect = document.getElementById('bambuCloudRegion');
+        const codeInput = document.getElementById('bambuCloud2faCode');
+        const btn = document.getElementById('btnEntrarBambuCloud');
+
+        const account = (accountInput?.value || '').trim();
+        const password = (passwordInput?.value || '').trim();
+        const region = regionSelect?.value || 'us';
+        const code = (codeInput?.value || '').trim();
+
+        if (!account || !password) {
+            if (typeof mostrarToast === 'function') {
+                mostrarToast('Preencha seu e-mail e senha da conta Bambu.', 'aviso');
+            }
+            return;
+        }
+
+        const originalText = btn ? btn.innerHTML : '';
+        if (btn) {
+            btn.disabled = true;
+            btn.innerHTML = '⏳ Conectando aos servidores Bambu...';
+        }
+
+        try {
+            const res = await window.apiClient.post('/api/bambu/cloud/login', {
+                account,
+                password,
+                code,
+                region
+            });
+
+            if (res && res.requires2FA) {
+                const box2fa = document.getElementById('bambuBox2FA');
+                if (box2fa) box2fa.style.display = 'block';
+                if (codeInput) codeInput.focus();
+                if (typeof mostrarToast === 'function') {
+                    mostrarToast('Código de verificação 2FA enviado! Verifique seu e-mail.', 'aviso');
+                }
+                return;
+            }
+
+            if (res && res.ok && res.token) {
+                salvarConfiguracao({
+                    bambuToken: res.token,
+                    bambuUserId: res.userId,
+                    bambuRegion: region,
+                    bambuAccount: account,
+                    mode: 'cloud'
+                });
+
+                const box2fa = document.getElementById('bambuBox2FA');
+                if (box2fa) box2fa.style.display = 'none';
+
+                if (typeof mostrarToast === 'function') {
+                    mostrarToast('Conta Bambu Lab conectada com sucesso!', 'ok');
+                }
+
+                renderizarListaImpressorasNuvem(res.devices || []);
+            } else {
+                if (typeof mostrarToast === 'function') {
+                    mostrarToast(res?.message || 'Falha ao autenticar na conta Bambu.', 'erro');
+                }
+            }
+        } catch (err) {
+            console.error('[bambu] Erro login nuvem:', err);
+            if (typeof mostrarToast === 'function') {
+                mostrarToast('Erro ao contatar a Bambu Cloud: ' + (err.message || 'Verifique sua conexão'), 'erro');
+            }
+        } finally {
+            if (btn) {
+                btn.disabled = false;
+                btn.innerHTML = originalText;
+            }
+        }
+    }
+
+    /**
+     * Autenticação direta com Access Token (ideal para Google/Apple login)
+     */
+    async function conectarPorToken() {
+        const tokenInput = document.getElementById('bambuCloudDirectToken');
+        const regionSelect = document.getElementById('bambuCloudRegion');
+        const token = (tokenInput?.value || '').trim();
+        const region = regionSelect?.value || 'us';
+        const btn = document.getElementById('btnEntrarBambuToken');
+
+        if (!token) {
+            if (typeof mostrarToast === 'function') {
+                mostrarToast('Cole o Access Token da Bambu / MakerWorld.', 'aviso');
+            }
+            return;
+        }
+
+        const originalText = btn ? btn.innerHTML : '';
+        if (btn) {
+            btn.disabled = true;
+            btn.innerHTML = '⏳ Validando token...';
+        }
+
+        try {
+            const res = await window.apiClient.post('/api/bambu/cloud/token-login', {
+                token,
+                region
+            });
+
+            if (res && res.ok) {
+                salvarConfiguracao({
+                    bambuToken: res.token,
+                    bambuUserId: res.userId,
+                    bambuRegion: region,
+                    mode: 'cloud'
+                });
+
+                if (typeof mostrarToast === 'function') {
+                    mostrarToast('Token da Bambu validado com sucesso!', 'ok');
+                }
+
+                renderizarListaImpressorasNuvem(res.devices || []);
+            } else {
+                if (typeof mostrarToast === 'function') {
+                    mostrarToast(res?.message || 'Token inválido ou expirado.', 'erro');
+                }
+            }
+        } catch (err) {
+            console.error('[bambu] Erro token login:', err);
+            if (typeof mostrarToast === 'function') {
+                mostrarToast('Erro ao validar token: ' + err.message, 'erro');
+            }
+        } finally {
+            if (btn) {
+                btn.disabled = false;
+                btn.innerHTML = originalText;
+            }
+        }
+    }
+
+    /**
+     * Atualizar lista de impressoras detectadas na conta
+     */
+    async function atualizarListaDispositivosNuvem() {
+        if (!currentConfig.bambuToken) {
+            return;
+        }
+
+        const box = document.getElementById('bambuDiscoveredBox');
+        const list = document.getElementById('bambuDiscoveredList');
+        if (box) box.style.display = 'block';
+        if (list) list.innerHTML = '<div style="text-align:center;padding:12px;font-size:12px;color:var(--text-dim);">⏳ Buscando impressoras na sua conta Bambu...</div>';
+
+        try {
+            const res = await window.apiClient.post('/api/bambu/cloud/devices', {
+                token: currentConfig.bambuToken,
+                region: currentConfig.bambuRegion || 'us'
+            });
+
+            if (res && res.ok && Array.isArray(res.devices)) {
+                renderizarListaImpressorasNuvem(res.devices);
+            } else {
+                if (list) list.innerHTML = '<div style="font-size:12px;color:var(--text-muted);padding:8px;">Nenhuma impressora encontrada.</div>';
+            }
+        } catch (err) {
+            console.error('[bambu] Erro ao buscar dispositivos:', err);
+            if (list) list.innerHTML = `<div style="font-size:12px;color:var(--danger);padding:8px;">Erro ao buscar dispositivos: ${err.message}</div>`;
+        }
+    }
+
+    /**
+     * Renderizar lista de impressoras detectadas no modal
+     */
+    function renderizarListaImpressorasNuvem(devices) {
+        const box = document.getElementById('bambuDiscoveredBox');
+        const list = document.getElementById('bambuDiscoveredList');
+        if (!box || !list) return;
+
+        box.style.display = 'block';
+
+        if (!devices || devices.length === 0) {
+            list.innerHTML = `
+                <div style="background:var(--bg-secondary);padding:14px;border-radius:10px;text-align:center;">
+                    <p style="margin:0;font-size:12px;color:var(--text-dim);">Nenhuma impressora vinculada encontrada nesta conta Bambu.</p>
+                    <small style="font-size:10px;color:var(--text-muted);display:block;margin-top:4px;">Vincule sua máquina no app Bambu Handy antes de conectar.</small>
+                </div>
+            `;
+            return;
+        }
+
+        list.innerHTML = devices.map(dev => {
+            const isOnline = !!dev.online;
+            const isSelected = currentConfig.serial === dev.dev_id;
+            const modelName = dev.dev_model_name || 'Bambu Lab';
+            const devName = dev.name || modelName;
+            const devJsonSafe = encodeURIComponent(JSON.stringify(dev));
+
+            return `
+                <div class="card-glass" style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;margin-bottom:8px;background:var(--bg-card);border:1px solid ${isSelected ? 'var(--primary)' : 'var(--border-subtle)'};border-radius:10px;">
+                    <div style="display:flex;align-items:center;gap:10px;">
+                        <span style="font-size:22px;">🖨️</span>
+                        <div>
+                            <div style="display:flex;align-items:center;gap:6px;">
+                                <strong style="font-size:13px;color:var(--text);">${devName}</strong>
+                                <span class="bambu-badge ${isOnline ? 'status-running' : 'status-offline'}" style="font-size:9px;padding:2px 6px;">
+                                    ${isOnline ? '🟢 Online' : '⚪ Offline'}
+                                </span>
+                            </div>
+                            <div style="font-size:11px;color:var(--text-dim);margin-top:2px;">
+                                <span>${modelName}</span> • <span style="font-family:monospace;">SN: ${dev.dev_id}</span>
+                            </div>
+                        </div>
+                    </div>
+                    <button type="button" class="btn-main" onclick="BambuModulo.conectarDispositivoNuvem('${devJsonSafe}')" style="margin:0;padding:6px 12px;font-size:11px;${isSelected ? 'background:var(--success);' : ''}">
+                        ${isSelected ? '✓ Selecionada' : '⚡ Conectar'}
+                    </button>
+                </div>
+            `;
+        }).join('');
+    }
+
+    /**
+     * Conectar a uma impressora detectada na nuvem em 1 clique
+     */
+    async function conectarDispositivoNuvem(devJsonEncoded) {
+        try {
+            const dev = JSON.parse(decodeURIComponent(devJsonEncoded));
+            const devName = dev.name || dev.dev_model_name || 'Bambu Lab';
+
+            salvarConfiguracao({
+                nome: devName,
+                serial: dev.dev_id,
+                accessCode: dev.dev_access_code || '',
+                model: dev.dev_model_name || 'Bambu Lab',
+                mode: 'cloud',
+                useSimulator: false
+            });
+
+            // Sincroniza com a Fila de Impressoras Farm (se disponível)
+            sincronizarComFilaDeImpressoras(dev);
+
+            const modal = document.getElementById('bambuModalOverlay');
+            if (modal) modal.style.display = 'none';
+
+            if (typeof mostrarToast === 'function') {
+                mostrarToast(`Conectando à impressora [${devName}] via Nuvem...`, 'ok');
+            }
+
+            await conectarBambu();
+        } catch (err) {
+            console.error('[bambu] Erro ao selecionar dispositivo:', err);
+            if (typeof mostrarToast === 'function') {
+                mostrarToast('Erro ao processar dispositivo: ' + err.message, 'erro');
+            }
+        }
+    }
+
+    function sincronizarComFilaDeImpressoras(dev) {
+        try {
+            if (!window.DBBridge || !window.ImpressorasFilaModulo) return;
+            const impressoras = window.DBBridge.obterImpressoras ? window.DBBridge.obterImpressoras() : [];
+            const devName = dev.name || dev.dev_model_name || 'Bambu Lab';
+            const modelName = dev.dev_model_name || 'Bambu Lab';
+            const serial = dev.dev_id;
+
+            const existente = impressoras.find(imp => imp.serial === serial);
+            if (!existente) {
+                let watts = 160;
+                if (modelName.toLowerCase().includes('a1 mini')) watts = 60;
+                else if (modelName.toLowerCase().includes('a1')) watts = 95;
+                else if (modelName.toLowerCase().includes('x1')) watts = 180;
+
+                const nova = {
+                    id: 'imp_bambu_' + Date.now(),
+                    nome: devName,
+                    modelo: modelName,
+                    tipoConexao: 'bambu_cloud',
+                    serial: serial,
+                    token: currentConfig.bambuToken,
+                    apiKey: currentConfig.bambuToken,
+                    consumoWatts: watts,
+                    depreciacaoHora: 1.5,
+                    status: 'online',
+                    atualizadoEm: new Date().toISOString()
+                };
+
+                if (window.DBBridge.adicionarImpressora) {
+                    window.DBBridge.adicionarImpressora(nova);
+                }
+                if (window.ImpressorasFilaModulo.carregarImpressoras) {
+                    window.ImpressorasFilaModulo.carregarImpressoras();
+                }
+            }
+        } catch (e) {
+            console.warn('[bambu] Falha não-bloqueante ao sincronizar impressora no banco:', e);
+        }
+    }
+
+    /**
      * Modal de Configuração
      */
     function abrirModalConfig() {
         const modal = document.getElementById('bambuModalOverlay');
         if (!modal) return;
 
-        document.getElementById('bambuCfgNome').value = currentConfig.nome || 'Bambu Lab P1S';
-        document.getElementById('bambuCfgIp').value = currentConfig.ip || '';
-        document.getElementById('bambuCfgSerial').value = currentConfig.serial || '';
-        document.getElementById('bambuCfgAccessCode').value = currentConfig.accessCode || '';
-        document.getElementById('bambuCfgSimulator').checked = !!currentConfig.useSimulator;
+        // Local
+        const inputNome = document.getElementById('bambuCfgNome');
+        const inputIp = document.getElementById('bambuCfgIp');
+        const inputSerial = document.getElementById('bambuCfgSerial');
+        const inputAccessCode = document.getElementById('bambuCfgAccessCode');
+        const checkSim = document.getElementById('bambuCfgSimulator');
+
+        if (inputNome) inputNome.value = currentConfig.nome || 'Bambu Lab P1S';
+        if (inputIp) inputIp.value = currentConfig.ip || '';
+        if (inputSerial) inputSerial.value = currentConfig.serial || '';
+        if (inputAccessCode) inputAccessCode.value = currentConfig.accessCode || '';
+        if (checkSim) checkSim.checked = !!currentConfig.useSimulator;
+
+        // Cloud
+        const inputAccount = document.getElementById('bambuCloudAccount');
+        const selectRegion = document.getElementById('bambuCloudRegion');
+        const inputToken = document.getElementById('bambuCloudDirectToken');
+
+        if (inputAccount) inputAccount.value = currentConfig.bambuAccount || '';
+        if (selectRegion) selectRegion.value = currentConfig.bambuRegion || 'us';
+        if (inputToken && currentConfig.bambuToken) inputToken.value = currentConfig.bambuToken;
+
+        // Se já tem token salvo, lista os dispositivos automaticamente
+        if (currentConfig.bambuToken) {
+            atualizarListaDispositivosNuvem();
+        }
+
+        // Abre na aba correta
+        trocarAbaModal(currentConfig.mode === 'local' ? 'local' : 'cloud');
 
         modal.style.display = 'flex';
     }
@@ -503,6 +903,7 @@
             ip,
             serial,
             accessCode,
+            mode: 'local',
             useSimulator
         });
 
@@ -530,7 +931,14 @@
         salvarEConectarModal,
         registrarProducaoDaBambu,
         fecharBannerConclusao,
-        renderizarMonitor
+        renderizarMonitor,
+        trocarAbaModal,
+        trocarModoAuthNuvem,
+        fazerLoginNuvem,
+        conectarPorToken,
+        atualizarListaDispositivosNuvem,
+        renderizarListaImpressorasNuvem,
+        conectarDispositivoNuvem
     };
 
     // Auto-iniciar após carregamento do DOM

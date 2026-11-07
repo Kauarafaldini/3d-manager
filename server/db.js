@@ -3,10 +3,7 @@ const dns = require('dns');
 
 dns.setDefaultResultOrder('ipv4first');
 
-const MONGO_URI = process.env.MONGODB_URI || (
-    'mongodb+srv://host:Mikaa%402705%23@3d-manager.hrxumzp.mongodb.net/3dmanager?appName=3d-manager'
-);
-
+const MONGO_URI = process.env.MONGODB_URI
 const tenantField = { tenantId: { type: mongoose.Schema.Types.ObjectId, required: true, index: true } };
 
 const userSchema = new mongoose.Schema({
@@ -32,10 +29,10 @@ const vendaSchema = new mongoose.Schema({
     bruto: Number,
     custo: Number,
     canal: String,
-    status: { 
-        type: String, 
-        enum: ['pre_venda', 'orcamento', 'aguardando_aprovacao', 'aprovado', 'a_pagar', 'em_producao', 'acabamento', 'pronto', 'enviado', 'concluida', 'entregue', 'cancelado'], 
-        default: 'concluida' 
+    status: {
+        type: String,
+        enum: ['pre_venda', 'orcamento', 'aguardando_aprovacao', 'aprovado', 'a_pagar', 'em_producao', 'acabamento', 'pronto', 'enviado', 'concluida', 'entregue', 'cancelado'],
+        default: 'concluida'
     },
     quantidade: { type: Number, default: 1 },
     pedidoId: String,
@@ -45,7 +42,8 @@ const vendaSchema = new mongoose.Schema({
     filamentosUsados: [{ estoqueId: String, nome: String, peso: Number, precoKg: Number }],
     detalheCustos: mongoose.Schema.Types.Mixed,
     custosExtras: [mongoose.Schema.Types.Mixed],
-    taxas: { comissao: Number, fixa: Number }
+    taxas: { comissao: Number, fixa: Number },
+    estoqueBaixado: { type: Boolean, default: false }
 });
 
 const custoItemSchema = new mongoose.Schema({
@@ -57,6 +55,7 @@ const custoItemSchema = new mongoose.Schema({
     quantidadeTotal: Number,
     custoUnitario: Number,
     valorMensal: Number,
+    numParcelas: Number,
     horasUsoMes: { type: Number, default: 160 },
     custoPorHora: Number,
     unidade: { type: String, default: 'un' },
@@ -178,7 +177,11 @@ const COLLECTIONS = {
 
 async function conectar() {
     if (mongoose.connection.readyState === 1) return;
-    await mongoose.connect(MONGO_URI);
+    const uri = process.env.MONGODB_URI || MONGO_URI;
+    if (!uri) {
+        throw new Error('Variável MONGODB_URI não configurada em server/.env. Defina a string de conexão do MongoDB antes de iniciar o servidor.');
+    }
+    await mongoose.connect(uri);
 }
 
 module.exports = { conectar, User, Venda, CustoItem, Estoque, Modelo, Impressora, Fila, Desperdicio, COLLECTIONS, mongoose };

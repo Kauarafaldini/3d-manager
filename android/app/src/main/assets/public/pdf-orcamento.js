@@ -1,11 +1,13 @@
 /**
  * 3D Manager Pro — Módulo de Proposta Comercial / Orçamento em PDF & WhatsApp
  * Gera orçamentos elegantes com QR Code PIX, Código de Barras Code 128, especificações 3D e link de rastreio.
+ * Suporta múltiplos itens por proposta e toggle de dados de pagamento.
  */
 
 window.PdfOrcamentoModulo = (function () {
 
     let dadosAtuaisProposta = null;
+    let itensProposta = []; // Array de itens do orçamento
 
     /**
      * Gerador de Código de Barras Code 128B em SVG vetorial autônomo (sem libs pesadas)
@@ -262,6 +264,91 @@ window.PdfOrcamentoModulo = (function () {
         atualizarPreviewProposta();
     }
 
+    // ==========================================
+    // GERENCIAMENTO DE MÚLTIPLOS ITENS
+    // ==========================================
+
+    function renderizarItensFormulario() {
+        const container = document.getElementById('pdfItensContainer');
+        if (!container) return;
+
+        container.innerHTML = itensProposta.map((item, idx) => `
+            <div class="pdf-item-row" style="display:flex;gap:8px;align-items:flex-end;background:var(--bg-secondary);padding:10px;border-radius:10px;border:1px solid var(--border-subtle);">
+                <div style="flex:2;min-width:0;">
+                    ${idx === 0 ? '<label style="font-size:10px;color:var(--text-dim);margin-bottom:2px;display:block;">Nome da Peça</label>' : ''}
+                    <input type="text" value="${(item.nome || '').replace(/"/g, '&quot;')}" placeholder="Ex: Action Figure" 
+                           oninput="PdfOrcamentoModulo.atualizarItemProposta(${idx}, 'nome', this.value)"
+                           style="width:100%;padding:8px 10px;font-size:12px;border-radius:8px;border:1px solid var(--border-input);background:var(--bg-primary);color:var(--text);">
+                </div>
+                <div style="flex:0.8;">
+                    ${idx === 0 ? '<label style="font-size:10px;color:var(--text-dim);margin-bottom:2px;display:block;">Valor Unit. (R$)</label>' : ''}
+                    <input type="number" step="0.01" value="${item.valorUnitario || 0}" placeholder="0.00"
+                           oninput="PdfOrcamentoModulo.atualizarItemProposta(${idx}, 'valorUnitario', this.value)"
+                           style="width:100%;padding:8px 10px;font-size:12px;border-radius:8px;border:1px solid var(--border-input);background:var(--bg-primary);color:var(--text);">
+                </div>
+                <div style="flex:0.5;">
+                    ${idx === 0 ? '<label style="font-size:10px;color:var(--text-dim);margin-bottom:2px;display:block;">Qtd</label>' : ''}
+                    <input type="number" min="1" value="${item.quantidade || 1}" 
+                           oninput="PdfOrcamentoModulo.atualizarItemProposta(${idx}, 'quantidade', this.value)"
+                           style="width:100%;padding:8px 10px;font-size:12px;border-radius:8px;border:1px solid var(--border-input);background:var(--bg-primary);color:var(--text);">
+                </div>
+                <button type="button" onclick="PdfOrcamentoModulo.removerItemProposta(${idx})" 
+                        style="padding:8px;border:none;background:rgba(239,68,68,0.15);color:var(--danger);border-radius:8px;cursor:pointer;font-size:14px;flex-shrink:0;"
+                        title="Remover item" ${itensProposta.length <= 1 ? 'disabled style="padding:8px;border:none;background:var(--bg-secondary);color:var(--text-dim);border-radius:8px;cursor:not-allowed;font-size:14px;flex-shrink:0;opacity:0.4;"' : ''}>🗑️</button>
+            </div>
+        `).join('');
+    }
+
+    function adicionarItemProposta(dados = null) {
+        itensProposta.push({
+            nome: dados?.nomeItem || dados?.nome || '',
+            valorUnitario: parseFloat(dados?.valorUnitario) || 0,
+            quantidade: parseInt(dados?.quantidade) || 1,
+            filamentos: dados?.filamentos || [],
+            tempoHoras: dados?.tempoHoras || 0,
+            pesoTotalGramas: dados?.pesoTotalGramas || 0
+        });
+        renderizarItensFormulario();
+        atualizarPreviewProposta();
+    }
+
+    function removerItemProposta(idx) {
+        if (itensProposta.length <= 1) return;
+        itensProposta.splice(idx, 1);
+        renderizarItensFormulario();
+        atualizarPreviewProposta();
+    }
+
+    function atualizarItemProposta(idx, campo, valor) {
+        if (!itensProposta[idx]) return;
+        if (campo === 'valorUnitario') {
+            itensProposta[idx][campo] = parseFloat(valor) || 0;
+        } else if (campo === 'quantidade') {
+            itensProposta[idx][campo] = parseInt(valor) || 1;
+        } else {
+            itensProposta[idx][campo] = valor;
+        }
+        atualizarPreviewProposta();
+    }
+
+    /**
+     * Coleta itens do formulário (lê dos inputs atuais)
+     */
+    function coletarItensDosInputs() {
+        const container = document.getElementById('pdfItensContainer');
+        if (!container) return itensProposta;
+        
+        const rows = container.querySelectorAll('.pdf-item-row');
+        rows.forEach((row, idx) => {
+            if (!itensProposta[idx]) return;
+            const inputs = row.querySelectorAll('input');
+            if (inputs[0]) itensProposta[idx].nome = inputs[0].value;
+            if (inputs[1]) itensProposta[idx].valorUnitario = parseFloat(inputs[1].value) || 0;
+            if (inputs[2]) itensProposta[idx].quantidade = parseInt(inputs[2].value) || 1;
+        });
+        return itensProposta;
+    }
+
     /**
      * Abre modal de orçamento a partir da Calculadora ou de uma Pré-venda
      */
@@ -307,6 +394,10 @@ window.PdfOrcamentoModulo = (function () {
 
         dadosAtuaisProposta = dados;
 
+        // Inicializa a lista de itens com o item passado
+        itensProposta = [];
+        adicionarItemProposta(dados);
+
         // Preenche campos do formulário (Nome da Loja somente leitura puxado do perfil)
         const fEmpresa = document.getElementById('pdfEmpresaNome');
         if (fEmpresa) {
@@ -323,14 +414,9 @@ window.PdfOrcamentoModulo = (function () {
         const fChavePix = document.getElementById('pdfChavePix');
         if (fChavePix) fChavePix.value = dados.chavePix || configPix;
 
-        const fItemNome = document.getElementById('pdfItemNome');
-        if (fItemNome) fItemNome.value = dados.nomeItem || 'Peça Impressa 3D';
-
-        const fItemValor = document.getElementById('pdfItemValor');
-        if (fItemValor) fItemValor.value = Number(dados.valorUnitario || 0).toFixed(2);
-
-        const fItemQtd = document.getElementById('pdfItemQtd');
-        if (fItemQtd) fItemQtd.value = dados.quantidade || 1;
+        // Checkbox de pagamento: desmarcado por padrão (é cotação)
+        const fIncluirPag = document.getElementById('pdfIncluirPagamento');
+        if (fIncluirPag) fIncluirPag.checked = false;
 
         const fCondicoes = document.getElementById('pdfCondicoes');
         if (fCondicoes) fCondicoes.value = dados.condicoes || '50% de sinal no pedido + 50% na entrega.';
@@ -378,12 +464,13 @@ window.PdfOrcamentoModulo = (function () {
         const empresaNome = document.getElementById('pdfEmpresaNome')?.value || '3D Studio';
         const clienteNome = document.getElementById('pdfClienteNome')?.value || 'Cliente Especial';
         const clienteTel = document.getElementById('pdfClienteTelefone')?.value || '';
-        const itemNome = document.getElementById('pdfItemNome')?.value || 'Peça 3D';
-        const valorUnit = parseFloat(document.getElementById('pdfItemValor')?.value) || 0;
-        const qtd = parseInt(document.getElementById('pdfItemQtd')?.value, 10) || 1;
         const chavePix = document.getElementById('pdfChavePix')?.value?.trim() || '';
         const condicoes = document.getElementById('pdfCondicoes')?.value || 'À vista ou 50% de sinal.';
         const observacoes = document.getElementById('pdfObservacoes')?.value?.trim() || '';
+        const incluirPagamento = document.getElementById('pdfIncluirPagamento')?.checked || false;
+
+        // Coleta itens atualizados
+        coletarItensDosInputs();
 
         // Determina prazo
         const customPrazoInput = document.getElementById('pdfPrazoCustomInput');
@@ -403,15 +490,43 @@ window.PdfOrcamentoModulo = (function () {
             localStorage.setItem('3dm_chave_pix', chavePix);
         }
 
-        const valorTotal = valorUnit * qtd;
+        // Calcula totais a partir dos itens
+        let valorTotalGeral = 0;
+        const itensHtml = itensProposta.map((item, idx) => {
+            const vUnit = item.valorUnitario || 0;
+            const qtd = item.quantidade || 1;
+            const subtotal = vUnit * qtd;
+            valorTotalGeral += subtotal;
+
+            // Especificações técnicas do item (do primeiro item usa dados da proposta)
+            let especsHtml = '';
+            if (idx === 0 && dadosAtuaisProposta) {
+                const filamentos = dadosAtuaisProposta.filamentos || [];
+                const filamentosTexto = filamentos.length > 0
+                    ? filamentos.map(f => `${f.nome || 'Filamento'} (${f.peso || 0}g)`).join(' · ')
+                    : `${dadosAtuaisProposta.pesoTotalGramas || 50}g de filamento`;
+                especsHtml = `
+                    <span style="font-size:11px;color:#64748b;display:block;margin-top:2px;">
+                        🧵 <b>Material:</b> ${filamentosTexto} | ⏱️ <b>Tempo de Máquina:</b> ~${Number(dadosAtuaisProposta.tempoHoras || 1).toFixed(1)}h | ⚖️ <b>Peso:</b> ~${dadosAtuaisProposta.pesoTotalGramas || 50}g
+                    </span>
+                `;
+            }
+
+            return `
+                <tr>
+                    <td>
+                        <strong style="font-size:14px;color:#0f172a;display:block;">${item.nome || 'Item ' + (idx + 1)}</strong>
+                        ${especsHtml}
+                    </td>
+                    <td style="text-align:center;font-weight:600;">${qtd}</td>
+                    <td style="text-align:right;font-weight:600;">R$ ${vUnit.toFixed(2)}</td>
+                    <td style="text-align:right;font-weight:700;color:#0f172a;">R$ ${subtotal.toFixed(2)}</td>
+                </tr>
+            `;
+        }).join('');
+
         const pedidoId = dadosAtuaisProposta?.pedidoId || 'ORC-' + Math.random().toString(36).substring(2, 7).toUpperCase();
         const dataHoje = new Date().toLocaleDateString('pt-BR');
-
-        // Filamentos formatados
-        const filamentos = dadosAtuaisProposta?.filamentos || [];
-        const filamentosTexto = filamentos.length > 0
-            ? filamentos.map(f => `${f.nome || 'Filamento'} (${f.peso || 0}g)`).join(' · ')
-            : `${dadosAtuaisProposta?.pesoTotalGramas || 50}g de filamento`;
 
         const apiUrl = window.APP_CONFIG?.getApiUrl?.() || 'https://threed-manager-q1tc.onrender.com';
         const trackingUrl = `${apiUrl}/status/${encodeURIComponent(pedidoId)}`;
@@ -419,12 +534,43 @@ window.PdfOrcamentoModulo = (function () {
         const previewContainer = document.getElementById('pdfOrcamentoDocumento');
         if (!previewContainer) return;
 
-        // Gera QR Code PIX
-        const qrCodePixHtml = chavePix ? gerarQrCodeSvg(chavePix, 115) : '';
+        // Seção de pagamento (QR Code + Código de Barras) — só se incluirPagamento estiver marcado
+        let pagamentoHtml = '';
+        if (incluirPagamento && chavePix) {
+            const qrCodePixHtml = gerarQrCodeSvg(chavePix, 115);
+            const barcodeSvgHtml = gerarCodigoBarrasSvg(chavePix, 34, 1.6);
 
-        // Gera Código de Barras Code 128 da Chave PIX (ou do Pedido)
-        const codigoBarrasValor = chavePix || pedidoId;
-        const barcodeSvgHtml = gerarCodigoBarrasSvg(codigoBarrasValor, 34, 1.6);
+            pagamentoHtml = `
+                <div class="doc-payment-box">
+                    <span class="doc-lbl">CONDIÇÕES DE PAGAMENTO & CHAVE PIX</span>
+                    <p style="font-size:12px;color:#334155;margin:4px 0 8px;line-height:1.4;">${condicoes}</p>
+                    
+                    <div style="display:flex;gap:12px;align-items:center;background:#f8fafc;padding:10px;border-radius:10px;border:1px solid #e2e8f0;margin-bottom:8px;">
+                        ${qrCodePixHtml}
+                        <div style="flex:1;min-width:0;">
+                            <span style="font-size:10px;color:#64748b;font-weight:700;text-transform:uppercase;">Chave PIX Oficial:</span>
+                            <code style="display:block;font-size:11px;color:#0f172a;background:#e2e8f0;padding:4px 6px;border-radius:6px;word-break:break-all;margin-top:2px;font-weight:700;">${chavePix}</code>
+                            <small style="font-size:9px;color:#64748b;display:block;margin-top:4px;">Aponte a câmera no QR Code ou use o Código de Barras abaixo.</small>
+                        </div>
+                    </div>
+                    <div style="display:flex;justify-content:center;margin-top:6px;">
+                        ${barcodeSvgHtml}
+                    </div>
+                </div>
+            `;
+        } else {
+            // Sem dados de pagamento — mostra apenas condições de pagamento
+            pagamentoHtml = `
+                <div class="doc-payment-box">
+                    <span class="doc-lbl">CONDIÇÕES DE PAGAMENTO</span>
+                    <p style="font-size:12px;color:#334155;margin:4px 0 8px;line-height:1.4;">${condicoes}</p>
+                    ${!incluirPagamento ? '<small style="font-size:10px;color:#94a3b8;font-style:italic;">Dados de pagamento serão informados após aprovação do orçamento.</small>' : ''}
+                </div>
+            `;
+        }
+
+        // Tipo do documento
+        const tipoDocumento = incluirPagamento ? 'PROPOSTA COMERCIAL' : 'COTAÇÃO / ORÇAMENTO';
 
         previewContainer.innerHTML = `
             <div class="orcamento-doc-paper">
@@ -438,7 +584,7 @@ window.PdfOrcamentoModulo = (function () {
                         </div>
                     </div>
                     <div class="doc-meta">
-                        <span class="doc-tag">PROPOSTA COMERCIAL</span>
+                        <span class="doc-tag">${tipoDocumento}</span>
                         <strong class="doc-num">#${pedidoId}</strong>
                         <small>Data: ${dataHoje}</small>
                         <small>Validade: ${validade} ${String(validade).includes('dia') ? '' : 'dias'}</small>
@@ -474,17 +620,7 @@ window.PdfOrcamentoModulo = (function () {
                         </tr>
                     </thead>
                     <tbody>
-                        <tr>
-                            <td>
-                                <strong style="font-size:14px;color:#0f172a;display:block;">${itemNome}</strong>
-                                <span style="font-size:11px;color:#64748b;display:block;margin-top:2px;">
-                                    🧵 <b>Material:</b> ${filamentosTexto} | ⏱️ <b>Tempo de Máquina:</b> ~${Number(dadosAtuaisProposta?.tempoHoras || 1).toFixed(1)}h | ⚖️ <b>Peso:</b> ~${dadosAtuaisProposta?.pesoTotalGramas || 50}g
-                                </span>
-                            </td>
-                            <td style="text-align:center;font-weight:600;">${qtd}</td>
-                            <td style="text-align:right;font-weight:600;">R$ ${valorUnit.toFixed(2)}</td>
-                            <td style="text-align:right;font-weight:700;color:#0f172a;">R$ ${valorTotal.toFixed(2)}</td>
-                        </tr>
+                        ${itensHtml}
                     </tbody>
                 </table>
 
@@ -498,37 +634,16 @@ window.PdfOrcamentoModulo = (function () {
 
                 <!-- TOTAIS, PAGAMENTO & CÓDIGO DE BARRAS / QR CODE -->
                 <div class="doc-footer-grid">
-                    <div class="doc-payment-box">
-                        <span class="doc-lbl">CONDIÇÕES DE PAGAMENTO & CHAVE PIX</span>
-                        <p style="font-size:12px;color:#334155;margin:4px 0 8px;line-height:1.4;">${condicoes}</p>
-                        
-                        ${chavePix ? `
-                        <div style="display:flex;gap:12px;align-items:center;background:#f8fafc;padding:10px;border-radius:10px;border:1px solid #e2e8f0;margin-bottom:8px;">
-                            ${qrCodePixHtml}
-                            <div style="flex:1;min-width:0;">
-                                <span style="font-size:10px;color:#64748b;font-weight:700;text-transform:uppercase;">Chave PIX Oficial:</span>
-                                <code style="display:block;font-size:11px;color:#0f172a;background:#e2e8f0;padding:4px 6px;border-radius:6px;word-break:break-all;margin-top:2px;font-weight:700;">${chavePix}</code>
-                                <small style="font-size:9px;color:#64748b;display:block;margin-top:4px;">Aponte a câmera no QR Code ou use o Código de Barras abaixo.</small>
-                            </div>
-                        </div>
-                        <div style="display:flex;justify-content:center;margin-top:6px;">
-                            ${barcodeSvgHtml}
-                        </div>
-                        ` : `
-                        <div style="display:flex;justify-content:center;margin-top:6px;">
-                            ${barcodeSvgHtml}
-                        </div>
-                        `}
-                    </div>
+                    ${pagamentoHtml}
 
                     <div class="doc-totals-box">
                         <div class="doc-total-line">
-                            <span>Subtotal:</span>
-                            <strong>R$ ${valorTotal.toFixed(2)}</strong>
+                            <span>Subtotal (${itensProposta.length} ${itensProposta.length === 1 ? 'item' : 'itens'}):</span>
+                            <strong>R$ ${valorTotalGeral.toFixed(2)}</strong>
                         </div>
                         <div class="doc-total-line" style="border-top:2px solid #cbd5e1;padding-top:8px;margin-top:6px;">
                             <span style="font-size:14px;color:#0f172a;font-weight:700;">VALOR TOTAL:</span>
-                            <b style="font-size:20px;color:#0891b2;">R$ ${valorTotal.toFixed(2)}</b>
+                            <b style="font-size:20px;color:#0891b2;">R$ ${valorTotalGeral.toFixed(2)}</b>
                         </div>
                         <div style="margin-top:12px;background:#e0f2fe;padding:8px 10px;border-radius:8px;border:1px solid #bae6fd;">
                             <span style="font-size:10px;color:#0369a1;font-weight:700;display:block;">🔗 LINK DE RASTREAMENTO EM TEMPO REAL:</span>
@@ -547,10 +662,90 @@ window.PdfOrcamentoModulo = (function () {
     }
 
     /**
-     * Imprimir proposta / Salvar como PDF nativo do navegador
+     * Imprimir proposta / Salvar como PDF
+     * Usa API nativa do Electron quando disponível, senão fallback para window.print()
      */
     function imprimirProposta() {
-        window.print();
+        // Verifica se está no Electron
+        const isElectron = typeof process !== 'undefined' && process.versions && process.versions.electron;
+
+        if (isElectron) {
+            gerarPdfElectron();
+        } else {
+            window.print();
+        }
+    }
+
+    /**
+     * Geração de PDF real via Electron (printToPDF)
+     */
+    async function gerarPdfElectron() {
+        try {
+            const { ipcRenderer } = require('electron');
+
+            // Coleta o HTML do documento
+            const docEl = document.getElementById('pdfOrcamentoDocumento');
+            if (!docEl) {
+                alert('Documento não encontrado para gerar PDF.');
+                return;
+            }
+
+            // Coleta CSS de impressão do documento
+            const styles = Array.from(document.querySelectorAll('style, link[rel="stylesheet"]'))
+                .map(el => el.outerHTML).join('\n');
+
+            const htmlCompleto = `
+                <!DOCTYPE html>
+                <html>
+                <head>
+                    <meta charset="utf-8">
+                    <title>Orçamento</title>
+                    ${styles}
+                    <style>
+                        body { 
+                            margin: 0; padding: 20px; 
+                            background: white; 
+                            font-family: 'Inter', 'Segoe UI', sans-serif;
+                            -webkit-print-color-adjust: exact;
+                            print-color-adjust: exact;
+                        }
+                        .orcamento-doc-paper {
+                            max-width: 800px;
+                            margin: 0 auto;
+                        }
+                    </style>
+                </head>
+                <body>
+                    ${docEl.innerHTML}
+                </body>
+                </html>
+            `;
+
+            const pedidoId = dadosAtuaisProposta?.pedidoId || 'ORC';
+            const clienteNome = document.getElementById('pdfClienteNome')?.value || 'Cliente';
+            const nomeArquivo = `Orcamento_${pedidoId}_${clienteNome.replace(/[^a-zA-Z0-9]/g, '_')}.pdf`;
+
+            if (typeof mostrarToast === 'function') {
+                mostrarToast('⏳ Gerando PDF...', 'info');
+            }
+
+            const result = await ipcRenderer.invoke('gerar-pdf', { html: htmlCompleto, nomeArquivo });
+
+            if (result.success) {
+                if (typeof mostrarToast === 'function') {
+                    mostrarToast(`📄 PDF salvo com sucesso: ${result.filePath}`, 'ok');
+                }
+            } else if (result.error) {
+                throw new Error(result.error);
+            }
+        } catch (err) {
+            console.error('Erro ao gerar PDF via Electron:', err);
+            // Fallback para window.print()
+            if (typeof mostrarToast === 'function') {
+                mostrarToast('Usando impressão do sistema como alternativa...', 'info');
+            }
+            window.print();
+        }
     }
 
     /**
@@ -559,12 +754,10 @@ window.PdfOrcamentoModulo = (function () {
     function copiarMensagemWhatsApp() {
         const empresaNome = document.getElementById('pdfEmpresaNome')?.value || '3D Studio';
         const clienteNome = document.getElementById('pdfClienteNome')?.value || 'Cliente';
-        const itemNome = document.getElementById('pdfItemNome')?.value || 'Peça 3D';
-        const valorUnit = parseFloat(document.getElementById('pdfItemValor')?.value) || 0;
-        const qtd = parseInt(document.getElementById('pdfItemQtd')?.value, 10) || 1;
         const chavePix = document.getElementById('pdfChavePix')?.value?.trim() || '';
         const condicoes = document.getElementById('pdfCondicoes')?.value || '50% de entrada e restante na entrega.';
         const observacoes = document.getElementById('pdfObservacoes')?.value?.trim() || '';
+        const incluirPagamento = document.getElementById('pdfIncluirPagamento')?.checked || false;
 
         const customPrazoInput = document.getElementById('pdfPrazoCustomInput');
         const isPrazoCustom = document.getElementById('pdfPrazoCustomBox')?.style.display === 'block';
@@ -572,24 +765,36 @@ window.PdfOrcamentoModulo = (function () {
             ? customPrazoInput.value.trim()
             : (document.getElementById('pdfPrazo')?.value || '3 dias úteis');
 
-        const valorTotal = (valorUnit * qtd).toFixed(2);
-        const pedidoId = dadosAtuaisProposta?.pedidoId || 'ORC-2026';
+        coletarItensDosInputs();
 
+        let valorTotalGeral = 0;
+        const pedidoId = dadosAtuaisProposta?.pedidoId || 'ORC-2026';
         const apiUrl = window.APP_CONFIG?.getApiUrl?.() || 'https://threed-manager-q1tc.onrender.com';
         const trackingUrl = `${apiUrl}/status/${encodeURIComponent(pedidoId)}`;
 
-        let texto = `Olá *${clienteNome}*! Tudo bem? 👋\n\nSegue o orçamento do seu projeto na *${empresaNome}*:\n\n` +
-            `📦 *Item:* ${itemNome}\n` +
-            `🔢 *Quantidade:* ${qtd} un.\n` +
-            `💰 *Valor Total:* R$ ${valorTotal}\n` +
-            `⏱️ *Prazo de Produção:* ${prazo}\n` +
-            `💳 *Condições:* ${condicoes}\n\n`;
+        let texto = `Olá *${clienteNome}*! Tudo bem? 👋\n\nSegue o orçamento do seu projeto na *${empresaNome}*:\n\n`;
+
+        // Lista todos os itens
+        itensProposta.forEach((item, idx) => {
+            const vUnit = item.valorUnitario || 0;
+            const qtd = item.quantidade || 1;
+            const subtotal = vUnit * qtd;
+            valorTotalGeral += subtotal;
+
+            texto += `📦 *Item ${idx + 1}:* ${item.nome || 'Peça 3D'}\n`;
+            texto += `   🔢 Quantidade: ${qtd} un.\n`;
+            texto += `   💰 Valor: R$ ${subtotal.toFixed(2)}${qtd > 1 ? ` (${qtd}x R$ ${vUnit.toFixed(2)})` : ''}\n\n`;
+        });
+
+        texto += `💵 *Valor Total:* R$ ${valorTotalGeral.toFixed(2)}\n`;
+        texto += `⏱️ *Prazo de Produção:* ${prazo}\n`;
+        texto += `💳 *Condições:* ${condicoes}\n\n`;
 
         if (observacoes) {
             texto += `📝 *Observações:* ${observacoes}\n\n`;
         }
 
-        if (chavePix) {
+        if (incluirPagamento && chavePix) {
             texto += `🔑 *Chave PIX:* \`${chavePix}\`\n\n`;
         }
 
@@ -642,6 +847,9 @@ window.PdfOrcamentoModulo = (function () {
         copiarMensagemWhatsApp,
         copiarLinkRastreio,
         gerarCodigoBarrasSvg,
-        gerarQrCodeSvg
+        gerarQrCodeSvg,
+        adicionarItemProposta,
+        removerItemProposta,
+        atualizarItemProposta
     };
 })();

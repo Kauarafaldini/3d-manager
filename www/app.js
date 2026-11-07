@@ -428,14 +428,17 @@ async function lancarPreVendaFinanceiro() {
                 desgaste: dados.custoDesgaste,
                 embalagem: dados.embalagem,
                 extras: dados.custoExtras,
+                falha: dados.custoFalha,
+                taxaFalha: dados.taxaFalha,
                 tempoHoras: dados.tempo,
                 impressoraId: impSelecionada ? String(impSelecionada._id) : null,
                 impressoraNome: impSelecionada ? impSelecionada.nome : null
             },
             custosExtras: dados.custosExtras,
-            taxas: { comissao: dados.valorComissao, fixa: dados.taxaFixa },
+            taxas: { comissao: dados.valorComissaoTotal, fixa: dados.taxaFixaTotal },
             status: 'orcamento',
-            quantidade: dados.quantidadeChapa
+            quantidade: dados.quantidadeChapa,
+            estoqueBaixado: false
         });
         console.log('Salvando pré-venda no banco...');
         await novaPreVenda.save();
@@ -619,7 +622,8 @@ function calcFinanceiro(foiAlteradoPelaMargem = false) {
 
     const custoTrabalho = tempo * trabalhoHora;
     const custoDesgaste = tempo * desgasteHora;
-    const custoEnergia = tempo * energiaKwh;
+    const fatorPotenciaKw = potenciaW > 0 ? (potenciaW / 1000) : 1;
+    const custoEnergia = tempo * fatorPotenciaKw * energiaKwh;
     const custoMaquina = custoTrabalho + custoDesgaste;
 
     const extrasColetados = typeof coletarCustosExtrasLinhas === 'function'
@@ -673,8 +677,10 @@ function calcFinanceiro(foiAlteradoPelaMargem = false) {
     }
 
     const valorComissao = venda * taxaComissaoPct;
+    const valorComissaoTotal = valorComissao * quantidadeChapa;
+    const taxaFixaTotal = taxaFixa * quantidadeChapa;
     const vendaTotal = venda * quantidadeChapa;
-    const lucroReal = vendaTotal - (valorComissao * quantidadeChapa) - (taxaFixa * quantidadeChapa) - custoProducaoTotal;
+    const lucroReal = vendaTotal - valorComissaoTotal - taxaFixaTotal - custoProducaoTotal;
     const markupReal = custoProducaoTotal > 0 ? (lucroReal / custoProducaoTotal) * 100 : 0;
 
     const margemEl = document.getElementById('pMargemDesejada');
@@ -698,8 +704,8 @@ function calcFinanceiro(foiAlteradoPelaMargem = false) {
     if (resTaxaFalhaEl) resTaxaFalhaEl.innerText = `${taxaFalhaPct}%`;
 
     document.getElementById('resCustoTotalProducao').innerText = `R$ ${custoProducaoTotal.toFixed(2)} (Total) / R$ ${custoProducao.toFixed(2)} (Unitário)`;
-    document.getElementById('resTaxaCanal').innerText = `R$ ${valorComissao.toFixed(2)} (${(taxaComissaoPct*100).toFixed(1)}%)`;
-    document.getElementById('resFixoCanal').innerText = `R$ ${taxaFixa.toFixed(2)}`;
+    document.getElementById('resTaxaCanal').innerText = `R$ ${valorComissaoTotal.toFixed(2)} (${(taxaComissaoPct*100).toFixed(1)}%)`;
+    document.getElementById('resFixoCanal').innerText = `R$ ${taxaFixaTotal.toFixed(2)}`;
     document.getElementById('resLucro').innerText = `R$ ${lucroReal.toFixed(2)}`;
     document.getElementById('resMargemReal').innerText = `Markup Real: ${markupReal.toFixed(1)}%`;
     
@@ -710,7 +716,9 @@ function calcFinanceiro(foiAlteradoPelaMargem = false) {
         taxaFalha: taxaFalhaPct,
         custoFalha,
         valorComissao,
+        valorComissaoTotal,
         taxaFixa,
+        taxaFixaTotal,
         lucroReal,
         venda,
         canal,
@@ -798,11 +806,14 @@ async function registrarVenda() {
                 desgaste: dados.custoDesgaste,
                 embalagem: dados.embalagem,
                 extras: dados.custoExtras,
+                falha: dados.custoFalha,
+                taxaFalha: dados.taxaFalha,
                 tempoHoras: dados.tempo
             },
             custosExtras: dados.custosExtras,
-            taxas: { comissao: dados.valorComissao, fixa: dados.taxaFixa },
-            status: 'concluida'
+            taxas: { comissao: dados.valorComissaoTotal, fixa: dados.taxaFixaTotal },
+            status: 'concluida',
+            estoqueBaixado: true
         });
         await novaVenda.save();
 
@@ -910,6 +921,8 @@ function dadosModeloReceita(dados) {
         custoDesgaste: dados.custoDesgaste,
         custoExtras: dados.custoExtras,
         custosExtras: dados.custosExtras || [],
+        taxaFalha: dados.taxaFalha != null ? dados.taxaFalha : (parseFloat(document.getElementById('pTaxaFalha')?.value) || 5),
+        custoFalha: dados.custoFalha || 0,
         temReceita: true
     };
 }
@@ -1124,6 +1137,9 @@ function carregarModeloPadrao() {
         document.getElementById('pDesgaste').value = m.trabalhoHora != null ? (m.desgaste || 0) : 0;
         document.getElementById('pEmbalagem').value = m.embalagem;
         document.getElementById('pQuantidadeChapa').value = m.quantidadeChapa != null ? m.quantidadeChapa : 1;
+        if (document.getElementById('pTaxaFalha')) {
+            document.getElementById('pTaxaFalha').value = m.taxaFalha != null ? m.taxaFalha : 5;
+        }
         document.getElementById('pVenda').value = m.venda || '';
         
         const container = document.getElementById('container-filamentos-linhas');
@@ -1656,10 +1672,18 @@ async function abrirModalSugestaoPrecoIA() {
         const res = await window.apiClient.post('/api/ai/sugerir-preco', payload);
         if (res && res.ok) {
             ultimaSugestaoIA = res;
-            document.getElementById('aiPrecoComp').textContent = `R$ ${(res.precoCompetitivo || 0).toFixed(2)}`;
-            document.getElementById('aiMarkupComp').textContent = `Markup: ${res.markupRecomendado || 120}%`;
-            document.getElementById('aiPrecoPrem').textContent = `R$ ${(res.precoPremium || 0).toFixed(2)}`;
-            document.getElementById('aiMarkupPrem').textContent = `Markup: ${Math.round((res.markupRecomendado || 120) * 1.5)}%`;
+            const custoUnit = dados.custoProducao > 0 ? dados.custoProducao : 1;
+            const precoComp = Number(res.precoCompetitivo) || 0;
+            const precoPrem = Number(res.precoPremium) || 0;
+            const mkComp = res.markupRecomendado || Math.max(0, Math.round(((precoComp - custoUnit) / custoUnit) * 100));
+            const mkPrem = res.markupPremium || (precoPrem > 0 && dados.custoProducao > 0
+                ? Math.max(0, Math.round(((precoPrem - custoUnit) / custoUnit) * 100))
+                : 200);
+
+            document.getElementById('aiPrecoComp').textContent = `R$ ${precoComp.toFixed(2)}`;
+            document.getElementById('aiMarkupComp').textContent = `Markup: ${mkComp}%`;
+            document.getElementById('aiPrecoPrem').textContent = `R$ ${precoPrem.toFixed(2)}`;
+            document.getElementById('aiMarkupPrem').textContent = `Markup: ${mkPrem}%`;
             document.getElementById('aiAnaliseMercado').textContent = res.analiseMercado || 'Análise de mercado concluída.';
 
             const lista = document.getElementById('aiDicasLista');

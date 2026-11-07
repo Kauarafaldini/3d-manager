@@ -2,8 +2,9 @@
 <html lang="pt-br">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <meta name="description" content="3D Manager Pro — Gerencie sua impressora 3D: estoque, custos, vendas e relatórios financeiros.">
+    <meta name="theme-color" content="#080a10">
     <link rel="stylesheet" href="style.css">
     <title>3D Manager Pro</title>
 </head>
@@ -177,45 +178,124 @@
 
     <!-- BAMBU LAB SETTINGS MODAL -->
     <div class="theme-modal-overlay" id="bambuModalOverlay" onclick="BambuModulo.fecharModalConfig(event)" style="display:none;">
-        <div class="theme-modal bambu-config-modal">
+        <div class="theme-modal bambu-config-modal" style="max-width:520px;">
             <div class="theme-modal-header">
                 <h3>🐼 Conectar Bambu Lab</h3>
                 <button class="btn-close-modal" onclick="BambuModulo.fecharModalConfig()">✕</button>
             </div>
 
-            <p style="font-size:12px;color:var(--text-dim);margin:0 0 16px;line-height:1.5;">
-                Conexão local via MQTT (porta 8883 TLS). Encontre estes dados na tela da sua impressora em <b>Configurações ➔ WLAN / Dispositivo</b>.
-            </p>
+            <!-- SUB-TABS: NUVEM / LOCAL -->
+            <div class="sub-nav-tabs" style="margin: 10px 0 14px;">
+                <button type="button" class="controle-subtab active" id="bambuTabBtnCloud" onclick="BambuModulo.trocarAbaModal('cloud')">☁️ Conta Oficial Bambu</button>
+                <button type="button" class="controle-subtab" id="bambuTabBtnLocal" onclick="BambuModulo.trocarAbaModal('local')">🌐 IP Local (Modo LAN)</button>
+            </div>
 
-            <div class="grid-form">
-                <div class="input-container full">
-                    <label>Nome da Impressora</label>
-                    <input type="text" id="bambuCfgNome" placeholder="Ex: Bambu Lab P1S Oficina">
+            <!-- PAINEL NUVEM -->
+            <div id="bambuPainelCloud">
+                <p style="font-size:12px;color:var(--text-dim);margin:0 0 12px;line-height:1.5;">
+                    Entre com sua <b>Conta Bambu Lab</b> para detectar e conectar todas as suas impressoras automaticamente de qualquer lugar (Wi-Fi ou 4G), sem precisar de IP ou Modo LAN.
+                </p>
+
+                <!-- Escolha de Login: E-mail/Senha ou Token -->
+                <div style="display:flex;gap:8px;margin-bottom:12px;">
+                    <button type="button" class="btn-secondary" id="btnModoCredenciais" onclick="BambuModulo.trocarModoAuthNuvem('credentials')" style="flex:1;font-size:11px;padding:7px 8px;background:var(--primary);color:white;border-color:var(--primary);font-weight:600;">🔑 E-mail & Senha</button>
+                    <button type="button" class="btn-secondary" id="btnModoToken" onclick="BambuModulo.trocarModoAuthNuvem('token')" style="flex:1;font-size:11px;padding:7px 8px;font-weight:600;">🎫 Token de Acesso</button>
                 </div>
-                <div class="input-container">
-                    <label>Endereço IP (Wi-Fi local)</label>
-                    <input type="text" id="bambuCfgIp" placeholder="Ex: 192.168.1.150">
+
+                <!-- FORM CREDENCIAIS -->
+                <div id="bambuFormCredenciais" class="grid-form">
+                    <div class="input-container full">
+                        <label>E-mail da Conta Bambu</label>
+                        <input type="email" id="bambuCloudAccount" placeholder="seu-email@exemplo.com" autocomplete="username">
+                    </div>
+                    <div class="input-container">
+                        <label>Senha da Conta</label>
+                        <input type="password" id="bambuCloudPassword" placeholder="••••••••" autocomplete="current-password">
+                    </div>
+                    <div class="input-container">
+                        <label>Região do Servidor</label>
+                        <select id="bambuCloudRegion">
+                            <option value="us" selected>Global / Américas</option>
+                            <option value="eu">Europa</option>
+                            <option value="cn">China</option>
+                        </select>
+                    </div>
+
+                    <!-- CAMPO 2FA (Aparece se a Bambu solicitar código) -->
+                    <div id="bambuBox2FA" class="input-container full" style="display:none;background:rgba(234,179,8,0.1);border:1px solid rgba(234,179,8,0.3);padding:12px;border-radius:10px;">
+                        <label style="color:var(--warning);font-weight:700;">🔐 Código de Verificação 2FA (6 dígitos)</label>
+                        <input type="text" id="bambuCloud2faCode" placeholder="Ex: 123456" inputmode="numeric" maxlength="8">
+                        <small style="font-size:10px;color:var(--text-dim);display:block;margin-top:4px;">
+                            Verifique seu e-mail ou app autenticador.
+                        </small>
+                    </div>
+
+                    <button class="btn-main" type="button" id="btnEntrarBambuCloud" onclick="BambuModulo.fazerLoginNuvem()" style="margin-top:4px;">
+                        🔐 Entrar na Conta Bambu
+                    </button>
                 </div>
-                <div class="input-container">
-                    <label>Serial Number (SN)</label>
-                    <input type="text" id="bambuCfgSerial" placeholder="Ex: 01P00A492800123">
+
+                <!-- FORM TOKEN DIRETO -->
+                <div id="bambuFormToken" class="grid-form" style="display:none;">
+                    <div class="input-container full">
+                        <label>Access Token da Bambu / MakerWorld</label>
+                        <input type="password" id="bambuCloudDirectToken" placeholder="Cole seu token aqui (JWT)">
+                        <small style="font-size:10px;color:var(--text-dim);margin-top:4px;display:block;line-height:1.4;">
+                            Ideal para quem faz login com <b>Google ou Apple</b>. Obtenha inspecionando o cookie <code>token</code> em <b>makerworld.com</b>.
+                        </small>
+                    </div>
+                    <button class="btn-main" type="button" id="btnEntrarBambuToken" onclick="BambuModulo.conectarPorToken()" style="margin-top:4px;">
+                        🎫 Autenticar com Token
+                    </button>
                 </div>
-                <div class="input-container full">
-                    <label>Código de Acesso (8 dígitos)</label>
-                    <input type="password" id="bambuCfgAccessCode" placeholder="Ex: 12345678">
-                    <small style="font-size:9px;color:var(--text-dim);">Código de 8 dígitos exibido nas configurações de Wi-Fi da impressora.</small>
-                </div>
-                <div class="input-container full" style="display:flex;align-items:center;gap:8px;background:var(--bg-secondary);padding:10px;border-radius:10px;">
-                    <input type="checkbox" id="bambuCfgSimulator" style="width:auto;transform:scale(1.2);">
-                    <label for="bambuCfgSimulator" style="cursor:pointer;text-transform:none;font-size:12px;color:var(--text-muted);margin:0;">
-                        🎮 Modo Demonstração / Simulador (para testar telemetria agora)
-                    </label>
+
+                <!-- LISTA DE IMPRESSORAS DETECTADAS -->
+                <div id="bambuDiscoveredBox" style="display:none;margin-top:16px;border-top:1px solid var(--border-subtle);padding-top:14px;">
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+                        <h4 style="margin:0;font-size:13px;color:var(--text);">🖨️ Suas Impressoras Bambu Lab</h4>
+                        <button type="button" class="btn-secondary btn-compact" onclick="BambuModulo.atualizarListaDispositivosNuvem()" style="font-size:10px;padding:4px 8px;">🔄 Atualizar</button>
+                    </div>
+                    <div id="bambuDiscoveredList" class="list-container" style="max-height:220px;overflow-y:auto;"></div>
                 </div>
             </div>
 
-            <div style="display:flex;gap:10px;margin-top:16px;">
-                <button class="btn-main" type="button" onclick="BambuModulo.salvarEConectarModal()" style="flex:1;margin:0;">Salvar e Conectar</button>
-                <button class="btn-secondary" type="button" onclick="BambuModulo.fecharModalConfig()" style="padding:12px 18px;">Cancelar</button>
+            <!-- PAINEL LOCAL (IP / MODO LAN) -->
+            <div id="bambuPainelLocal" style="display:none;">
+                <p style="font-size:12px;color:var(--text-dim);margin:0 0 14px;line-height:1.5;">
+                    Conexão direta na mesma rede Wi-Fi via MQTT (porta 8883 TLS).<br>
+                    <b style="color:var(--primary);">Importante:</b> Na tela da sua impressora, vá em <b>Configurações ➔ WLAN</b> e ative o <b>Modo LAN (LAN Only)</b> para liberar o acesso local.
+                </p>
+
+                <div class="grid-form">
+                    <div class="input-container full">
+                        <label>Nome da Impressora</label>
+                        <input type="text" id="bambuCfgNome" placeholder="Ex: Bambu Lab P1S Oficina">
+                    </div>
+                    <div class="input-container">
+                        <label>Endereço IP (Wi-Fi local)</label>
+                        <input type="text" id="bambuCfgIp" placeholder="Ex: 192.168.1.150">
+                    </div>
+                    <div class="input-container">
+                        <label>Serial Number (SN)</label>
+                        <input type="text" id="bambuCfgSerial" placeholder="Ex: 01P00A492800123">
+                    </div>
+                    <div class="input-container full">
+                        <label>Código de Acesso (8 dígitos na tela)</label>
+                        <input type="password" id="bambuCfgAccessCode" placeholder="Ex: 12345678">
+                        <small style="font-size:9px;color:var(--text-dim);">Exibido em Configurações ➔ WLAN na tela da impressora.</small>
+                    </div>
+                    <div class="input-container full" style="display:flex;align-items:center;gap:8px;background:var(--bg-secondary);padding:10px;border-radius:10px;">
+                        <input type="checkbox" id="bambuCfgSimulator" style="width:auto;transform:scale(1.2);">
+                        <label for="bambuCfgSimulator" style="cursor:pointer;text-transform:none;font-size:12px;color:var(--text-muted);margin:0;">
+                            🎮 Modo Demonstração / Simulador (para testar telemetria agora)
+                        </label>
+                    </div>
+                </div>
+
+                <div style="display:flex;gap:10px;margin-top:16px;">
+                    <button class="btn-main" type="button" onclick="BambuModulo.salvarEConectarModal()" style="flex:1;margin:0;">Conectar via IP Local</button>
+                    <button class="btn-secondary" type="button" onclick="BambuModulo.fecharModalConfig()" style="padding:12px 18px;">Cancelar</button>
+                </div>
             </div>
         </div>
     </div>
@@ -255,17 +335,19 @@
                     </div>
                     <input type="text" id="pdfChavePix" placeholder="Ex: seu-pix@email.com" oninput="PdfOrcamentoModulo.atualizarPreviewProposta()">
                 </div>
-                <div class="input-container">
-                    <label>Nome da Peça</label>
-                    <input type="text" id="pdfItemNome" oninput="PdfOrcamentoModulo.atualizarPreviewProposta()">
+                <div class="input-container full" style="display:flex;align-items:center;gap:8px;background:var(--bg-secondary);padding:10px 14px;border-radius:10px;border:1px solid var(--border-subtle);">
+                    <input type="checkbox" id="pdfIncluirPagamento" onchange="PdfOrcamentoModulo.atualizarPreviewProposta()" style="width:auto;transform:scale(1.2);">
+                    <label for="pdfIncluirPagamento" style="cursor:pointer;text-transform:none;font-size:12px;color:var(--text-muted);margin:0;">
+                        💳 Incluir dados de pagamento (PIX / QR Code / Código de Barras) — <b style="color:var(--text-dim);">desmarque para cotações</b>
+                    </label>
                 </div>
-                <div class="input-container">
-                    <label>Valor Unitário (R$)</label>
-                    <input type="number" step="0.01" id="pdfItemValor" oninput="PdfOrcamentoModulo.atualizarPreviewProposta()">
-                </div>
-                <div class="input-container">
-                    <label>Quantidade</label>
-                    <input type="number" min="1" id="pdfItemQtd" value="1" oninput="PdfOrcamentoModulo.atualizarPreviewProposta()">
+
+                <div class="input-container full" style="background:var(--bg-input);padding:14px;border-radius:12px;border:1px solid var(--border-subtle);">
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+                        <label style="margin:0;font-weight:700;font-size:13px;">📦 Itens do Orçamento</label>
+                        <button type="button" class="btn-secondary" onclick="PdfOrcamentoModulo.adicionarItemProposta()" style="padding:5px 12px;font-size:11px;border-radius:8px;">➕ Adicionar Item</button>
+                    </div>
+                    <div id="pdfItensContainer" style="display:flex;flex-direction:column;gap:10px;"></div>
                 </div>
                 <div class="input-container full" style="background:var(--bg-input);padding:14px;border-radius:12px;border:1px solid var(--border-subtle);">
                     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
@@ -288,7 +370,7 @@
                     <!-- Stepper & Unidade -->
                     <div id="pdfPrazoControleRapido" style="display:flex;align-items:center;gap:8px;">
                         <button type="button" class="btn-stepper" onclick="PdfOrcamentoModulo.ajustarPrazoDias(-1)" style="width:36px;height:36px;border-radius:8px;font-size:16px;font-weight:700;background:var(--bg-primary);border:1px solid var(--border-subtle);color:var(--text);cursor:pointer;display:flex;align-items:center;justify-content:center;">-</button>
-                        <input type="number" id="pdfPrazoDiasInput" value="3" min="1" max="90" style="width:64px;text-align:center;font-weight:700;font-size:14px;padding:8px 4px;" oninput="PdfOrcamentoModulo.aoDigitarPrazoDias(this.value)">
+                        <input type="number" id="pdfPrazoDiasInput" value="3" min="1" max="90" inputmode="numeric" style="width:64px;text-align:center;font-weight:700;font-size:14px;padding:8px 4px;" oninput="PdfOrcamentoModulo.aoDigitarPrazoDias(this.value)">
                         <button type="button" class="btn-stepper" onclick="PdfOrcamentoModulo.ajustarPrazoDias(1)" style="width:36px;height:36px;border-radius:8px;font-size:16px;font-weight:700;background:var(--bg-primary);border:1px solid var(--border-subtle);color:var(--text);cursor:pointer;display:flex;align-items:center;justify-content:center;">+</button>
                         <select id="pdfPrazoTipoUnidade" onchange="PdfOrcamentoModulo.atualizarPrazoTexto()" style="flex:1;padding:8px 10px;font-size:12px;border-radius:8px;">
                             <option value="úteis" selected>dias úteis</option>
@@ -329,7 +411,7 @@
                     <!-- Stepper Control -->
                     <div id="pdfValidadeControleRapido" style="display:flex;align-items:center;gap:8px;">
                         <button type="button" class="btn-stepper" onclick="PdfOrcamentoModulo.ajustarValidadeDias(-1)" style="width:36px;height:36px;border-radius:8px;font-size:16px;font-weight:700;background:var(--bg-primary);border:1px solid var(--border-subtle);color:var(--text);cursor:pointer;display:flex;align-items:center;justify-content:center;">-</button>
-                        <input type="number" id="pdfValidadeDiasInput" value="7" min="1" max="90" style="flex:1;text-align:center;font-weight:700;font-size:14px;padding:8px 4px;" oninput="PdfOrcamentoModulo.aoDigitarValidadeDias(this.value)">
+                        <input type="number" id="pdfValidadeDiasInput" value="7" min="1" max="90" inputmode="numeric" style="flex:1;text-align:center;font-weight:700;font-size:14px;padding:8px 4px;" oninput="PdfOrcamentoModulo.aoDigitarValidadeDias(this.value)">
                         <button type="button" class="btn-stepper" onclick="PdfOrcamentoModulo.ajustarValidadeDias(1)" style="width:36px;height:36px;border-radius:8px;font-size:16px;font-weight:700;background:var(--bg-primary);border:1px solid var(--border-subtle);color:var(--text);cursor:pointer;display:flex;align-items:center;justify-content:center;">+</button>
                     </div>
 
@@ -447,7 +529,7 @@
                 </div>
                 <div class="input-container full">
                     <label id="spoolModalLabel">Novo peso restante em gramas (g)</label>
-                    <input type="number" id="spoolModalValor" step="1" min="0" placeholder="Ex: 850">
+                    <input type="number" id="spoolModalValor" step="1" min="0" placeholder="Ex: 850" inputmode="numeric">
                     <small id="spoolModalHelp" style="font-size:10px;color:var(--text-dim);">Informe o peso do filamento aferido na balança.</small>
                 </div>
             </div>
@@ -517,7 +599,10 @@
             </p>
 
             <div style="background:var(--bg-secondary);padding:10px;border-radius:10px;border:1px solid var(--border-subtle);margin-bottom:14px;">
-                <label style="font-size:11px;color:var(--primary);font-weight:700;margin-bottom:6px;display:block;">⚡ Presets Rápidos de 1 Clique</label>
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+                    <label style="font-size:11px;color:var(--primary);font-weight:700;margin:0;">⚡ Presets Rápidos de 1 Clique</label>
+                    <button type="button" class="btn-secondary" onclick="BambuModulo.abrirModalConfig()" style="font-size:10px;padding:3px 8px;border-color:var(--primary);color:var(--primary);">☁️ Conta Bambu Lab</button>
+                </div>
                 <div style="display:flex;flex-wrap:wrap;gap:6px;">
                     <button type="button" class="btn-preset-farm" onclick="ImpressorasFilaModulo.aplicarPresetImpressora(0)">Bambu P1S (160W)</button>
                     <button type="button" class="btn-preset-farm" onclick="ImpressorasFilaModulo.aplicarPresetImpressora(1)">A1 mini (60W)</button>
@@ -543,7 +628,8 @@
                     <label>Tipo de Conexão / Telemetria</label>
                     <select id="impFormTipoConexao" onchange="ImpressorasFilaModulo.aoMudarTipoConexao()">
                         <option value="manual">Manual (Sem Telemetria)</option>
-                        <option value="bambu">Bambu Lab (MQTT TLS 8883)</option>
+                        <option value="bambu_cloud">Bambu Lab (Nuvem / Conta Oficial)</option>
+                        <option value="bambu">Bambu Lab (IP Local / Modo LAN)</option>
                         <option value="klipper">Klipper / Moonraker (HTTP 7125)</option>
                         <option value="octoprint">OctoPrint (API REST 5000)</option>
                     </select>
@@ -554,6 +640,7 @@
                     <div style="font-size:12px;font-weight:700;color:var(--primary);margin-bottom:8px;">
                         🌐 Conexão Direta com a Impressora (IP Local / Wi-Fi)
                     </div>
+                    <p id="impDicaTelemetria" style="font-size:11px;color:var(--text-dim);margin:0 0 10px;line-height:1.4;background:var(--bg-primary);padding:8px 10px;border-radius:8px;border-left:3px solid var(--primary);"></p>
                     <div class="grid-form">
                         <div class="input-container">
                             <label>Endereço IP (Wi-Fi Local)</label>
@@ -561,14 +648,14 @@
                         </div>
                         <div class="input-container">
                             <label>Porta</label>
-                            <input type="number" id="impFormPorta" placeholder="Ex: 8883 ou 7125">
+                            <input type="number" id="impFormPorta" placeholder="Ex: 8883 ou 7125" inputmode="numeric">
                         </div>
                         <div class="input-container">
-                            <label>Serial / Identificador</label>
+                            <label id="impLabelSerial">Serial / Identificador</label>
                             <input type="text" id="impFormSerial" placeholder="Ex: 01P00A492800123" autocomplete="off">
                         </div>
                         <div class="input-container">
-                            <label>Código de Acesso / API Key</label>
+                            <label id="impLabelAccessCode">Código de Acesso / API Key</label>
                             <input type="password" id="impFormAccessCode" placeholder="Código de 8 dígitos ou Token" autocomplete="off">
                         </div>
                         <div class="input-container full">
@@ -579,15 +666,15 @@
 
                 <div class="input-container">
                     <label>Consumo Médio (Watts)</label>
-                    <input type="number" id="impFormWatts" value="150" placeholder="Ex: 160">
+                    <input type="number" id="impFormWatts" value="150" placeholder="Ex: 160" inputmode="numeric">
                 </div>
                 <div class="input-container">
                     <label>Depreciação / Desgaste (R$/h)</label>
-                    <input type="number" step="0.01" id="impFormDesgaste" value="0.80" placeholder="Ex: 0.80">
+                    <input type="number" step="0.01" id="impFormDesgaste" value="0.80" placeholder="Ex: 0.80" inputmode="decimal">
                 </div>
                 <div class="input-container full">
                     <label>Mão de Obra / Operador (R$/h)</label>
-                    <input type="number" step="0.01" id="impFormTrabalho" value="1.00" placeholder="Ex: 1.00">
+                    <input type="number" step="0.01" id="impFormTrabalho" value="1.00" placeholder="Ex: 1.00" inputmode="decimal">
                 </div>
             </div>
 
@@ -648,15 +735,15 @@
                 </div>
                 <div class="input-container">
                     <label>Horas Estimadas</label>
-                    <input type="number" id="tabAvulsoHoras" value="2" min="0">
+                    <input type="number" id="tabAvulsoHoras" value="2" min="0" inputmode="numeric">
                 </div>
                 <div class="input-container">
                     <label>Minutos</label>
-                    <input type="number" id="tabAvulsoMinutos" value="0" min="0" max="59">
+                    <input type="number" id="tabAvulsoMinutos" value="0" min="0" max="59" inputmode="numeric">
                 </div>
                 <div class="input-container">
                     <label>Peso Estimado (g)</label>
-                    <input type="number" id="tabAvulsoPeso" value="50" min="0">
+                    <input type="number" id="tabAvulsoPeso" value="50" min="0" inputmode="numeric">
                 </div>
                 <div class="input-container full">
                     <label>Observação (opcional)</label>
@@ -705,27 +792,27 @@
             <div id="auth-form-register" style="display:none">
                 <div class="input-container">
                     <label>Nome do Responsável</label>
-                    <input type="text" id="regNome" placeholder="Seu nome completo">
+                    <input type="text" id="regNome" placeholder="Seu nome completo" autocomplete="name">
                 </div>
                 <div class="input-container">
                     <label>CPF ou CNPJ (obrigatório)</label>
-                    <input type="text" id="regCpfCnpj" placeholder="000.000.000-00 ou 00.000.000/0000-00" oninput="PerfilLojaModulo.mascaraCpfCnpj(this)">
+                    <input type="text" id="regCpfCnpj" placeholder="000.000.000-00 ou 00.000.000/0000-00" inputmode="numeric" oninput="PerfilLojaModulo.mascaraCpfCnpj(this)">
                 </div>
                 <div class="input-container">
                     <label>E-mail</label>
-                    <input type="email" id="regEmail" placeholder="seu@email.com">
+                    <input type="email" id="regEmail" placeholder="seu@email.com" autocomplete="email">
                 </div>
                 <div class="input-container">
                     <label>Nome da Loja / Empresa (opcional)</label>
-                    <input type="text" id="regEmpresa" placeholder="Ex: Oficina 3D Studio">
+                    <input type="text" id="regEmpresa" placeholder="Ex: Oficina 3D Studio" autocomplete="organization">
                 </div>
                 <div class="input-container">
                     <label>WhatsApp / Telefone (opcional)</label>
-                    <input type="text" id="regTelefone" placeholder="(11) 99999-9999">
+                    <input type="tel" id="regTelefone" placeholder="(11) 99999-9999" inputmode="tel" autocomplete="tel">
                 </div>
                 <div class="input-container">
                     <label>Senha (mín. 6)</label>
-                    <input type="password" id="regSenha" placeholder="••••••">
+                    <input type="password" id="regSenha" placeholder="••••••" autocomplete="new-password">
                 </div>
                 <button class="btn-login" type="button" onclick="registrarCliente()">Criar conta</button>
             </div>
@@ -776,11 +863,11 @@
                 </div>
             </div>
             <div class="header-actions">
-                <button class="btn-theme-switcher" onclick="QrScannerModulo.abrirScanner()" title="Escanear QR Code com Câmera">📷</button>
+                <button class="btn-theme-switcher" onclick="QrScannerModulo.abrirScanner()" title="Escanear QR Code com Câmera" aria-label="Escanear QR Code">📷</button>
                 <button class="btn-theme-switcher btn-notification-bell" onclick="NotificacoesModulo.abrirModalNotificacoes()" title="Central de Notificações">
                     🔔<span class="notification-badge" id="notifBadge" style="display:none;">0</span>
                 </button>
-                <button class="btn-exit" type="button" onclick="sairApp()">Sair</button>
+                <button class="btn-exit" type="button" onclick="sairApp()" aria-label="Sair da conta">Sair</button>
             </div>
         </header>
 
@@ -1032,6 +1119,7 @@
                         <div class="mini-stat"><span>Margem média</span><strong id="relMargem">0%</strong></div>
                         <div class="mini-stat"><span>Estoque filamento</span><strong id="relEstoqueValor">R$ 0,00</strong><small id="relEstoquePeso">0 g</small></div>
                         <div class="mini-stat"><span>Parcelas / mês</span><strong id="relParcelas" style="color:var(--warning);">R$ 0,00</strong></div>
+                        <div class="mini-stat"><span>💳 Pedidos a Pagar</span><strong id="relAPagar" style="color:#eab308;">R$ 0,00</strong></div>
                         <div class="mini-stat"><span>🎯 Ponto de Equilíbrio</span><strong id="relBreakEvenFaturamento" style="color:var(--primary);">R$ 0,00</strong><small id="relBreakEvenHoras">0h mín.</small></div>
                         <div class="mini-stat"><span>♻️ Sucata / Perdas</span><strong id="relDesperdicioValor" style="color:var(--danger);">R$ 0,00</strong><small id="relDesperdicioPeso">0 g</small></div>
                     </div>
@@ -1193,7 +1281,7 @@
 
                         <div class="input-container full">
                             <label>Quantidade por Chapa</label>
-                            <input type="number" step="1" min="1" id="pQuantidadeChapa" value="1" oninput="calcFinanceiro(false)">
+                            <input type="number" step="1" min="1" id="pQuantidadeChapa" value="1" inputmode="numeric" oninput="calcFinanceiro(false)">
                             <small style="font-size:9px;color:var(--text-dim);">Divide o custo total do material pela quantidade de itens na chapa</small>
                         </div>
                         
@@ -1202,11 +1290,11 @@
                             <div class="tempo-duplo">
                                 <div class="input-container" style="margin:0;">
                                     <label style="text-transform:none;font-size:10px;">Horas</label>
-                                    <input type="number" id="pTempoHoras" min="0" step="1" value="0" placeholder="0" oninput="onTempoInput()">
+                                    <input type="number" id="pTempoHoras" min="0" step="1" value="0" placeholder="0" inputmode="numeric" oninput="onTempoInput()">
                                 </div>
                                 <div class="input-container" style="margin:0;">
                                     <label style="text-transform:none;font-size:10px;">Minutos</label>
-                                    <input type="number" id="pTempoMinutos" min="0" max="59" step="1" value="0" placeholder="0" oninput="onTempoInput()">
+                                    <input type="number" id="pTempoMinutos" min="0" max="59" step="1" value="0" placeholder="0" inputmode="numeric" oninput="onTempoInput()">
                                 </div>
                             </div>
                             <small id="resTempoEquiv" style="color:var(--text-dim);font-size:10px;display:block;margin-top:6px;">Total: 0h 0min (0,00 h)</small>
@@ -1214,30 +1302,30 @@
 
                         <div class="input-container">
                             <label>Custo hora de trabalho (R$/h)</label>
-                            <input type="number" step="0.01" id="pTrabalhoHora" value="1.00" oninput="calcFinanceiro(false)">
+                            <input type="number" step="0.01" id="pTrabalhoHora" value="1.00" inputmode="decimal" oninput="calcFinanceiro(false)">
                             <small style="font-size:9px;color:var(--text-dim);">Ex: R$ 1,00 × 1h30 = R$ 1,50</small>
                         </div>
                         <div class="input-container">
                             <label>Desgaste impressora (R$/h)</label>
-                            <input type="number" step="0.01" id="pDesgaste" value="0" oninput="calcFinanceiro(false)">
+                            <input type="number" step="0.01" id="pDesgaste" value="0" inputmode="decimal" oninput="calcFinanceiro(false)">
                         </div>
 
                         <div class="input-container">
                             <label>Custo Energia (R$/h)</label>
-                            <input type="number" step="0.01" id="pEnergia" value="1.00" oninput="calcFinanceiro(false)">
+                            <input type="number" step="0.01" id="pEnergia" value="1.00" inputmode="decimal" oninput="calcFinanceiro(false)">
                             <small style="font-size:9px;color:var(--text-dim);">Ex: R$ 1,00 × 2h = R$ 2,00</small>
                         </div>
                         <div class="input-container">
                             <label>Consumo Máquina (W)</label>
-                            <input type="number" id="pPotencia" value="150" oninput="calcFinanceiro(false)">
+                            <input type="number" id="pPotencia" value="150" inputmode="numeric" oninput="calcFinanceiro(false)">
                         </div>
                         <div class="input-container">
                             <label>Embalagem (R$)</label>
-                            <input type="number" step="0.01" id="pEmbalagem" value="2.50" oninput="calcFinanceiro(false)">
+                            <input type="number" step="0.01" id="pEmbalagem" value="2.50" inputmode="decimal" oninput="calcFinanceiro(false)">
                         </div>
                         <div class="input-container">
                             <label>Margem de Falha / Risco (%)</label>
-                            <input type="number" step="1" min="0" max="50" id="pTaxaFalha" value="5" oninput="calcFinanceiro(false)">
+                            <input type="number" step="1" min="0" max="50" id="pTaxaFalha" value="5" inputmode="numeric" oninput="calcFinanceiro(false)">
                             <small style="font-size:9px;color:var(--text-dim);">Padrão: 5% a 10% para cobrir perdas e descolamento</small>
                         </div>
 
@@ -1265,7 +1353,7 @@
                                 </div>
                                 <div class="input-container">
                                     <label>Comissão faixa ≥ R$ 80 (%)</label>
-                                    <input type="number" step="0.1" id="shopeeComissao" value="14" oninput="calcFinanceiro(false)">
+                                    <input type="number" step="0.1" id="shopeeComissao" value="14" inputmode="decimal" oninput="calcFinanceiro(false)">
                                     <small style="font-size:9px;color:var(--text-dim);">Padrão 14%. Faixas menores usam tabela fixa (50% até R$8 / 20% R$8–79). Ajuste aqui se sua categoria tiver taxa diferente.</small>
                                 </div>
                                 <div class="input-container full" style="display:flex;flex-direction:row;align-items:center;gap:8px;">
@@ -1282,12 +1370,12 @@
                                 </div>
                                 <div class="input-container">
                                     <label>Taxa fixa manual (R$)</label>
-                                    <input type="number" step="0.01" id="shopeeFixo" value="4.00" oninput="calcFinanceiro(false)">
+                                    <input type="number" step="0.01" id="shopeeFixo" value="4.00" inputmode="decimal" oninput="calcFinanceiro(false)">
                                     <small style="font-size:9px;color:var(--text-dim);">Usada apenas se a tabela oficial estiver desabilitada</small>
                                 </div>
                                 <div class="input-container">
                                     <label>Isenta taxa fixa se preço ≥ (R$)</label>
-                                    <input type="number" step="0.01" id="shopeeFixoLimite" value="79.90" oninput="calcFinanceiro(false)">
+                                    <input type="number" step="0.01" id="shopeeFixoLimite" value="79.90" inputmode="decimal" oninput="calcFinanceiro(false)">
                                 </div>
                             </div>
                         </div>
@@ -1304,17 +1392,17 @@
                                 </div>
                                 <div class="input-container highlight-box">
                                     <label>Comissão ML (%)</label>
-                                    <input type="number" step="0.1" id="mlComissao" value="13" oninput="onMlComissaoManual(); calcFinanceiro(false)">
+                                    <input type="number" step="0.1" id="mlComissao" value="13" inputmode="decimal" oninput="onMlComissaoManual(); calcFinanceiro(false)">
                                     <small style="font-size:9px;color:var(--text-dim);">Confira em Custos por vender no ML. Varia por categoria.</small>
                                 </div>
                                 <div class="input-container">
                                     <label>Taxa fixa (R$)</label>
-                                    <input type="number" step="0.01" id="mlFixo" value="6.50" oninput="calcFinanceiro(false)">
+                                    <input type="number" step="0.01" id="mlFixo" value="6.50" inputmode="decimal" oninput="calcFinanceiro(false)">
                                     <small style="font-size:9px;color:var(--text-dim);">Desde 2026 varia por peso/dimensão. R$ 6,50 é referência para itens leves. Itens &lt; R$ 12,50 usam 50% do valor automaticamente.</small>
                                 </div>
                                 <div class="input-container">
                                     <label>Limite para taxa fixa (R$)</label>
-                                    <input type="number" step="0.01" id="mlFixoLimite" value="79.00" oninput="calcFinanceiro(false)">
+                                    <input type="number" step="0.01" id="mlFixoLimite" value="79.00" inputmode="decimal" oninput="calcFinanceiro(false)">
                                 </div>
                                 <div class="input-container full" style="display:flex;flex-direction:row;align-items:center;gap:8px;">
                                     <input type="checkbox" id="mlFreteGratis" checked onchange="atualizarInterfaceCanais(); calcFinanceiro(false)" style="width:auto;transform:scale(1.2);">
@@ -1322,7 +1410,7 @@
                                 </div>
                                 <div id="ml-bloco-frete" class="input-container">
                                     <label>Custo estimado do frete (R$)</label>
-                                    <input type="number" step="0.01" id="mlFrete" value="20.00" oninput="calcFinanceiro(false)">
+                                    <input type="number" step="0.01" id="mlFrete" value="20.00" inputmode="decimal" oninput="calcFinanceiro(false)">
                                     <small style="font-size:9px;color:var(--text-dim);">Quando o preço final ≥ limite acima</small>
                                 </div>
                             </div>
@@ -1330,11 +1418,11 @@
 
                         <div class="input-container highlight-box">
                             <label>Markup / Lucro sobre o Custo (%)</label>
-                            <input type="number" step="1" id="pMargemDesejada" placeholder="Ex: 120" oninput="calcFinanceiro(true)">
+                            <input type="number" step="1" id="pMargemDesejada" placeholder="Ex: 120" inputmode="numeric" oninput="calcFinanceiro(true)">
                         </div>
                         <div class="input-container highlight-box">
                             <label>Preço de Venda Final (R$)</label>
-                            <input type="number" step="0.01" id="pVenda" value="0" oninput="calcFinanceiro(false)">
+                            <input type="number" step="0.01" id="pVenda" value="0" inputmode="decimal" oninput="calcFinanceiro(false)">
                         </div>
                         
                         <div class="input-container full" style="margin-top:4px;">
@@ -1412,7 +1500,7 @@
                                 <div class="grid-form">
                                     <div class="input-container">
                                         <label>Quantidade</label>
-                                        <input type="number" id="termQuantidade" min="1" value="1" oninput="atualizarTotalVenda()">
+                                        <input type="number" id="termQuantidade" min="1" value="1" inputmode="numeric" oninput="atualizarTotalVenda()">
                                     </div>
                                     <div class="input-container">
                                         <label>Canal de Venda</label>
@@ -1522,11 +1610,11 @@
                                 </div>
                                 <div class="input-container">
                                     <label>Preço de venda (R$)</label>
-                                    <input type="number" step="0.01" id="prodCadPreco" placeholder="0,00 (Opcional - calculado na Calculadora)">
+                                    <input type="number" step="0.01" id="prodCadPreco" placeholder="0,00 (Opcional - calculado na Calculadora)" inputmode="decimal">
                                 </div>
                                 <div class="input-container">
                                     <label>Estoque inicial (un.)</label>
-                                    <input type="number" min="0" step="1" id="prodCadEstoque" value="0">
+                                    <input type="number" min="0" step="1" id="prodCadEstoque" value="0" inputmode="numeric">
                                 </div>
                             </div>
                             <div class="estoque-form-actions">
@@ -1587,7 +1675,7 @@
                             <div class="grid-form">
                                 <div class="input-container">
                                     <label>Chapas produzidas</label>
-                                    <input type="number" id="prodQuantidade" min="1" value="1" oninput="atualizarInfoProducao()">
+                                    <input type="number" id="prodQuantidade" min="1" value="1" inputmode="numeric" oninput="atualizarInfoProducao()">
                                 </div>
                                 <div class="input-container">
                                     <label>Lote (opcional)</label>
@@ -1614,11 +1702,11 @@
                             </div>
                             <div class="input-container">
                                 <label>Preço KG (R$)</label>
-                                <input type="number" step="0.01" id="estPreco" placeholder="Ex: 120.00">
+                                <input type="number" step="0.01" id="estPreco" placeholder="Ex: 120.00" inputmode="decimal">
                             </div>
                             <div class="input-container">
                                 <label>Peso Inicial (g)</label>
-                                <input type="number" id="estGrama" value="1000" placeholder="Ex: 1000">
+                                <input type="number" id="estGrama" value="1000" placeholder="Ex: 1000" inputmode="numeric">
                             </div>
                         </div>
                         <button class="btn-main" onclick="adicionarEstoque()">Salvar filamento</button>
@@ -1656,33 +1744,33 @@
                             </div>
                             <div class="input-container cad-campo-lote-estoque">
                                 <label>Preço total pago (R$)</label>
-                                <input type="number" step="0.01" id="cadPrecoTotalEstoque" placeholder="Ex: 22.00" oninput="atualizarPreviewCustoCadastroEstoque()">
+                                <input type="number" step="0.01" id="cadPrecoTotalEstoque" placeholder="Ex: 22.00" inputmode="decimal" oninput="atualizarPreviewCustoCadastroEstoque()">
                             </div>
                             <div class="input-container cad-campo-lote-estoque">
                                 <label>Quantidade no lote</label>
-                                <input type="number" step="0.01" id="cadQtdTotalEstoque" placeholder="Ex: 100" oninput="atualizarPreviewCustoCadastroEstoque()">
+                                <input type="number" step="0.01" id="cadQtdTotalEstoque" placeholder="Ex: 100" inputmode="decimal" oninput="atualizarPreviewCustoCadastroEstoque()">
                             </div>
                             <div class="input-container cad-campo-unitario-estoque" style="display:none">
                                 <label>Custo por unidade (R$)</label>
-                                <input type="number" step="0.0001" id="cadCustoUnitarioEstoque" oninput="atualizarPreviewCustoCadastroEstoque()">
+                                <input type="number" step="0.0001" id="cadCustoUnitarioEstoque" inputmode="decimal" oninput="atualizarPreviewCustoCadastroEstoque()">
                             </div>
                             <div class="input-container cad-campo-parcela-estoque" style="display:none">
                                 <label>Valor total (R$)</label>
-                                <input type="number" step="0.01" id="cadPrecoTotalParcelaEstoque" placeholder="Ex: 2400.00" oninput="autoCalcParcelaEstoque(); atualizarPreviewCustoCadastroEstoque()">
+                                <input type="number" step="0.01" id="cadPrecoTotalParcelaEstoque" placeholder="Ex: 2400.00" inputmode="decimal" oninput="autoCalcParcelaEstoque(); atualizarPreviewCustoCadastroEstoque()">
                                 <small style="font-size:9px;color:var(--text-dim);">Opcional: valor total do financiamento</small>
                             </div>
                             <div class="input-container cad-campo-parcela-estoque" style="display:none">
                                 <label>Nº de parcelas</label>
-                                <input type="number" min="1" step="1" id="cadNumParcelasEstoque" placeholder="Ex: 12" oninput="autoCalcParcelaEstoque(); atualizarPreviewCustoCadastroEstoque()">
+                                <input type="number" min="1" step="1" id="cadNumParcelasEstoque" placeholder="Ex: 12" inputmode="numeric" oninput="autoCalcParcelaEstoque(); atualizarPreviewCustoCadastroEstoque()">
                             </div>
                             <div class="input-container cad-campo-parcela-estoque" style="display:none">
                                 <label>Valor da parcela (R$/mês)</label>
-                                <input type="number" step="0.01" id="cadValorMensalEstoque" placeholder="Calculado automaticamente" oninput="atualizarPreviewCustoCadastroEstoque()">
+                                <input type="number" step="0.01" id="cadValorMensalEstoque" placeholder="Calculado automaticamente" inputmode="decimal" oninput="atualizarPreviewCustoCadastroEstoque()">
                                 <small style="font-size:9px;color:var(--text-dim);">Preencha valor total + nº parcelas OU edite direto</small>
                             </div>
                             <div class="input-container cad-campo-hora-estoque" style="display:none">
                                 <label>Custo por hora (R$)</label>
-                                <input type="number" step="0.01" id="cadCustoHoraEstoque" oninput="atualizarPreviewCustoCadastroEstoque()">
+                                <input type="number" step="0.01" id="cadCustoHoraEstoque" inputmode="decimal" oninput="atualizarPreviewCustoCadastroEstoque()">
                             </div>
                             <div class="input-container">
                                 <label>Unidade</label>

@@ -18,6 +18,17 @@ class BambuService {
     }
 
     /**
+     * Verifica se o tenant requisitante tem permissão para acessar esta conexão em memória
+     */
+    canAccessTenant(conn, tenantId) {
+        if (!conn) return true;
+        if (!tenantId) return true; // chamadas internas do servidor ou super_admin global
+        const ownerTenant = conn.config?.tenantId;
+        if (!ownerTenant) return true;
+        return String(ownerTenant) === String(tenantId);
+    }
+
+    /**
      * Normaliza cor hex da Bambu (ex: "00AE42FF" -> "#00AE42")
      */
     normalizeHexColor(hex) {
@@ -221,8 +232,14 @@ class BambuService {
         if (!serial) throw new Error('Serial Number da impressora é obrigatório.');
         if (!token) throw new Error('Token da conta Bambu Lab é obrigatório.');
 
-        if (this.connections.has(serial)) {
-            await this.disconnectPrinter(serial);
+        const cleanSerial = String(serial).trim().toUpperCase();
+
+        if (this.connections.has(cleanSerial)) {
+            const existing = this.connections.get(cleanSerial);
+            if (!this.canAccessTenant(existing, config.tenantId)) {
+                throw new Error('Esta impressora já está vinculada em sessão ativa de outra loja.');
+            }
+            await this.disconnectPrinter(cleanSerial, config.tenantId);
         }
 
         if (!mqtt) {
@@ -233,7 +250,6 @@ class BambuService {
             }
         }
 
-        const cleanSerial = String(serial).trim().toUpperCase();
         let cleanUserId = String(userId || '').trim();
         if (!cleanUserId || cleanUserId === 'user') {
             cleanUserId = this.extractUidFromToken(token) || 'user';
@@ -374,9 +390,13 @@ class BambuService {
             throw new Error('Serial Number da impressora é obrigatório.');
         }
 
-        // Se já existe uma conexão ativa, encerra antes de reconectar
+        // Se já existe uma conexão ativa, valida propriedade antes de reconectar
         if (this.connections.has(serial)) {
-            await this.disconnectPrinter(serial);
+            const existing = this.connections.get(serial);
+            if (!this.canAccessTenant(existing, config.tenantId)) {
+                throw new Error('Esta impressora já está vinculada em sessão ativa de outra loja.');
+            }
+            await this.disconnectPrinter(serial, config.tenantId);
         }
 
         if (useSimulator) {
@@ -622,10 +642,13 @@ class BambuService {
     /**
      * Envia comando JSON para o tópico MQTT da impressora
      */
-    async sendCommand(serial, commandObj) {
-        const conn = this.connections.get(serial);
+    async sendCommand(serial, commandObj, tenantId = null) {
+        const conn = this.connections.get(serial) || this.connections.get(String(serial || '').trim().toUpperCase());
         if (!conn) {
             throw new Error(`Impressora [${serial}] não encontrada ou desconectada.`);
+        }
+        if (!this.canAccessTenant(conn, tenantId)) {
+            throw new Error('Acesso negado a esta impressora.');
         }
 
         if (conn.isSimulator) {
@@ -655,7 +678,7 @@ class BambuService {
     /**
      * Alternar luz da câmara
      */
-    async toggleChamberLight(serial, mode) {
+    async toggleChamberLight(serial, mode, tenantId = null) {
         const nextMode = mode || 'on';
         return this.sendCommand(serial, {
             system: {
@@ -668,7 +691,7 @@ class BambuService {
                 loop_times: 0,
                 interval_time: 0
             }
-        });
+        }, tenantId);
     }
 
     /**
@@ -754,29 +777,34 @@ class BambuService {
     /**
      * Encerra conexão de uma impressora
      */
-    async disconnectPrinter(serial) {
-        if (this.mockIntervals.has(serial)) {
-            clearInterval(this.mockIntervals.get(serial));
-            this.mockIntervals.delete(serial);
+    async disconnectPrinter(serial, tenantId = null) {
+        const key = this.connections.has(serial) ? serial : String(serial || '').trim().toUpperCase();
+        const conn = this.connections.get(key);
+        if (conn && !this.canAccessTenant(conn, tenantId)) {
+            throw new Error('Acesso negado a esta impressora.');
         }
 
-        const conn = this.connections.get(serial);
+        if (this.mockIntervals.has(key)) {
+            clearInterval(this.mockIntervals.get(key));
+            this.mockIntervals.delete(key);
+        }
+
         if (conn && conn.client) {
             try {
                 conn.client.end(true);
             } catch (_) {}
         }
 
-        this.connections.delete(serial);
+        this.connections.delete(key);
         return { ok: true };
     }
 
     /**
      * Retorna telemetria de uma impressora
      */
-    getStatus(serial) {
-        const conn = this.connections.get(serial);
-        if (!conn) {
+    getStatus(serial, tenantId = null) {
+        const conn = this.connections.get(serial) || this.connections.get(String(serial || '').trim().toUpperCase());
+        if (!conn || !this.canAccessTenant(conn, tenantId)) {
             return {
                 connected: false,
                 state: 'OFFLINE',
@@ -791,11 +819,12 @@ class BambuService {
     }
 
     /**
-     * Retorna lista de todas as impressoras ativas
+     * Retorna lista de todas as impressoras ativas (filtrada por tenantId quando informado)
      */
-    getAllPrinters() {
+    getAllPrinters(tenantId = null) {
         const list = [];
         this.connections.forEach((conn, serial) => {
+            if (!this.canAccessTenant(conn, tenantId)) return;
             list.push({
                 serial,
                 nome: conn.config.nome || serial,

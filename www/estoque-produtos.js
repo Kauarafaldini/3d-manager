@@ -410,6 +410,14 @@ async function registrarProducao() {
             if (typeof atualizarInterface === 'function') await atualizarInterface();
         }
 
+        if (produto.custosExtras?.length && typeof baixarEstoqueCustosExtras === 'function') {
+            const extrasMultiplicados = produto.custosExtras.map(c => ({
+                ...c,
+                quantidade: (Number(c.quantidade) || 0) * quantidadeProducoes
+            }));
+            await baixarEstoqueCustosExtras(extrasMultiplicados);
+        }
+
         const VendaModel = getSafeVendaModel();
         if (VendaModel) {
             const custoProducaoTotal = produto.custoProducaoTotal || 0;
@@ -425,17 +433,19 @@ async function registrarProducao() {
                 quantidade: quantidadeTotal,
                 pedidoId: lote || `PROD-${Date.now()}`,
                 detalheCustos: {
-                    material: produto.custoMat || 0,
-                    energia: produto.custoEnergia || 0,
-                    maquina: produto.custoMaquina || 0,
-                    trabalho: produto.custoTrabalho || 0,
-                    desgaste: produto.custoDesgaste || 0,
-                    embalagem: produto.embalagem || 0,
-                    extras: produto.custoExtras || 0,
-                    tempoHoras: produto.tempo || 0,
+                    material: (produto.custoMat || 0) * quantidadeProducoes,
+                    energia: (produto.custoEnergia || 0) * quantidadeProducoes,
+                    maquina: (produto.custoMaquina || 0) * quantidadeProducoes,
+                    trabalho: (produto.custoTrabalho || 0) * quantidadeProducoes,
+                    desgaste: (produto.custoDesgaste || 0) * quantidadeProducoes,
+                    embalagem: (produto.embalagem || 0) * quantidadeProducoes,
+                    extras: (produto.custoExtras || 0) * quantidadeProducoes,
+                    falha: (produto.custoFalha || 0) * quantidadeProducoes,
+                    tempoHoras: (produto.tempo || 0) * quantidadeProducoes,
                     quantidadeChapa
                 },
-                tipo: 'producao'
+                tipo: 'producao',
+                estoqueBaixado: true
             });
             await novaProducao.save();
         }
@@ -575,6 +585,8 @@ async function efetuarVendaTerminal() {
 
             const custoTotal = (produtoSelecionadoTerminal.custoProducao || 0) * quantidade;
             const lucroReal = valorTotal - taxaComissao - taxaFixa - custoTotal;
+            const qtdChapaReceita = Math.max(1, Number(produtoSelecionadoTerminal.quantidadeChapa) || 1);
+            const fatorEscalaReceita = quantidade / qtdChapaReceita;
 
             const novaVenda = new VendaModel({
                 nome: produtoSelecionadoTerminal.nome,
@@ -586,17 +598,19 @@ async function efetuarVendaTerminal() {
                 quantidade,
                 pedidoId,
                 detalheCustos: {
-                    material: produtoSelecionadoTerminal.custoMat || 0,
-                    energia: produtoSelecionadoTerminal.custoEnergia || 0,
-                    maquina: produtoSelecionadoTerminal.custoMaquina || 0,
-                    trabalho: produtoSelecionadoTerminal.custoTrabalho || 0,
-                    desgaste: produtoSelecionadoTerminal.custoDesgaste || 0,
-                    embalagem: produtoSelecionadoTerminal.embalagem || 0,
-                    extras: produtoSelecionadoTerminal.custoExtras || 0,
-                    tempoHoras: produtoSelecionadoTerminal.tempo || 0
+                    material: (produtoSelecionadoTerminal.custoMat || 0) * fatorEscalaReceita,
+                    energia: (produtoSelecionadoTerminal.custoEnergia || 0) * fatorEscalaReceita,
+                    maquina: (produtoSelecionadoTerminal.custoMaquina || 0) * fatorEscalaReceita,
+                    trabalho: (produtoSelecionadoTerminal.custoTrabalho || 0) * fatorEscalaReceita,
+                    desgaste: (produtoSelecionadoTerminal.custoDesgaste || 0) * fatorEscalaReceita,
+                    embalagem: (produtoSelecionadoTerminal.embalagem || 0) * fatorEscalaReceita,
+                    extras: (produtoSelecionadoTerminal.custoExtras || 0) * fatorEscalaReceita,
+                    falha: (produtoSelecionadoTerminal.custoFalha || 0) * fatorEscalaReceita,
+                    tempoHoras: (produtoSelecionadoTerminal.tempo || 0) * fatorEscalaReceita
                 },
                 taxas: { comissao: taxaComissao, fixa: taxaFixa },
-                status: 'concluida'
+                status: 'concluida',
+                estoqueBaixado: true
             });
             await novaVenda.save();
         }
@@ -937,6 +951,30 @@ async function alterarStatusPedidoModal(id, novoStatus) {
     await abrirModalGerenciarPedido(id);
 }
 
+async function baixarInsumosDePedidoSeNecessario(venda) {
+    if (!venda || venda.estoqueBaixado) return false;
+
+    if (venda.filamentosUsados && venda.filamentosUsados.length > 0) {
+        const EstoqueModel = getSafeEstoqueModel();
+        if (EstoqueModel) {
+            for (const f of venda.filamentosUsados) {
+                if (!f.estoqueId) continue;
+                const filamento = await EstoqueModel.findById(f.estoqueId);
+                if (filamento) {
+                    const novaQtd = Math.max(0, (Number(filamento.gramas) || 0) - (Number(f.peso) || 0));
+                    await EstoqueModel.findByIdAndUpdate(f.estoqueId, { gramas: novaQtd });
+                }
+            }
+        }
+    }
+
+    if (venda.custosExtras && venda.custosExtras.length > 0 && typeof baixarEstoqueCustosExtras === 'function') {
+        await baixarEstoqueCustosExtras(venda.custosExtras);
+    }
+
+    return true;
+}
+
 async function alterarStatusPedido(id, novoStatus) {
     if (novoStatus === 'concluida') {
         return finalizarPreVenda(id);
@@ -953,7 +991,16 @@ async function alterarStatusPedido(id, novoStatus) {
         const VendaModel = getSafeVendaModel();
         if (!VendaModel) return;
 
-        await VendaModel.findByIdAndUpdate(id, { status: novoStatus });
+        const vendaAtual = await VendaModel.findById(id);
+        const updatePayload = { status: novoStatus };
+
+        // Se o pedido for marcado como entregue, garante a baixa única de estoque de filamentos e insumos
+        if (novoStatus === 'entregue' && vendaAtual && !vendaAtual.estoqueBaixado) {
+            await baixarInsumosDePedidoSeNecessario(vendaAtual);
+            updatePayload.estoqueBaixado = true;
+        }
+
+        await VendaModel.findByIdAndUpdate(id, updatePayload);
 
         const labels = {
             orcamento: 'Orçamento / Aguardando Aprovação',
@@ -988,32 +1035,17 @@ async function finalizarPreVenda(id) {
         const VendaModel = getSafeVendaModel();
         if (!VendaModel) return;
 
-        // Atualiza status para concluída e data para o momento da conclusão
+        const venda = await VendaModel.findById(id);
+        if (venda && !venda.estoqueBaixado) {
+            await baixarInsumosDePedidoSeNecessario(venda);
+        }
+
+        // Atualiza status para concluída, marca estoqueBaixado e atualiza data para o momento da conclusão
         await VendaModel.findByIdAndUpdate(id, { 
             status: 'concluida',
+            estoqueBaixado: true,
             data: new Date()
         });
-
-        // Baixar estoque de filamentos se houver
-        const venda = await VendaModel.findById(id);
-        if (venda && venda.filamentosUsados && venda.filamentosUsados.length > 0) {
-            const EstoqueModel = getSafeEstoqueModel();
-            if (EstoqueModel) {
-                for (const f of venda.filamentosUsados) {
-                    if (!f.estoqueId) continue;
-                    const filamento = await EstoqueModel.findById(f.estoqueId);
-                    if (filamento) {
-                        const novaQtd = Math.max(0, (Number(filamento.gramas) || 0) - (Number(f.peso) || 0));
-                        await EstoqueModel.findByIdAndUpdate(f.estoqueId, { gramas: novaQtd });
-                    }
-                }
-            }
-        }
-
-        // Baixar custos extras se houver
-        if (venda && venda.custosExtras && venda.custosExtras.length > 0 && typeof baixarEstoqueCustosExtras === 'function') {
-            await baixarEstoqueCustosExtras(venda.custosExtras);
-        }
 
         if (typeof mostrarToast === 'function') mostrarToast('Venda finalizada com sucesso!');
         renderizarPreVendas();

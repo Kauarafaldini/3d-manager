@@ -784,8 +784,15 @@ window.ImpressorasFilaModulo = (function () {
                 concluidoEm: new Date()
             });
 
-            // 2. Se tiver filamentos usados vinculados, dá baixa no estoque
-            if (trabalho.filamentosUsados && trabalho.filamentosUsados.length > 0 && EstoqueModel) {
+            // Verifica se a venda vinculada já teve estoque baixado para evitar baixa duplicada
+            let vendaVinculada = null;
+            if (trabalho.vendaId && VendaModel) {
+                vendaVinculada = await VendaModel.findById(trabalho.vendaId);
+            }
+            const jaBaixouEstoque = Boolean(vendaVinculada && vendaVinculada.estoqueBaixado);
+
+            // 2. Se tiver filamentos usados vinculados e ainda não baixou, dá baixa no estoque
+            if (!jaBaixouEstoque && trabalho.filamentosUsados && trabalho.filamentosUsados.length > 0 && EstoqueModel) {
                 for (const f of trabalho.filamentosUsados) {
                     if (!f.estoqueId) continue;
                     const filamento = await EstoqueModel.findById(f.estoqueId);
@@ -796,15 +803,16 @@ window.ImpressorasFilaModulo = (function () {
                 }
             }
 
-            // 3. Se tiver custos extras vinculados
-            if (trabalho.custosExtras && trabalho.custosExtras.length > 0 && typeof window.baixarEstoqueCustosExtras === 'function') {
+            // 3. Se tiver custos extras vinculados e ainda não baixou
+            if (!jaBaixouEstoque && trabalho.custosExtras && trabalho.custosExtras.length > 0 && typeof window.baixarEstoqueCustosExtras === 'function') {
                 await window.baixarEstoqueCustosExtras(trabalho.custosExtras);
             }
 
-            // 4. Se tiver venda vinculada, finaliza a venda
+            // 4. Se tiver venda vinculada, finaliza a venda e registra que o estoque já foi baixado
             if (trabalho.vendaId && VendaModel) {
                 await VendaModel.findByIdAndUpdate(trabalho.vendaId, { 
                     status: 'concluida',
+                    estoqueBaixado: true,
                     data: new Date()
                 });
             }

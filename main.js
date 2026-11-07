@@ -15,8 +15,9 @@ function createWindow() {
         height: 850,
         icon: path.join(__dirname, 'icon.ico'),
         webPreferences: {
-            nodeIntegration: true,
-            contextIsolation: false
+            nodeIntegration: false,
+            contextIsolation: true,
+            preload: path.join(__dirname, 'preload.js')
         }
     });
 
@@ -52,10 +53,11 @@ ipcMain.handle('gerar-pdf', async (event, { html, nomeArquivo }) => {
 
         pdfWin.close();
 
-        // Diálogo de salvar
+        // Diálogo de salvar (sanitiza o nome do arquivo contra path traversal)
+        const safeFileName = path.basename(String(nomeArquivo || 'Orcamento.pdf')).replace(/[<>:"/\\|?*\x00-\x1F]/g, '_');
         const { filePath } = await dialog.showSaveDialog(mainWindow, {
             title: 'Salvar Orçamento em PDF',
-            defaultPath: path.join(require('os').homedir(), 'Desktop', nomeArquivo || 'Orcamento.pdf'),
+            defaultPath: path.join(require('os').homedir(), 'Desktop', safeFileName),
             filters: [{ name: 'PDF', extensions: ['pdf'] }]
         });
 

@@ -158,8 +158,8 @@ window.PdfOrcamentoModulo = (function () {
 
         let texto = '';
         if (unidade === 'horas') {
-            const horas = dias * 4;
-            texto = `${horas} horas`;
+            const horas = dias;
+            texto = `${horas} ${horas === 1 ? 'hora' : 'horas'}`;
         } else if (unidade === 'corridos') {
             texto = `${dias} ${dias === 1 ? 'dia corrido' : 'dias corridos'}`;
         } else {
@@ -382,7 +382,7 @@ window.PdfOrcamentoModulo = (function () {
                 valorUnitario: calc.venda || 0,
                 valorTotal: (calc.venda || 0) * qtd,
                 tempoHoras: calc.tempo || 1,
-                pesoTotalGramas: calc.peso || 50,
+                pesoTotalGramas: calc.pesoTotal || calc.peso || 50,
                 filamentos: calc.filamentosUsados || [],
                 validadeDias: 7,
                 chavePix: configPix,
@@ -667,7 +667,10 @@ window.PdfOrcamentoModulo = (function () {
      */
     function imprimirProposta() {
         // Verifica se está no Electron
-        const isElectron = typeof process !== 'undefined' && process.versions && process.versions.electron;
+        const isElectron = Boolean(
+            (window.electronAPI && typeof window.electronAPI.gerarPdf === 'function') ||
+            (typeof process !== 'undefined' && process.versions && process.versions.electron)
+        );
 
         if (isElectron) {
             gerarPdfElectron();
@@ -681,8 +684,6 @@ window.PdfOrcamentoModulo = (function () {
      */
     async function gerarPdfElectron() {
         try {
-            const { ipcRenderer } = require('electron');
-
             // Coleta o HTML do documento
             const docEl = document.getElementById('pdfOrcamentoDocumento');
             if (!docEl) {
@@ -729,7 +730,9 @@ window.PdfOrcamentoModulo = (function () {
                 mostrarToast('⏳ Gerando PDF...', 'info');
             }
 
-            const result = await ipcRenderer.invoke('gerar-pdf', { html: htmlCompleto, nomeArquivo });
+            const result = (window.electronAPI && typeof window.electronAPI.gerarPdf === 'function')
+                ? await window.electronAPI.gerarPdf({ html: htmlCompleto, nomeArquivo })
+                : await require('electron').ipcRenderer.invoke('gerar-pdf', { html: htmlCompleto, nomeArquivo });
 
             if (result.success) {
                 if (typeof mostrarToast === 'function') {

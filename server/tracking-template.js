@@ -3,24 +3,24 @@
  * Servida pelo Express em /status/:pedidoId
  */
 
+const { escapeHtml } = require('./security');
+
 function renderTrackingPage(data) {
-    const {
-        pedidoId = 'PED-000',
-        nomeCliente = 'Cliente',
-        nomeItem = 'Item 3D Personalizado',
-        quantidade = 1,
-        statusFila = '', // pendente, imprimindo, pausado, concluido, entregue, cancelado
-        statusVenda = 'orcamento', // orcamento, pre_venda, aprovado, em_producao, acabamento, pronto, enviado, concluida
-        percentual = 0,
-        tempoRestante = '',
-        impressoraNome = 'Impressora 3D',
-        dataCriacao = new Date().toLocaleDateString('pt-BR'),
-        filamentos = [],
-        codigoRastreio = '',
-        observacoes = '',
-        whatsappEmpresa = '',
-        nomeEmpresa = '3D Manager Studio'
-    } = data || {};
+    const raw = data || {};
+    const pedidoId = escapeHtml(raw.pedidoId || 'PED-000');
+    const nomeCliente = escapeHtml(raw.nomeCliente || 'Cliente');
+    const nomeItem = escapeHtml(raw.nomeItem || 'Item 3D Personalizado');
+    const quantidade = Math.max(1, parseInt(raw.quantidade, 10) || 1);
+    const statusFila = raw.statusFila || '';
+    const statusVenda = raw.statusVenda || 'orcamento';
+    const percentual = Math.min(100, Math.max(0, Number(raw.percentual) || 0));
+    const tempoRestante = escapeHtml(raw.tempoRestante || '');
+    const impressoraNome = escapeHtml(raw.impressoraNome || 'Impressora 3D');
+    const dataCriacao = escapeHtml(raw.dataCriacao || new Date().toLocaleDateString('pt-BR'));
+    const filamentos = Array.isArray(raw.filamentos) ? raw.filamentos : [];
+    const codigoRastreio = escapeHtml(raw.codigoRastreio || '');
+    const whatsappEmpresa = raw.whatsappEmpresa || '';
+    const nomeEmpresa = escapeHtml(raw.nomeEmpresa || '3D Manager Studio');
 
     // Mapeamento dos passos da Timeline
     // 0: Orçamento / Proposta Gerada (Aguardando Aprovação)
@@ -94,17 +94,21 @@ function renderTrackingPage(data) {
         statusBadgeColor = '#f59e0b';
     }
 
-    const filamentosDesc = Array.isArray(filamentos) && filamentos.length > 0
-        ? filamentos.map(f => f.nome || 'Filamento Premium').join(', ')
-        : 'PLA / PETG Alta Resolução';
+    const filamentosDesc = escapeHtml(
+        Array.isArray(filamentos) && filamentos.length > 0
+            ? filamentos.map(f => f?.nome || 'Filamento Premium').join(', ')
+            : 'PLA / PETG Alta Resolução'
+    );
 
     let cleanWhats = String(whatsappEmpresa || '').replace(/\D/g, '');
     if (cleanWhats.length >= 10 && cleanWhats.length <= 11) {
         cleanWhats = '55' + cleanWhats;
     }
+    const rawPedidoRef = String(raw.pedidoId || 'PED-000');
+    const rawNomeItemRef = String(raw.nomeItem || 'Item 3D Personalizado');
     const whatsLink = cleanWhats
-        ? `https://wa.me/${cleanWhats}?text=${encodeURIComponent(`Olá! Gostaria de tirar dúvidas sobre o meu pedido #${pedidoId} (${nomeItem}).`)}`
-        : `https://api.whatsapp.com/send?text=${encodeURIComponent(`Olá! Gostaria de informações sobre o pedido #${pedidoId} (${nomeItem}).`)}`;
+        ? `https://wa.me/${cleanWhats}?text=${encodeURIComponent(`Olá! Gostaria de tirar dúvidas sobre o meu pedido #${rawPedidoRef} (${rawNomeItemRef}).`)}`
+        : `https://api.whatsapp.com/send?text=${encodeURIComponent(`Olá! Gostaria de informações sobre o pedido #${rawPedidoRef} (${rawNomeItemRef}).`)}`;
 
     return `<!DOCTYPE html>
 <html lang="pt-BR">

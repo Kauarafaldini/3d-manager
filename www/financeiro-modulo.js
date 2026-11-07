@@ -158,11 +158,15 @@ async function salvarCustoItem() {
         quantidadeTotal: parseFloat(document.getElementById('cadQtdTotal').value) || 0,
         custoUnitario: parseFloat(document.getElementById('cadCustoUnitario').value) || 0,
         valorMensal: parseFloat(document.getElementById('cadValorMensal').value) || 0,
+        numParcelas: parseFloat(document.getElementById('cadNumParcelas')?.value) || 0,
         horasUsoMes: parseFloat(document.getElementById('cadHorasMes').value) || 160,
         custoPorHora: parseFloat(document.getElementById('cadCustoHora').value) || 0
     };
 
     payload.custoUnitario = calcularCustoUnitario(payload);
+    if (tipoCalculo === 'parcela_mensal' && !payload.valorMensal && payload.custoUnitario > 0) {
+        payload.valorMensal = payload.custoUnitario;
+    }
 
     if (tipoCalculo === 'lote') {
         if (payload.quantidadeTotal <= 0) return alert('Informe a quantidade do lote.');
@@ -328,30 +332,49 @@ function atualizarFiltroPeriodo() {
 
 function agregarMetricasVendas(vendas) {
     const m = {
-        mat: 0, energia: 0, maquina: 0, trabalho: 0, desgaste: 0, emb: 0, extras: 0,
-        comissao: 0, fixa: 0, bruto: 0, lucro: 0, custo: 0, qtd: vendas.length
+        mat: 0, energia: 0, maquina: 0, trabalho: 0, desgaste: 0, emb: 0, extras: 0, falha: 0,
+        tempoHoras: 0, comissao: 0, fixa: 0, bruto: 0, lucro: 0, custo: 0, qtd: vendas.length
     };
 
     vendas.forEach(v => {
-        m.bruto += v.bruto || 0;
-        m.lucro += v.lucro || 0;
-        m.custo += v.custo || 0;
+        const vendaCusto = Number(v.custo) || 0;
+        m.bruto += Number(v.bruto) || 0;
+        m.lucro += Number(v.lucro) || 0;
+        m.custo += vendaCusto;
 
         if (v.detalheCustos) {
-            m.mat += v.detalheCustos.material || 0;
-            m.energia += v.detalheCustos.energia || 0;
-            m.maquina += v.detalheCustos.maquina || 0;
-            m.trabalho += v.detalheCustos.trabalho || 0;
-            m.desgaste += v.detalheCustos.desgaste || 0;
-            m.emb += v.detalheCustos.embalagem || 0;
-            m.extras += v.detalheCustos.extras || 0;
+            const dMat = Number(v.detalheCustos.material) || 0;
+            const dEnergia = Number(v.detalheCustos.energia) || 0;
+            const dMaquina = Number(v.detalheCustos.maquina) || 0;
+            const dTrabalho = Number(v.detalheCustos.trabalho) || 0;
+            const dDesgaste = Number(v.detalheCustos.desgaste) || 0;
+            const dEmb = Number(v.detalheCustos.embalagem) || 0;
+            const dExtras = Number(v.detalheCustos.extras) || 0;
+            const dFalha = Number(v.detalheCustos.falha) || 0;
+            const dTempo = Number(v.detalheCustos.tempoHoras) || 0;
+
+            const somaDetalhe = dMat + dEnergia + dTrabalho + dDesgaste + dEmb + dExtras + dFalha;
+            // Se a venda foi feita em lote no terminal sem escalar detalheCustos, aplica fator proporcional
+            const fatorEscala = (somaDetalhe > 0 && vendaCusto > 0 && Math.abs(vendaCusto - somaDetalhe) > 0.05)
+                ? (vendaCusto / somaDetalhe)
+                : 1;
+
+            m.mat += dMat * fatorEscala;
+            m.energia += dEnergia * fatorEscala;
+            m.maquina += dMaquina * fatorEscala;
+            m.trabalho += dTrabalho * fatorEscala;
+            m.desgaste += dDesgaste * fatorEscala;
+            m.emb += dEmb * fatorEscala;
+            m.extras += dExtras * fatorEscala;
+            m.falha += dFalha * fatorEscala;
+            m.tempoHoras += dTempo * (fatorEscala > 1 ? fatorEscala : 1);
         } else {
-            m.mat += v.custo || 0;
+            m.mat += vendaCusto;
         }
 
         if (v.taxas) {
-            m.comissao += v.taxas.comissao || 0;
-            m.fixa += v.taxas.fixa || 0;
+            m.comissao += Number(v.taxas.comissao) || 0;
+            m.fixa += Number(v.taxas.fixa) || 0;
         }
     });
 
@@ -361,6 +384,7 @@ function agregarMetricasVendas(vendas) {
 function coletarCustosExtrasLinhas() {
     const itens = [];
     let total = 0;
+    const tempoImpressao = typeof window.obterTempoHoras === 'function' ? window.obterTempoHoras() : 0;
 
     document.querySelectorAll('.linha-custo-extra').forEach(linha => {
         const select = linha.querySelector('.cSelect');
@@ -375,7 +399,8 @@ function coletarCustosExtrasLinhas() {
         if (!item) return;
 
         const custoUnitario = item.custoUnitario || calcularCustoUnitario(item);
-        const subtotal = custoUnitario * qtd;
+        const fatorTempo = item.tipoCalculo === 'por_hora' ? (tempoImpressao > 0 ? tempoImpressao : 1) : 1;
+        const subtotal = custoUnitario * qtd * fatorTempo;
         total += subtotal;
 
         if (subEl) subEl.textContent = formatarMoeda(subtotal);
@@ -383,6 +408,7 @@ function coletarCustosExtrasLinhas() {
         itens.push({
             custoItemId,
             nome: item.nome,
+            tipoCalculo: item.tipoCalculo,
             quantidade: qtd,
             custoUnitario,
             subtotal
@@ -435,7 +461,9 @@ function atualizarSubtotalLinhaCusto(el) {
 
     if (item && subEl) {
         const unit = item.custoUnitario || calcularCustoUnitario(item);
-        subEl.textContent = formatarMoeda(unit * qtd);
+        const tempoImpressao = typeof window.obterTempoHoras === 'function' ? window.obterTempoHoras() : 0;
+        const fatorTempo = item.tipoCalculo === 'por_hora' ? (tempoImpressao > 0 ? tempoImpressao : 1) : 1;
+        subEl.textContent = formatarMoeda(unit * qtd * fatorTempo);
     } else if (subEl) {
         subEl.textContent = 'R$ 0,00';
     }
@@ -501,7 +529,7 @@ async function atualizarRelatorioFinanceiro() {
 
         const parcelasMensais = custosCache
             .filter(c => c.tipoCalculo === 'parcela_mensal')
-            .reduce((acc, c) => acc + (c.valorMensal || 0), 0);
+            .reduce((acc, c) => acc + (Number(c.valorMensal) || Number(c.custoUnitario) || calcularCustoUnitario(c) || 0), 0);
 
         // Desperdício e Sucata
         let desperdicios = [];
@@ -518,18 +546,39 @@ async function atualizarRelatorioFinanceiro() {
         const totalDesperdicioGramas = desperdicios.reduce((acc, d) => acc + (Number(d.gramas) || 0), 0);
         const totalDesperdicioValor = desperdicios.reduce((acc, d) => acc + (Number(d.custoEstimado) || 0), 0);
 
-        const margemPeriodo = m.custo > 0 ? (m.lucro / m.custo) * 100 : 0;
-        const custoOperacional = m.mat + m.energia + m.trabalho + m.desgaste + m.emb + m.extras;
+        const margemPeriodo = m.bruto > 0 ? (m.lucro / m.bruto) * 100 : (m.custo > 0 ? (m.lucro / m.custo) * 100 : 0);
+        const custoOperacional = m.custo > 0
+            ? m.custo
+            : (m.mat + m.energia + m.trabalho + m.desgaste + m.emb + m.extras + (m.falha || 0));
 
-        // Ponto de Equilíbrio (Break-Even)
-        const custosFixosTotal = parcelasMensais;
-        const margemContribucaoPct = m.bruto > 0 ? (m.lucro / m.bruto) : 0.45;
+        // Ponto de Equilíbrio (Break-Even) ajustado para a escala do período selecionado
+        let fatorMesesPeriodo = 1;
+        if (filtro === 'ano_atual') {
+            fatorMesesPeriodo = Math.max(1, new Date().getMonth() + 1);
+        } else if (filtro === 'todos') {
+            const mesesSet = new Set(vendasReais.map(v => {
+                const d = new Date(v.data);
+                return isNaN(d.getTime()) ? '' : `${d.getFullYear()}-${d.getMonth()}`;
+            }).filter(Boolean));
+            fatorMesesPeriodo = Math.max(1, mesesSet.size);
+        } else if (filtro === 'personalizado') {
+            const sStr = document.getElementById('relDataInicio')?.value;
+            const eStr = document.getElementById('relDataFim')?.value;
+            if (sStr && eStr) {
+                const diffDias = (new Date(eStr) - new Date(sStr)) / (1000 * 60 * 60 * 24);
+                fatorMesesPeriodo = Math.max(1, Math.round(diffDias / 30));
+            }
+        }
+
+        const custosFixosTotal = parcelasMensais * fatorMesesPeriodo;
+        const margemContribucaoPct = (m.bruto > 0 && m.lucro > 0) ? (m.lucro / m.bruto) : 0.45;
         const faturamentoBreakEven = custosFixosTotal > 0 && margemContribucaoPct > 0
             ? custosFixosTotal / margemContribucaoPct
             : 0;
-        const horasBreakEven = custosFixosTotal > 0 ? Math.ceil(custosFixosTotal / 12) : 0;
+        const lucroMedioPorHora = (m.tempoHoras > 0 && m.lucro > 0) ? (m.lucro / m.tempoHoras) : 12;
+        const horasBreakEven = custosFixosTotal > 0 ? Math.ceil(custosFixosTotal / lucroMedioPorHora) : 0;
         const percentualBreakEven = custosFixosTotal > 0
-            ? Math.round((m.lucro / custosFixosTotal) * 100)
+            ? Math.max(0, Math.round((m.lucro / custosFixosTotal) * 100))
             : 100;
 
         const barras = [
@@ -658,11 +707,14 @@ async function atualizarRelatorioFinanceiro() {
         const parcelasItens = custosCache.filter(c => c.tipoCalculo === 'parcela_mensal');
         if (listaParcelas) {
             listaParcelas.innerHTML = parcelasItens.length
-                ? parcelasItens.map(c => `
+                ? parcelasItens.map(c => {
+                    const valorMes = Number(c.valorMensal) || Number(c.custoUnitario) || calcularCustoUnitario(c) || 0;
+                    return `
                     <div class="item-row" style="border-left-color:#f59e0b">
                         <div class="item-info"><b>${c.nome}</b><span>${LABEL_CATEGORIA[c.categoria]}</span></div>
-                        <div class="item-val" style="color:#fbbf24">${formatarMoeda(c.valorMensal)}/mês</div>
-                    </div>`).join('')
+                        <div class="item-val" style="color:#fbbf24">${formatarMoeda(valorMes)}/mês</div>
+                    </div>`;
+                }).join('')
                 : '<p class="empty-msg">Nenhuma parcela cadastrada.</p>';
         }
 
@@ -785,6 +837,9 @@ async function salvarCustoItemEstoque() {
     };
 
     payload.custoUnitario = calcularCustoUnitario(payload);
+    if (tipoCalculo === 'parcela_mensal' && !payload.valorMensal && payload.custoUnitario > 0) {
+        payload.valorMensal = payload.custoUnitario;
+    }
 
     if (tipoCalculo === 'lote') {
         if (payload.quantidadeTotal <= 0) return alert('Informe a quantidade do lote.');
@@ -836,7 +891,12 @@ function renderListaCustosCadastroEstoque() {
         if (c.tipoCalculo === 'lote') {
             detalhe = `${formatarMoeda(c.precoTotal)} ÷ ${c.quantidadeTotal} ${c.unidade} | Estoque: ${c.estoqueAtual ?? c.quantidadeTotal}`;
         } else if (c.tipoCalculo === 'parcela_mensal') {
-            detalhe = `${formatarMoeda(c.valorMensal)}/mês | ~${formatarMoeda(unit)}/h`;
+            const numP = c.numParcelas || 0;
+            if (numP > 0) {
+                detalhe = `${numP}x de ${formatarMoeda(unit)} = ${formatarMoeda(unit * numP)} total`;
+            } else {
+                detalhe = `${formatarMoeda(unit)}/mês`;
+            }
         } else if (c.tipoCalculo === 'por_hora') {
             detalhe = `${formatarMoeda(unit)}/hora`;
         } else {

@@ -65,32 +65,49 @@ function calcularVendaML(custoELucro, cfg) {
     const pct = mlPctTotal(cfg);
     if (pct >= 1) return 0;
 
-    // Cenário com frete grátis:
-    if (cfg.freteGratis) {
-        // Tenta aplicar com frete (acima de R$79)
-        const comFrete = (custoELucro + cfg.custoFrete) / (1 - pct);
-        if (comFrete >= cfg.limiteFixo) return Math.max(0, comFrete);
-        // Se não chegar em R$79, aplica a taxa fixa normal
-        const comFixo = (custoELucro + cfg.taxaFixa) / (1 - pct);
-        // Verifica se cai na faixa < R$ 12,50 (taxa = 50% do valor)
-        if (comFixo < 12.50) {
-            const v = custoELucro / (0.50 - pct);
-            if (v > 0 && v < 12.50 && (0.50 - pct) > 0) return Math.max(0, v);
+    const candidatos = [];
+
+    // Faixa 1: < R$ 12,50 (taxa fixa = 50% do valor do produto)
+    // Líquido = venda * (1 - pct - 0.50) = venda * (0.50 - pct)
+    if (0.50 - pct > 0) {
+        const vFaixa1 = custoELucro / (0.50 - pct);
+        if (vFaixa1 > 0 && vFaixa1 < 12.50) {
+            candidatos.push(vFaixa1);
         }
-        return Math.max(0, comFixo);
     }
 
-    // Sem frete grátis: abaixo do limite há taxa fixa
-    const comFixo = (custoELucro + cfg.taxaFixa) / (1 - pct);
-    const semFixo = custoELucro / (1 - pct);
-    // Se o preço resultante sem a taxa fixa já ultrapassa o limite, não há taxa
-    if (semFixo >= cfg.limiteFixo) return Math.max(0, semFixo);
-    // Verifica se cai na faixa < R$ 12,50
-    if (comFixo < 12.50) {
-        const v = custoELucro / (0.50 - pct);
-        if (v > 0 && v < 12.50 && (0.50 - pct) > 0) return Math.max(0, v);
+    // Faixa 2: R$ 12,50 até cfg.limiteFixo (cobra taxaFixa normal)
+    const vFaixa2 = (custoELucro + cfg.taxaFixa) / (1 - pct);
+    if (vFaixa2 >= 12.50 && vFaixa2 < cfg.limiteFixo) {
+        candidatos.push(vFaixa2);
     }
-    return Math.max(0, comFixo);
+
+    // Faixa 3: >= cfg.limiteFixo (cobra custoFrete se freteGratis ativo, senão 0)
+    const custoAcimaLimite = cfg.freteGratis ? cfg.custoFrete : 0;
+    const vFaixa3 = (custoELucro + custoAcimaLimite) / (1 - pct);
+    if (vFaixa3 >= cfg.limiteFixo) {
+        candidatos.push(vFaixa3);
+    }
+
+    if (candidatos.length > 0) {
+        return Math.max(0, Math.min(...candidatos));
+    }
+
+    // Tratamento de zonas de transição (quando o degrau de redução de taxa faz o preço cair na fronteira):
+    // Ex: Sem frete grátis, se comFixo >= 79 mas semFixo < 79, em R$ 79,00 a taxa fixa zera e o lucro supera o desejado
+    if (!cfg.freteGratis && vFaixa2 >= cfg.limiteFixo && vFaixa3 < cfg.limiteFixo) {
+        return Math.max(0, cfg.limiteFixo);
+    }
+
+    // Transição em R$ 12,50: se na faixa 1 passaria de R$ 12,50 mas na faixa 2 ficaria abaixo de R$ 12,50
+    if (vFaixa2 < 12.50) {
+        const liqEm1250 = 12.50 * (1 - pct) - cfg.taxaFixa;
+        if (liqEm1250 >= custoELucro) {
+            return 12.50;
+        }
+    }
+
+    return Math.max(0, vFaixa2);
 }
 
 function resolverTaxasML(venda, cfg) {
@@ -165,7 +182,7 @@ function obterConfigShopee() {
  * - Possível comissão customizada para faixas >= R$ 80
  */
 function shopeePctTotal(cfg, venda) {
-    if (cfg.usarTabela || venda !== undefined) {
+    if (cfg.usarTabela) {
         const faixa = obterFaixaShopee(venda || 0);
         let comissao = faixa.comissaoPct;
         // Permite override apenas para faixas >= R$ 80 (onde o padrão é 14%)
@@ -174,8 +191,9 @@ function shopeePctTotal(cfg, venda) {
         }
         return pctParaDecimal(comissao + SHOPEE_FRETE_GRATIS_PCT);
     }
-    // Fallback modo manual (sem tabela, sem venda conhecida)
-    return pctParaDecimal((cfg.comissaoCustom || 14) + SHOPEE_FRETE_GRATIS_PCT);
+    // Modo manual (tabela oficial desmarcada)
+    const comissaoManual = cfg.comissaoCustom !== undefined ? cfg.comissaoCustom : 14;
+    return pctParaDecimal(comissaoManual + SHOPEE_FRETE_GRATIS_PCT);
 }
 
 function shopeeTaxaFixaPorVenda(venda, cfg) {
@@ -196,7 +214,18 @@ function shopeeSubsidioPix(venda) {
 }
 
 function calcularVendaShopee(custoELucro, cfg) {
-    // Sempre usa tabela escalonada (modelo 2026)
+    // Modo manual (quando o usuário desmarca a tabela oficial)
+    if (!cfg.usarTabela) {
+        const pct = shopeePctTotal(cfg, 0);
+        if (pct >= 1) return 0;
+        const comFixo = (custoELucro + cfg.taxaFixa) / (1 - pct);
+        const semFixo = custoELucro / (1 - pct);
+        if (semFixo >= cfg.limiteFixo) return Math.max(0, semFixo);
+        if (comFixo >= cfg.limiteFixo && semFixo < cfg.limiteFixo) return Math.max(0, cfg.limiteFixo);
+        return Math.max(0, comFixo);
+    }
+
+    // Modo tabela escalonada oficial (modelo 2026)
     const candidatos = [];
 
     SHOPEE_FAIXAS.forEach(faixa => {
@@ -208,14 +237,12 @@ function calcularVendaShopee(custoELucro, cfg) {
 
         if (faixa.comissaoPct === 50 && faixa.taxaFixa === 0) {
             // Faixa < R$ 8: comissão total = 52% (50% + 2%), sem taxa fixa
-            // venda * 0.52 = venda - custoELucro → venda = custoELucro / (1 - 0.52)
             if (p < 1) {
                 const v = custoELucro / (1 - p);
                 if (v > 0 && v >= faixa.min && v < faixa.max) candidatos.push(v);
             }
         } else {
-            // Faixas com taxa fixa: venda * pct + taxaFixa = venda - custoELucro
-            // venda = (custoELucro + taxaFixa) / (1 - pct)
+            // Faixas com taxa fixa: venda = (custoELucro + taxaFixa) / (1 - pct)
             if (p < 1) {
                 const v = (custoELucro + faixa.taxaFixa) / (1 - p);
                 if (v >= faixa.min && v < faixa.max) candidatos.push(v);
@@ -224,6 +251,19 @@ function calcularVendaShopee(custoELucro, cfg) {
     });
 
     if (candidatos.length) return Math.min(...candidatos);
+
+    // Se cair em zona de transição entre faixas (ex: comissão customizada muito baixa),
+    // busca o menor preço em início de faixa que garanta o lucro desejado
+    for (const faixa of SHOPEE_FAIXAS) {
+        if (faixa.min <= 0) continue;
+        let comissao = faixa.comissaoPct;
+        if (faixa.min >= 80 && cfg.comissaoCustom !== undefined && cfg.comissaoCustom !== 14) {
+            comissao = cfg.comissaoCustom;
+        }
+        const p = pctParaDecimal(comissao + SHOPEE_FRETE_GRATIS_PCT);
+        const liquidoNoLimite = faixa.min * (1 - p) - faixa.taxaFixa;
+        if (liquidoNoLimite >= custoELucro) return faixa.min;
+    }
 
     // Fallback: usa a faixa R$ 8-80 como padrão
     const pFallback = pctParaDecimal(20 + SHOPEE_FRETE_GRATIS_PCT);

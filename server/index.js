@@ -2,17 +2,36 @@ require('dotenv').config({ path: require('path').join(__dirname, '.env') });
 
 const express = require('express');
 const cors = require('cors');
+const crypto = require('crypto');
 const bcrypt = require('bcryptjs');
 const mongoose = require('mongoose');
 const { conectar, User, COLLECTIONS } = require('./db');
-const { signToken, authMiddleware, requireAdmin, tenantFilter } = require('./auth');
+const { signToken, authMiddleware, requireAdmin, tenantFilter, invalidateUserCache } = require('./auth');
 const { resolveModelUrl } = require('./model-resolver');
+const {
+    securityHeaders,
+    authLimiter,
+    trackingLimiter,
+    trackingHtmlLimiter,
+    externalApiLimiter,
+    globalApiLimiter,
+    injectionGuard,
+    sanitizeCollectionBody,
+    encryptSecret,
+    decryptSecret,
+    sanitizePublicTracking
+} = require('./security');
 
 const PORT = parseInt(process.env.PORT || process.env.API_PORT || '3847', 10);
-const DEV_MODE = process.env.DEV_MODE === 'true'; // Modo de desenvolvimento
+const DEV_MODE = process.env.DEV_MODE === 'true' && process.env.NODE_ENV !== 'production';
+if (DEV_MODE) {
+    console.warn('[SECURITY][AVISO] DEV_MODE está ATIVO — autenticação de rotas flexíveis em modo de teste local.');
+}
 const app = express();
+app.disable('x-powered-by');
+app.use(securityHeaders);
 
-// Permite que o app Electron e outros clientes acessem a API
+// Permite que o app Electron e outros clientes acessem a API (CORS aberto para ambiente de testes)
 app.use(cors({
     origin: '*',
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
@@ -25,6 +44,10 @@ app.options('*', cors({
 }));
 app.use(express.json({ limit: '2mb' }));
 
+// Rate Limit Global na API + Guardião contra SQL Injection / NoSQL Injection
+app.use('/api', globalApiLimiter);
+app.use(injectionGuard);
+
 app.get('/api/health', (req, res) => {
     res.json({
         ok: true,
@@ -32,14 +55,14 @@ app.get('/api/health', (req, res) => {
     });
 });
 
-app.post('/api/auth/register', async (req, res) => {
+app.post('/api/auth/register', authLimiter, async (req, res) => {
     try {
         const { nome, email, senha, empresa, cpfCnpj, telefone, foto, chavePix } = req.body || {};
-        if (!nome || !email || !senha) {
-            return res.status(400).json({ erro: 'Nome, e-mail e senha são obrigatórios' });
+        if (typeof nome !== 'string' || typeof email !== 'string' || typeof senha !== 'string' || !nome.trim() || !email.trim() || !senha) {
+            return res.status(400).json({ erro: 'Nome, e-mail e senha válidos são obrigatórios' });
         }
-        if (senha.length < 6) {
-            return res.status(400).json({ erro: 'Senha deve ter pelo menos 6 caracteres' });
+        if (senha.length < 6 || senha.length > 128) {
+            return res.status(400).json({ erro: 'Senha deve ter entre 6 e 128 caracteres' });
         }
 
         // Validação de CPF ou CNPJ obrigatório
@@ -86,13 +109,13 @@ app.post('/api/auth/register', async (req, res) => {
     }
 });
 
-app.post('/api/auth/login', async (req, res) => {
+app.post('/api/auth/login', authLimiter, async (req, res) => {
     try {
         const { email, senha, manterConectado } = req.body || {};
-        if (!email || !senha) {
+        if (typeof email !== 'string' || typeof senha !== 'string' || !email.trim() || !senha) {
             return res.status(400).json({ erro: 'E-mail e senha obrigatórios' });
         }
-        const user = await User().findOne({ email: String(email).toLowerCase().trim() });
+        const user = await User().findOne({ email: email.toLowerCase().trim() });
         if (!user || !(await bcrypt.compare(senha, user.senhaHash))) {
             return res.status(401).json({ erro: 'E-mail ou senha incorretos' });
         }
@@ -101,7 +124,7 @@ app.post('/api/auth/login', async (req, res) => {
         }
         user.lastOnline = new Date();
         await user.save();
-        res.json({ token: signToken(user, manterConectado), user: sanitizeUser(user) });
+        res.json({ token: signToken(user, Boolean(manterConectado)), user: sanitizeUser(user) });
     } catch (err) {
         console.error('login', err);
         res.status(500).json({ erro: 'Erro ao entrar' });
@@ -174,19 +197,34 @@ function sanitizeUser(u) {
 }
 
 function getTenantId(req) {
+    if (!req.user) return null;
     if (req.user.role === 'super_admin') {
         const t = req.query.tenantId || req.body?.tenantId;
-        if (t) return new mongoose.Types.ObjectId(t);
-        if (req.user.tenantId) return new mongoose.Types.ObjectId(req.user.tenantId);
+        if (t && mongoose.isValidObjectId(t)) return new mongoose.Types.ObjectId(t);
+        if (req.user.tenantId && mongoose.isValidObjectId(req.user.tenantId)) {
+            return new mongoose.Types.ObjectId(req.user.tenantId);
+        }
         return null;
     }
-    return new mongoose.Types.ObjectId(req.user.tenantId);
+    if (req.user.tenantId && mongoose.isValidObjectId(req.user.tenantId)) {
+        return new mongoose.Types.ObjectId(req.user.tenantId);
+    }
+    return null;
 }
 
-// Middleware opcional de autenticação (pula em modo DEV)
+// Retorna string do tenant para isolamento de impressoras em memória (null apenas para super_admin sem filtro)
+function getScopedPrinterTenant(req) {
+    if (!req.user) return null;
+    if (req.user.role === 'super_admin') {
+        const t = req.query.tenantId || req.body?.tenantId;
+        return t ? String(t) : null;
+    }
+    return req.user.tenantId ? String(req.user.tenantId) : null;
+}
+
+// Middleware opcional de autenticação (pula apenas se DEV_MODE=true fora de produção)
 const optionalAuth = (req, res, next) => {
     if (DEV_MODE) {
-        // Em modo DEV, cria um usuário fake
         req.user = {
             sub: '000000000000000000000000',
             role: 'super_admin',
@@ -201,50 +239,90 @@ function registerCollectionRoutes(pathName, ModelFactory) {
     const base = `/api/data/${pathName}`;
 
     app.get(base, optionalAuth, async (req, res) => {
-        const tenantId = getTenantId(req);
-        if (!tenantId && req.user.role !== 'super_admin') {
-            return res.status(400).json({ erro: 'tenantId obrigatório' });
+        try {
+            const tenantId = getTenantId(req);
+            if (!tenantId && req.user.role !== 'super_admin') {
+                return res.status(400).json({ erro: 'tenantId obrigatório' });
+            }
+            const filter = tenantId ? { tenantId } : {};
+            if (pathName === 'custos' && req.query.ativos !== '0') {
+                filter.ativo = { $ne: false };
+            }
+            let q = ModelFactory().find(filter);
+            const sort = req.query.sort;
+            if (sort === '-data') q = q.sort({ data: -1 });
+            else if (sort === 'nome') q = q.sort({ nome: 1 });
+            const docs = await q.lean();
+            res.json(docs.map(d => serializeDoc(d, pathName)));
+        } catch (err) {
+            console.error(`GET ${base}`, err);
+            res.status(500).json({ erro: 'Erro ao listar registros' });
         }
-        const filter = tenantId ? { tenantId } : {};
-        if (pathName === 'custos' && req.query.ativos !== '0') {
-            filter.ativo = { $ne: false };
-        }
-        let q = ModelFactory().find(filter);
-        const sort = req.query.sort;
-        if (sort === '-data') q = q.sort({ data: -1 });
-        else if (sort === 'nome') q = q.sort({ nome: 1 });
-        const docs = await q.lean();
-        res.json(docs.map(serializeDoc));
     });
 
     app.post(base, optionalAuth, async (req, res) => {
-        const tenantId = getTenantId(req);
-        if (!tenantId) {
-            return res.status(400).json({ erro: 'Sem tenant' });
+        try {
+            const tenantId = getTenantId(req);
+            if (!tenantId) {
+                return res.status(400).json({ erro: 'Sem tenant válido' });
+            }
+            const safeBody = sanitizeCollectionBody(req.body);
+            if (pathName === 'impressoras' && typeof safeBody.accessCode === 'string' && safeBody.accessCode) {
+                safeBody.accessCode = encryptSecret(safeBody.accessCode);
+            }
+            const doc = await ModelFactory().create({
+                ...safeBody,
+                tenantId: new mongoose.Types.ObjectId(tenantId)
+            });
+            res.status(201).json(serializeDoc(doc.toObject(), pathName));
+        } catch (err) {
+            console.error(`POST ${base}`, err);
+            res.status(400).json({ erro: 'Erro ao salvar registro: ' + err.message });
         }
-        const doc = await ModelFactory().create({
-            ...req.body,
-            tenantId: new mongoose.Types.ObjectId(tenantId)
-        });
-        res.status(201).json(serializeDoc(doc.toObject()));
     });
 
     app.patch(`${base}/:id`, optionalAuth, async (req, res) => {
-        const tenantId = getTenantId(req);
-        const filter = { _id: req.params.id };
-        if (tenantId) filter.tenantId = tenantId;
-        const doc = await ModelFactory().findOneAndUpdate(filter, { $set: req.body }, { returnDocument: 'after' });
-        if (!doc) return res.status(404).json({ erro: 'Não encontrado' });
-        res.json(serializeDoc(doc.toObject()));
+        try {
+            if (!mongoose.isValidObjectId(req.params.id)) {
+                return res.status(400).json({ erro: 'ID de registro inválido' });
+            }
+            const tenantId = getTenantId(req);
+            const filter = { _id: req.params.id };
+            if (tenantId) filter.tenantId = tenantId;
+
+            const safeBody = sanitizeCollectionBody(req.body);
+            if (pathName === 'impressoras' && typeof safeBody.accessCode === 'string' && safeBody.accessCode) {
+                safeBody.accessCode = encryptSecret(safeBody.accessCode);
+            }
+
+            const doc = await ModelFactory().findOneAndUpdate(
+                filter,
+                { $set: safeBody },
+                { returnDocument: 'after' }
+            );
+            if (!doc) return res.status(404).json({ erro: 'Não encontrado' });
+            res.json(serializeDoc(doc.toObject(), pathName));
+        } catch (err) {
+            console.error(`PATCH ${base}/:id`, err);
+            res.status(400).json({ erro: 'Erro ao atualizar registro: ' + err.message });
+        }
     });
 
     app.delete(`${base}/:id`, optionalAuth, async (req, res) => {
-        const tenantId = getTenantId(req);
-        const filter = { _id: req.params.id };
-        if (tenantId) filter.tenantId = tenantId;
-        const r = await ModelFactory().deleteOne(filter);
-        if (!r.deletedCount) return res.status(404).json({ erro: 'Não encontrado' });
-        res.json({ ok: true });
+        try {
+            if (!mongoose.isValidObjectId(req.params.id)) {
+                return res.status(400).json({ erro: 'ID de registro inválido' });
+            }
+            const tenantId = getTenantId(req);
+            const filter = { _id: req.params.id };
+            if (tenantId) filter.tenantId = tenantId;
+            const r = await ModelFactory().deleteOne(filter);
+            if (!r.deletedCount) return res.status(404).json({ erro: 'Não encontrado' });
+            res.json({ ok: true });
+        } catch (err) {
+            console.error(`DELETE ${base}/:id`, err);
+            res.status(500).json({ erro: 'Erro ao excluir registro' });
+        }
     });
 }
 
@@ -259,11 +337,11 @@ registerCollectionRoutes('desperdicios', COLLECTIONS.Desperdicio);
 // =============================================
 // RESOLUÇÃO DE MODELOS POR URL (MAKERWORLD / BAMBU / PRINTABLES / THINGIVERSE)
 // =============================================
-app.post('/api/models/resolve-url', async (req, res) => {
+app.post('/api/models/resolve-url', optionalAuth, externalApiLimiter, async (req, res) => {
     try {
         const { url } = req.body || {};
-        if (!url) {
-            return res.status(400).json({ ok: false, erro: 'URL ou texto de compartilhamento não informado.' });
+        if (!url || typeof url !== 'string' || url.length > 2048) {
+            return res.status(400).json({ ok: false, erro: 'URL ou texto de compartilhamento inválido.' });
         }
         const resultado = await resolveModelUrl(url);
         res.json(resultado);
@@ -276,7 +354,7 @@ app.post('/api/models/resolve-url', async (req, res) => {
 // =============================================
 // GEMINI AI PRICING ASSISTANT
 // =============================================
-app.post('/api/ai/sugerir-preco', authMiddleware, async (req, res) => {
+app.post('/api/ai/sugerir-preco', authMiddleware, externalApiLimiter, async (req, res) => {
     try {
         const {
             nomeItem = 'Item 3D Personalizado',
@@ -298,28 +376,40 @@ app.post('/api/ai/sugerir-preco', authMiddleware, async (req, res) => {
         // Fallback heurístico inteligente
         const gerarFallback = (analiseExtra = '') => {
             const custo = Math.max(1, parseFloat(custoTotalProducao) || 10);
-            let fatorCompetitivo = 2.2; // 120% markup
-            let fatorPremium = 3.0;     // 200% markup
+            const markupComp = 120; // 120% de lucro sobre o custo
+            const markupPrem = 200; // 200% de lucro sobre o custo
+
+            const alvoLiqComp = custo * (1 + markupComp / 100);
+            const alvoLiqPrem = custo * (1 + markupPrem / 100);
+
+            let precoComp = alvoLiqComp;
+            let precoPrem = alvoLiqPrem;
 
             if (canal === 'shopee') {
-                fatorCompetitivo = 2.5;
-                fatorPremium = 3.4;
+                // Considera comissão de 22% (20% + 2% frete grátis) + R$ 4,00 taxa fixa na faixa R$ 8–79,99
+                precoComp = (alvoLiqComp + 4) / (1 - 0.22);
+                precoPrem = (alvoLiqPrem + 4) / (1 - 0.22);
+                if (precoComp >= 80) precoComp = (alvoLiqComp + 16) / (1 - 0.16);
+                if (precoPrem >= 80) precoPrem = (alvoLiqPrem + 16) / (1 - 0.16);
             } else if (canal === 'ml') {
-                fatorCompetitivo = 2.7;
-                fatorPremium = 3.7;
+                // Considera comissão de 13% + R$ 6,50 taxa fixa (< R$ 79) ou R$ 20 frete (>= R$ 79)
+                precoComp = (alvoLiqComp + 6.50) / (1 - 0.13);
+                precoPrem = (alvoLiqPrem + 6.50) / (1 - 0.13);
+                if (precoComp >= 79) precoComp = (alvoLiqComp + 20) / (1 - 0.13);
+                if (precoPrem >= 79) precoPrem = (alvoLiqPrem + 20) / (1 - 0.13);
             }
 
-            const precoComp = Math.ceil((custo * fatorCompetitivo) * 10) / 10 - 0.10; // ex: R$ 29.90
-            const precoPrem = Math.ceil((custo * fatorPremium) * 10) / 10 - 0.10;     // ex: R$ 39.90
-            const markup = Math.round((fatorCompetitivo - 1) * 100);
+            precoComp = Math.ceil(precoComp * 10) / 10 - 0.10; // ex: R$ 29.90
+            precoPrem = Math.ceil(precoPrem * 10) / 10 - 0.10; // ex: R$ 39.90
 
             return {
                 ok: true,
                 provedor: 'heuristico',
                 precoCompetitivo: Math.max(9.90, Number(precoComp.toFixed(2))),
                 precoPremium: Math.max(14.90, Number(precoPrem.toFixed(2))),
-                markupRecomendado: markup,
-                analiseMercado: analiseExtra || `Para "${nomeItem}" no canal ${canal.toUpperCase()}, o custo de produção base é de R$ ${custo.toFixed(2)}. Produtos deste segmento possuem margem saudável entre ${markup}% e ${markup + 80}%, cobrindo taxas da plataforma e tempo de pós-processamento.`,
+                markupRecomendado: markupComp,
+                markupPremium: markupPrem,
+                analiseMercado: analiseExtra || `Para "${nomeItem}" no canal ${canal.toUpperCase()}, o custo de produção base é de R$ ${custo.toFixed(2)}. Produtos deste segmento possuem margem saudável entre ${markupComp}% e ${markupPrem}%, cobrindo taxas da plataforma e tempo de pós-processamento.`,
                 dicasEstrategicas: [
                     'Adicione fotos com boa iluminação e escala comparativa (ex: moeda ou régua) para valorizar o produto.',
                     'Crie variações de cores e ofereça kits de 2 ou mais unidades para diluir taxas fixas de marketplace.',
@@ -431,17 +521,24 @@ app.get('/api/admin/clientes', authMiddleware, requireAdmin, async (req, res) =>
 });
 
 app.patch('/api/admin/clientes/:id', authMiddleware, requireAdmin, async (req, res) => {
+    if (!mongoose.isValidObjectId(req.params.id)) {
+        return res.status(400).json({ erro: 'ID de cliente inválido' });
+    }
     const { ativo } = req.body || {};
     const user = await User().findOne({ _id: req.params.id, role: 'client' });
     if (!user) return res.status(404).json({ erro: 'Cliente não encontrado' });
     if (typeof ativo === 'boolean') user.ativo = ativo;
     await user.save();
+    invalidateUserCache(user._id);
     res.json({ user: sanitizeUser(user) });
 });
 
-function serializeDoc(d) {
+function serializeDoc(d, pathName = '') {
     const o = { ...d, _id: d._id.toString() };
     if (o.tenantId) o.tenantId = o.tenantId.toString();
+    if (pathName === 'impressoras' && typeof o.accessCode === 'string' && o.accessCode) {
+        o.accessCode = decryptSecret(o.accessCode);
+    }
     return o;
 }
 
@@ -450,9 +547,12 @@ function serializeDoc(d) {
 // =============================================
 const { renderTrackingPage } = require('./tracking-template');
 
-app.get('/status/:pedidoId', async (req, res) => {
+app.get('/status/:pedidoId', trackingHtmlLimiter, async (req, res) => {
     try {
-        const { pedidoId } = req.params;
+        const pedidoId = String(req.params.pedidoId || '').trim();
+        if (!pedidoId || pedidoId.length > 64) {
+            return res.status(400).send('<h1>Código de pedido inválido</h1>');
+        }
         const Venda = COLLECTIONS.Venda();
         const Fila = COLLECTIONS.Fila();
         const Impressora = COLLECTIONS.Impressora();
@@ -463,38 +563,35 @@ app.get('/status/:pedidoId', async (req, res) => {
             venda = await Venda.findById(pedidoId).lean();
         }
 
-        // Busca trabalho na fila correspondente
-        let filaItem = await Fila.findOne({
-            $or: [{ pedidoId }, { vendaId: venda?._id ? String(venda._id) : null }]
-        }).lean();
+        // Busca trabalho na fila correspondente (isolando pelo tenantId se a venda existir)
+        const filaQuery = {
+            $or: [{ pedidoId }, ...(venda?._id ? [{ vendaId: String(venda._id) }] : [])]
+        };
+        if (venda?.tenantId) {
+            filaQuery.tenantId = venda.tenantId;
+        }
+        let filaItem = await Fila.findOne(filaQuery).lean();
 
-        // Telemetria da impressora se estiver ativa
+        // Telemetria da impressora se estiver ativa (validando tenantId da impressora)
         let liveTelemetry = null;
-        if (filaItem?.impressoraId) {
-            const imp = await Impressora.findById(filaItem.impressoraId).lean();
+        if (filaItem?.impressoraId && mongoose.isValidObjectId(filaItem.impressoraId)) {
+            const impFilter = { _id: filaItem.impressoraId };
+            if (filaItem.tenantId) impFilter.tenantId = filaItem.tenantId;
+            const imp = await Impressora.findOne(impFilter).lean();
             if (imp?.serial) {
-                liveTelemetry = printerConnector.getPrinterStatus(imp.serial);
+                liveTelemetry = printerConnector.getPrinterStatus(imp.serial, imp.tenantId ? String(imp.tenantId) : null);
             }
         }
 
-        // Busca dados do proprietário/loja para contato via WhatsApp e branding
+        // Busca dados do proprietário/loja vinculada ao pedido para contato via WhatsApp e branding
         let lojaUser = null;
         const UserModel = typeof User === 'function' ? User() : User;
-        if (venda?.tenantId) {
-            lojaUser = await UserModel.findOne({ tenantId: venda.tenantId }).lean();
-            if (!lojaUser && mongoose.isValidObjectId(venda.tenantId)) {
-                lojaUser = await UserModel.findById(venda.tenantId).lean();
+        const ownerTenantId = venda?.tenantId || filaItem?.tenantId;
+        if (ownerTenantId) {
+            lojaUser = await UserModel.findOne({ tenantId: ownerTenantId }).select('empresa nome telefone').lean();
+            if (!lojaUser && mongoose.isValidObjectId(ownerTenantId)) {
+                lojaUser = await UserModel.findById(ownerTenantId).select('empresa nome telefone').lean();
             }
-        }
-        if (!lojaUser && filaItem?.tenantId) {
-            lojaUser = await UserModel.findOne({ tenantId: filaItem.tenantId }).lean();
-            if (!lojaUser && mongoose.isValidObjectId(filaItem.tenantId)) {
-                lojaUser = await UserModel.findById(filaItem.tenantId).lean();
-            }
-        }
-        // Se ainda não encontrou e houver usuário cadastrado, pega o usuário principal/primeiro
-        if (!lojaUser) {
-            lojaUser = await UserModel.findOne({ role: 'client' }).lean() || await UserModel.findOne().lean();
         }
 
         const nomeEmpresa = lojaUser?.empresa || lojaUser?.nome || '3D Manager Studio';
@@ -523,13 +620,16 @@ app.get('/status/:pedidoId', async (req, res) => {
         res.send(html);
     } catch (err) {
         console.error('/status/:pedidoId', err);
-        res.status(500).send('<h1>Erro ao carregar rastreio de pedido</h1><p>' + err.message + '</p>');
+        res.status(500).send('<h1>Erro ao carregar rastreio de pedido</h1><p>Tente novamente em alguns instantes.</p>');
     }
 });
 
-app.get('/api/rastreio/:pedidoId', async (req, res) => {
+app.get('/api/rastreio/:pedidoId', trackingLimiter, async (req, res) => {
     try {
-        const { pedidoId } = req.params;
+        const pedidoId = String(req.params.pedidoId || '').trim();
+        if (!pedidoId || pedidoId.length > 64) {
+            return res.status(400).json({ ok: false, erro: 'Código de pedido inválido' });
+        }
         const Venda = COLLECTIONS.Venda();
         const Fila = COLLECTIONS.Fila();
 
@@ -538,19 +638,30 @@ app.get('/api/rastreio/:pedidoId', async (req, res) => {
             venda = await Venda.findById(pedidoId).lean();
         }
 
-        let filaItem = await Fila.findOne({
-            $or: [{ pedidoId }, { vendaId: venda?._id ? String(venda._id) : null }]
-        }).lean();
+        const filaQuery = {
+            $or: [{ pedidoId }, ...(venda?._id ? [{ vendaId: String(venda._id) }] : [])]
+        };
+        if (venda?.tenantId) {
+            filaQuery.tenantId = venda.tenantId;
+        }
+        let filaItem = await Fila.findOne(filaQuery).lean();
+
+        if (!venda && !filaItem) {
+            return res.status(404).json({ ok: false, erro: 'Pedido não encontrado' });
+        }
+
+        // Retorna SOMENTE dados públicos de acompanhamento (sem lucro, custo, bruto, taxas ou tenantId)
+        const dadosPublicos = sanitizePublicTracking(venda, filaItem);
 
         res.json({
             ok: true,
             pedidoId,
-            venda: venda ? serializeDoc(venda) : null,
-            fila: filaItem ? serializeDoc(filaItem) : null
+            venda: dadosPublicos.venda,
+            fila: dadosPublicos.fila
         });
     } catch (err) {
         console.error('/api/rastreio/:pedidoId', err);
-        res.status(500).json({ ok: false, erro: err.message });
+        res.status(500).json({ ok: false, erro: 'Erro ao consultar rastreio do pedido' });
     }
 });
 
@@ -567,6 +678,7 @@ printerConnector.setFinishCallback(async (protocol, identifier, telemetry) => {
         const Fila = COLLECTIONS.Fila();
         const Estoque = COLLECTIONS.Estoque();
         const Impressora = COLLECTIONS.Impressora();
+        const Venda = COLLECTIONS.Venda();
 
         // Encontra a impressora no banco
         const imp = await Impressora.findOne({
@@ -575,11 +687,15 @@ printerConnector.setFinishCallback(async (protocol, identifier, telemetry) => {
 
         const impId = imp ? String(imp._id) : identifier;
 
-        // Encontra o trabalho atualmente em impressão nesta impressora
-        const jobAtivo = await Fila.findOne({
+        // Encontra o trabalho atualmente em impressão nesta impressora (isolando por tenantId se conhecido)
+        const jobFilter = {
             impressoraId: impId,
             status: 'imprimindo'
-        });
+        };
+        if (imp?.tenantId) {
+            jobFilter.tenantId = imp.tenantId;
+        }
+        const jobAtivo = await Fila.findOne(jobFilter);
 
         if (jobAtivo) {
             console.log(`[AUTOMAÇÃO FILA] Finalizando trabalho ativo: "${jobAtivo.nomeItem}" (ID: ${jobAtivo._id})`);
@@ -587,11 +703,21 @@ printerConnector.setFinishCallback(async (protocol, identifier, telemetry) => {
             jobAtivo.concluidoEm = new Date();
             await jobAtivo.save();
 
-            // 1. Dá baixa automática no filamento consumido
-            if (Array.isArray(jobAtivo.filamentosUsados) && jobAtivo.filamentosUsados.length > 0) {
+            let vendaVinculada = null;
+            if (jobAtivo.vendaId && mongoose.isValidObjectId(jobAtivo.vendaId)) {
+                const vendaFilter = { _id: jobAtivo.vendaId };
+                if (jobAtivo.tenantId) vendaFilter.tenantId = jobAtivo.tenantId;
+                vendaVinculada = await Venda.findOne(vendaFilter);
+            }
+            const jaBaixou = Boolean(vendaVinculada && vendaVinculada.estoqueBaixado);
+
+            // 1. Dá baixa automática no filamento consumido (se ainda não foi baixado)
+            if (!jaBaixou && Array.isArray(jobAtivo.filamentosUsados) && jobAtivo.filamentosUsados.length > 0) {
                 for (const f of jobAtivo.filamentosUsados) {
-                    if (f.estoqueId && f.peso > 0) {
-                        const spool = await Estoque.findById(f.estoqueId);
+                    if (f.estoqueId && mongoose.isValidObjectId(f.estoqueId) && f.peso > 0) {
+                        const spoolFilter = { _id: f.estoqueId };
+                        if (jobAtivo.tenantId) spoolFilter.tenantId = jobAtivo.tenantId;
+                        const spool = await Estoque.findOne(spoolFilter);
                         if (spool) {
                             const novoPeso = Math.max(0, (spool.gramas || 0) - f.peso);
                             console.log(`[AUTOMAÇÃO FILA] Baixa no carretel "${spool.nome}": ${spool.gramas}g -> ${novoPeso}g (-${f.peso}g)`);
@@ -602,6 +728,11 @@ printerConnector.setFinishCallback(async (protocol, identifier, telemetry) => {
                 }
             } else if (jobAtivo.pesoTotalGramas > 0) {
                 console.log(`[AUTOMAÇÃO FILA] Trabalho concluído com peso total de ${jobAtivo.pesoTotalGramas}g.`);
+            }
+
+            if (vendaVinculada && !vendaVinculada.estoqueBaixado) {
+                vendaVinculada.estoqueBaixado = true;
+                await vendaVinculada.save();
             }
 
             // 2. Avança para o próximo trabalho pendente na fila desta impressora
@@ -620,29 +751,33 @@ printerConnector.setFinishCallback(async (protocol, identifier, telemetry) => {
     }
 });
 
-// Rotas de Conexão Multi-Impressoras (Bambu, Klipper, OctoPrint)
+// Rotas de Conexão Multi-Impressoras (Bambu, Klipper, OctoPrint) — isoladas por tenantId
 app.post('/api/printers/connect', optionalAuth, async (req, res) => {
     try {
+        const tenantId = getScopedPrinterTenant(req);
         const { protocol = 'bambu', ip, port, serial, accessCode, apiKey, nome, useSimulator, id } = req.body || {};
+        const plainAccess = decryptSecret(accessCode);
+        const plainApiKey = decryptSecret(apiKey);
 
         if (protocol === 'klipper') {
-            const result = await printerConnector.connectKlipper({ id, nome, ip, port: port || 7125 });
+            const result = await printerConnector.connectKlipper({ id, nome, ip, port: port || 7125, tenantId });
             return res.json(result);
         }
 
         if (protocol === 'octoprint') {
-            const result = await printerConnector.connectOctoPrint({ id, nome, ip, port: port || 5000, apiKey });
+            const result = await printerConnector.connectOctoPrint({ id, nome, ip, port: port || 5000, apiKey: plainApiKey || plainAccess, tenantId });
             return res.json(result);
         }
 
         if (protocol === 'bambu_cloud') {
             const result = await bambuService.connectCloudPrinter({
                 serial: String(serial || id).trim(),
-                token: accessCode || apiKey,
+                token: plainAccess || plainApiKey,
                 userId: req.body.userId,
                 region: req.body.region || 'us',
                 nome: nome || 'Bambu Lab',
-                model: req.body.modelo || req.body.model
+                model: req.body.modelo || req.body.model,
+                tenantId
             });
             return res.json(result);
         }
@@ -651,46 +786,51 @@ app.post('/api/printers/connect', optionalAuth, async (req, res) => {
         const result = await bambuService.connectPrinter({
             ip: ip ? String(ip).trim() : '',
             serial: String(serial || id || 'BAMBU_PRINTER').trim(),
-            accessCode: accessCode ? String(accessCode).trim() : '',
+            accessCode: plainAccess ? String(plainAccess).trim() : '',
             nome: nome ? String(nome).trim() : 'Bambu Lab',
-            useSimulator: !!useSimulator
+            useSimulator: !!useSimulator,
+            tenantId
         });
         res.json(result);
     } catch (err) {
         console.error('printers/connect', err);
-        res.status(500).json({ ok: false, erro: err.message });
+        const isForbidden = err.message?.includes('outra loja') || err.message?.includes('outra conta');
+        res.status(isForbidden ? 403 : 500).json({ ok: false, erro: err.message });
     }
 });
 
 app.post('/api/printers/disconnect', optionalAuth, async (req, res) => {
     try {
+        const tenantId = getScopedPrinterTenant(req);
         const { id, serial, protocol = 'bambu' } = req.body || {};
         const ident = serial || id;
         if (protocol === 'klipper') {
-            printerConnector.disconnectKlipper(ident);
+            printerConnector.disconnectKlipper(ident, tenantId);
             return res.json({ ok: true });
         }
         if (protocol === 'octoprint') {
-            printerConnector.disconnectOctoPrint(ident);
+            printerConnector.disconnectOctoPrint(ident, tenantId);
             return res.json({ ok: true });
         }
-        const result = await bambuService.disconnectPrinter(ident);
+        const result = await bambuService.disconnectPrinter(ident, tenantId);
         res.json(result);
     } catch (err) {
         console.error('printers/disconnect', err);
-        res.status(500).json({ ok: false, erro: err.message });
+        const isForbidden = err.message?.includes('Acesso negado');
+        res.status(isForbidden ? 403 : 500).json({ ok: false, erro: err.message });
     }
 });
 
 app.get('/api/printers/status', optionalAuth, (req, res) => {
     try {
+        const tenantId = getScopedPrinterTenant(req);
         const { serial, id } = req.query;
         const ident = serial || id;
         if (ident) {
-            const status = printerConnector.getPrinterStatus(ident);
+            const status = printerConnector.getPrinterStatus(ident, tenantId);
             return res.json(status);
         }
-        const bambuList = bambuService.getAllPrinters();
+        const bambuList = bambuService.getAllPrinters(tenantId);
         res.json({ printers: bambuList });
     } catch (err) {
         console.error('printers/status', err);
@@ -698,15 +838,16 @@ app.get('/api/printers/status', optionalAuth, (req, res) => {
     }
 });
 
-// Rotas Bambu Lab legadas / compatibilidade
+// Rotas Bambu Lab legadas / compatibilidade — isoladas por tenantId
 app.get('/api/bambu/status', optionalAuth, (req, res) => {
     try {
+        const tenantId = getScopedPrinterTenant(req);
         const { serial } = req.query;
         if (serial) {
-            const status = bambuService.getStatus(serial);
+            const status = bambuService.getStatus(serial, tenantId);
             return res.json(status);
         }
-        const printers = bambuService.getAllPrinters();
+        const printers = bambuService.getAllPrinters(tenantId);
         res.json({ printers });
     } catch (err) {
         console.error('bambu/status', err);
@@ -716,28 +857,32 @@ app.get('/api/bambu/status', optionalAuth, (req, res) => {
 
 app.post('/api/bambu/connect', optionalAuth, async (req, res) => {
     try {
+        const tenantId = getScopedPrinterTenant(req);
         const { ip, serial, accessCode, nome, useSimulator } = req.body || {};
         if (!serial) {
             return res.status(400).json({ erro: 'Serial da impressora é obrigatório' });
         }
+        const plainAccess = decryptSecret(accessCode);
         const result = await bambuService.connectPrinter({
             ip: ip ? String(ip).trim() : '',
             serial: String(serial).trim(),
-            accessCode: accessCode ? String(accessCode).trim() : '',
+            accessCode: plainAccess ? String(plainAccess).trim() : '',
             nome: nome ? String(nome).trim() : 'Bambu Lab',
-            useSimulator: !!useSimulator
+            useSimulator: !!useSimulator,
+            tenantId
         });
         res.json(result);
     } catch (err) {
         console.error('bambu/connect', err);
-        res.status(500).json({ ok: false, erro: err.message });
+        const isForbidden = err.message?.includes('outra loja');
+        res.status(isForbidden ? 403 : 500).json({ ok: false, erro: err.message });
     }
 });
 
 // =============================================
 // BAMBU LAB CLOUD API & DISCOVERY
 // =============================================
-app.post('/api/bambu/cloud/login', optionalAuth, async (req, res) => {
+app.post('/api/bambu/cloud/login', optionalAuth, externalApiLimiter, async (req, res) => {
     try {
         const { account, password, code, region = 'us' } = req.body || {};
         const result = await bambuService.loginCloud({ account, password, code, region });
@@ -748,7 +893,7 @@ app.post('/api/bambu/cloud/login', optionalAuth, async (req, res) => {
     }
 });
 
-app.post('/api/bambu/cloud/token-login', optionalAuth, async (req, res) => {
+app.post('/api/bambu/cloud/token-login', optionalAuth, externalApiLimiter, async (req, res) => {
     try {
         const { token, region = 'us' } = req.body || {};
         if (!token) return res.status(400).json({ ok: false, message: 'Token de acesso é obrigatório' });
@@ -771,7 +916,7 @@ app.post('/api/bambu/cloud/token-login', optionalAuth, async (req, res) => {
     }
 });
 
-app.post('/api/bambu/cloud/devices', optionalAuth, async (req, res) => {
+app.post('/api/bambu/cloud/devices', optionalAuth, externalApiLimiter, async (req, res) => {
     try {
         const { token, region = 'us' } = req.body || {};
         if (!token) return res.status(400).json({ ok: false, message: 'Token é obrigatório' });
@@ -785,66 +930,72 @@ app.post('/api/bambu/cloud/devices', optionalAuth, async (req, res) => {
 
 app.post('/api/bambu/cloud/connect', optionalAuth, async (req, res) => {
     try {
+        const tenantId = getScopedPrinterTenant(req);
         const { serial, token, userId, region = 'us', nome, model } = req.body || {};
         if (!serial || !token) {
             return res.status(400).json({ ok: false, message: 'Serial da impressora e token são obrigatórios' });
         }
-        const result = await bambuService.connectCloudPrinter({ serial, token, userId, region, nome, model });
+        const result = await bambuService.connectCloudPrinter({ serial, token, userId, region, nome, model, tenantId });
         res.json(result);
     } catch (err) {
         console.error('bambu/cloud/connect', err);
-        res.status(500).json({ ok: false, message: err.message });
+        const isForbidden = err.message?.includes('outra loja');
+        res.status(isForbidden ? 403 : 500).json({ ok: false, message: err.message });
     }
 });
 
 app.post('/api/bambu/disconnect', authMiddleware, async (req, res) => {
     try {
+        const tenantId = getScopedPrinterTenant(req);
         const { serial } = req.body || {};
         if (!serial) {
             return res.status(400).json({ erro: 'Serial é obrigatório' });
         }
-        const result = await bambuService.disconnectPrinter(serial);
+        const result = await bambuService.disconnectPrinter(serial, tenantId);
         res.json(result);
     } catch (err) {
         console.error('bambu/disconnect', err);
-        res.status(500).json({ ok: false, erro: err.message });
+        const isForbidden = err.message?.includes('Acesso negado');
+        res.status(isForbidden ? 403 : 500).json({ ok: false, erro: err.message });
     }
 });
 
 app.post('/api/bambu/command', authMiddleware, async (req, res) => {
     try {
+        const tenantId = getScopedPrinterTenant(req);
         const { serial, command, mode } = req.body || {};
         if (!serial) {
             return res.status(400).json({ erro: 'Serial é obrigatório' });
         }
         if (command === 'chamber_light') {
-            const result = await bambuService.toggleChamberLight(serial, mode || 'on');
+            const result = await bambuService.toggleChamberLight(serial, mode === 'off' ? 'off' : 'on', tenantId);
             return res.json(result);
         }
         if (command === 'pushall') {
             const result = await bambuService.sendCommand(serial, {
                 pushing: { sequence_id: '1', command: 'pushall' }
-            });
+            }, tenantId);
             return res.json(result);
         }
         if (command === 'pause' || command === 'resume' || command === 'stop') {
             const result = await bambuService.sendCommand(serial, {
                 print: { sequence_id: '0', command }
-            });
+            }, tenantId);
             return res.json(result);
         }
         res.status(400).json({ erro: `Comando desconhecido: ${command}` });
     } catch (err) {
         console.error('bambu/command', err);
-        res.status(500).json({ ok: false, erro: err.message });
+        const isForbidden = err.message?.includes('Acesso negado');
+        res.status(isForbidden ? 403 : 500).json({ ok: false, erro: err.message });
     }
 });
 
 async function seedAdmin() {
-    const email = (process.env.ADMIN_EMAIL || 'admin@3dmanager.local').toLowerCase();
-    const senha = process.env.ADMIN_PASSWORD || 'Admin@3dm2026';
+    const email = (process.env.ADMIN_EMAIL || 'admin@3dmanager.local').toLowerCase().trim();
     let admin = await User().findOne({ email });
     if (!admin) {
+        const senha = process.env.ADMIN_PASSWORD || crypto.randomBytes(12).toString('base64url');
         const tenantId = new mongoose.Types.ObjectId();
         admin = await User().create({
             nome: 'Administrador',
@@ -854,7 +1005,11 @@ async function seedAdmin() {
             tenantId,
             ativo: true
         });
-        console.log(`Admin criado: ${email}`);
+        if (!process.env.ADMIN_PASSWORD) {
+            console.warn(`[SECURITY] Conta admin inicial criada (${email}). Senha temporária gerada: ${senha} — defina ADMIN_PASSWORD em server/.env e altere-a.`);
+        } else {
+            console.log(`Admin criado: ${email}`);
+        }
     }
 }
 
